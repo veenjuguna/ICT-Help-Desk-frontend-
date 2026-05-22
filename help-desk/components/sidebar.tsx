@@ -38,10 +38,10 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 h-screen sticky top-0 bg-green-800 text-white flex flex-col justify-between overflow-hidden">
+    <aside className="w-64 h-screen sticky top-0  bg-amber-800 text-white flex flex-col justify-between overflow-hidden">
       <div>
         {/* Logo */}
-        <div className="p-6 border-b border-green-700">
+        <div className="p-6 border-b  ">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-white text-green-800 flex items-center justify-center font-bold">
               NT
