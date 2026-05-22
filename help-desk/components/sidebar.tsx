@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import {
   LayoutDashboard,
   LifeBuoy,
@@ -6,11 +8,37 @@ import {
   User,
   LogOut,
 } from "lucide-react";
-
 export default function Sidebar() {
+  const navLinks = [
+    {
+      href: "/",
+      label: "Dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      href: "/request",
+      label: "Request Assistance",
+      icon: LifeBuoy,
+    },
+    {
+      href: "/tickets",
+      label: "Ticket History",
+      icon: History,
+    },
+    {
+      href: "/notifications",
+      label: "Notifications",
+      icon: Bell,
+    },
+    {
+      href: "/profile",
+      label: "Profile",
+      icon: User,
+    },
+  ];
+
   return (
-    <aside className="w-64 bg-green-800 text-white flex flex-col justify-between min-h-screen">
-      {/* Top Section */}
+    <aside className="w-64 h-screen sticky top-0 bg-green-800 text-white flex flex-col justify-between overflow-hidden">
       <div>
         {/* Logo */}
         <div className="p-6 border-b border-green-700">
@@ -29,51 +57,29 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="mt-6 flex flex-col">
-          <a
-            href="/"
-            className="flex items-center gap-3 px-6 py-4 bg-green-900 border-l-4 border-red-500"
-          >
-            <LayoutDashboard size={20} />
-            Dashboard
-          </a>
+          {navLinks.map((link) => {
+            const Icon = link.icon;
 
-          <a
-            href="#"
-            className="flex items-center gap-3 px-6 py-4 hover:bg-green-700"
-          >
-            <LifeBuoy size={20} />
-            Request Assistance
-          </a>
-
-          <a
-            href="#"
-            className="flex items-center gap-3 px-6 py-4 hover:bg-green-700"
-          >
-            <History size={20} />
-            Ticket History
-          </a>
-
-          <a
-            href="#"
-            className="flex items-center gap-3 px-6 py-4 hover:bg-green-700"
-          >
-            <Bell size={20} />
-            Notifications
-          </a>
-
-          <a
-            href="#"
-            className="flex items-center gap-3 px-6 py-4 hover:bg-green-700"
-          >
-            <User size={20} />
-            Profile
-          </a>
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`
+                  flex items-center gap-3 px-6 py-4 transition-colors
+                 hover:bg-green-700
+                `}
+              >
+                <Icon size={20} />
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
       </div>
 
       {/* Logout */}
       <div className="p-6 border-t border-green-700">
-        <button className="flex items-center gap-3">
+        <button className="flex items-center gap-3 hover:text-green-200 transition">
           <LogOut size={20} />
           Logout
         </button>
