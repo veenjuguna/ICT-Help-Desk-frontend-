@@ -25,11 +25,11 @@ export default function Sidebar() {
       label: "Ticket History",
       icon: History,
     },
-    {
-      href: "/notifications",
-      label: "Notifications",
-      icon: Bell,
-    },
+    // {
+    //   href: "/notifications",
+    //   label: "Notifications",
+    //   icon: Bell,
+    // },
     {
       href: "/profile",
       label: "Profile",
