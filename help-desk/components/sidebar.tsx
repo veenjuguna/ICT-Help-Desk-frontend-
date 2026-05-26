@@ -25,11 +25,11 @@ export default function Sidebar() {
       label: "Ticket History",
       icon: History,
     },
-    {
-      href: "/notifications",
-      label: "Notifications",
-      icon: Bell,
-    },
+    // {
+    //   href: "/notifications",
+    //   label: "Notifications",
+    //   icon: Bell,
+    // },
     {
       href: "/profile",
       label: "Profile",
@@ -41,7 +41,7 @@ export default function Sidebar() {
     <aside className="w-64 h-screen sticky top-0  bg-amber-800 text-white flex flex-col justify-between overflow-hidden">
       <div>
         {/* Logo */}
-        <div className="p-6 border-b  ">
+        <div className="p-6 border-b bg-green-700 ">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-white text-green-800 flex items-center justify-center font-bold">
               NT
