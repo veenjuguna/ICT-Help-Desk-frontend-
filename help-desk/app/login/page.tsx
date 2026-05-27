@@ -1,32 +1,73 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { LifeBuoy, User, Clock, CheckCircle, AlertCircle, Loader, ArrowRight, Bell } from "lucide-react";
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+// ── Mock data — replace with real Supabase fetch ──
+const user = {
+  firstName: "Jane",
+  lastName: "Doe",
+  department: "Finance & Accounts",
+  email: "jane.doe@treasury.go.ke",
+};
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (!email || !password) {
-      setError("Please fill in all fields.");
-      return;
-    }
-    setLoading(true);
-    // 🔁 Replace with your real auth logic (e.g. Supabase signIn)
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    router.push("/dashboard");
+const stats = [
+  { label: "Total Raised",  value: 12, icon: AlertCircle, color: "#C8962E" },
+  { label: "Open",          value: 3,  icon: Clock,        color: "#E8B84B" },
+  { label: "In Progress",   value: 2,  icon: Loader,       color: "#6B2D0F" },
+  { label: "Resolved",      value: 7,  icon: CheckCircle,  color: "#2D6B0F" },
+];
+
+const tickets = [
+  { id: "TKT-0012", date: "27 May 2026", time: "09:14", issue: "Laptop not connecting to VPN", category: "Network", priority: "High",   status: "Open"        },
+  { id: "TKT-0011", date: "26 May 2026", time: "14:32", issue: "Cannot access HRMIS portal",   category: "Software", priority: "High",   status: "In Progress" },
+  { id: "TKT-0010", date: "25 May 2026", time: "11:05", issue: "Printer offline - 3rd floor",  category: "Hardware", priority: "Medium", status: "Resolved"    },
+  { id: "TKT-0009", date: "23 May 2026", time: "08:50", issue: "Password reset request",        category: "Access",   priority: "Low",    status: "Resolved"    },
+  { id: "TKT-0008", date: "20 May 2026", time: "16:20", issue: "Email not syncing on phone",    category: "Software", priority: "Medium", status: "Resolved"    },
+];
+
+const notices = [
+  { title: "Scheduled Maintenance", body: "Core systems will be offline Sat 31 May, 11pm–2am.", date: "27 May 2026", urgent: true  },
+  { title: "New ICT Policy 2025",   body: "Please review the updated ICT Policy on the portal.", date: "20 May 2026", urgent: false },
+];
+
+function getHour() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good Morning";
+  if (h < 17) return "Good Afternoon";
+  return "Good Evening";
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { bg: string; color: string }> = {
+    "Open":        { bg: "#FFF3E0", color: "#C8962E" },
+    "In Progress": { bg: "#FFF8E0", color: "#6B2D0F" },
+    "Resolved":    { bg: "#E8F5E9", color: "#2D6B0F" },
+    "Closed":      { bg: "#F3F3F3", color: "#555"    },
   };
+  const s = map[status] ?? { bg: "#eee", color: "#333" };
+  return (
+    <span style={{
+      background: s.bg, color: s.color,
+      padding: "3px 10px", borderRadius: "20px",
+      fontSize: "11.5px", fontWeight: 600, whiteSpace: "nowrap",
+    }}>
+      {status}
+    </span>
+  );
+}
 
+function PriorityDot({ priority }: { priority: string }) {
+  const colors: Record<string, string> = { High: "#BB0000", Medium: "#C8962E", Low: "#2D6B0F" };
+  return (
+    <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+      <span style={{ width: 7, height: 7, borderRadius: "50%", background: colors[priority] ?? "#aaa", flexShrink: 0, display: "inline-block" }} />
+      {priority}
+    </span>
+  );
+}
+
+export default function DashboardPage() {
   return (
     <>
       <style>{`
@@ -35,551 +76,591 @@ export default function LoginPage() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-          --brown-dark:   #4A1E0A;
-          --brown-main:   #6B2D0F;
-          --brown-mid:    #8B4513;
-          --gold:         #C8962E;
-          --gold-light:   #E8B84B;
-          --cream:        #FDF8F2;
-          --border:       #E0D0C0;
-          --text-main:    #1A0F08;
-          --text-sub:     #7A5C44;
+          --gold:       #C8962E;
+          --gold-light: #E8B84B;
+          --brown:      #6B2D0F;
+          --brown-dark: #4A1E0A;
+          --cream:      #FDF8F2;
+          --border:     #EDE0D0;
+          --text:       #1A0F08;
+          --text-sub:   #7A5C44;
         }
 
-        .login-root {
-          display: flex;
-          min-height: 100vh;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-
-        /* ── LEFT: Building background ── */
-        .login-left {
-          width: 55%;
-          position: relative;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-end;
-        }
-
-        .bg-image {
-          position: absolute;
-          inset: 0;
-          object-fit: cover;
-          object-position: center;
-          z-index: 0;
-        }
-
-        .bg-overlay {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            to bottom,
-            rgba(74,30,10,0.3) 0%,
-            rgba(74,30,10,0.6) 50%,
-            rgba(74,30,10,0.92) 100%
-          );
-          z-index: 1;
-        }
-
-        .left-content {
-          position: relative;
-          z-index: 2;
-          padding: 3rem;
-        }
-
-        .left-logo-wrap {
-          margin-bottom: 2rem;
-          background: rgba(255,255,255,0.95);
-          display: inline-flex;
-          align-items: center;
-          padding: 10px 18px 10px 12px;
-          border-radius: 10px;
-          border-left: 4px solid var(--gold);
-        }
-
-        .left-tagline {
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 2.5px;
-          text-transform: uppercase;
-          color: var(--gold-light);
-          margin-bottom: 0.6rem;
-        }
-
-        .left-title {
-          font-family: 'Playfair Display', serif;
-          font-size: 2.4rem;
-          font-weight: 700;
-          color: #fff;
-          line-height: 1.2;
-          margin-bottom: 0.75rem;
-        }
-
-        .left-title span { color: var(--gold-light); }
-
-        .left-divider {
-          width: 52px;
-          height: 3px;
-          background: var(--gold);
-          border-radius: 2px;
-          margin-bottom: 1rem;
-        }
-
-        .left-desc {
-          font-size: 14px;
-          color: rgba(255,255,255,0.65);
-          line-height: 1.75;
-          max-width: 340px;
-          margin-bottom: 2rem;
-        }
-
-        .left-stats {
-          display: flex;
-          gap: 2rem;
-          padding-top: 1.5rem;
-          border-top: 1px solid rgba(255,255,255,0.15);
-        }
-
-        .stat-item p:first-child {
-          font-family: 'Playfair Display', serif;
-          font-size: 1.5rem;
-          font-weight: 600;
-          color: var(--gold-light);
-        }
-
-        .stat-item p:last-child {
-          font-size: 11px;
-          color: rgba(255,255,255,0.5);
-          margin-top: 2px;
-        }
-
-        /* ── RIGHT: Form ── */
-        .login-right {
+        .dash-root {
           flex: 1;
+          min-height: 100vh;
           background: var(--cream);
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          color: var(--text);
+          overflow-y: auto;
+        }
+
+        /* ── TOPBAR ── */
+        .topbar {
+          background: #fff;
+          border-bottom: 1px solid var(--border);
+          padding: 0 2rem;
+          height: 56px;
           display: flex;
-          flex-direction: column;
+          align-items: center;
+          justify-content: space-between;
+          position: sticky;
+          top: 0;
+          z-index: 10;
+        }
+
+        .topbar-left {
+          font-size: 13px;
+          color: var(--text-sub);
+        }
+
+        .topbar-left span {
+          color: var(--brown);
+          font-weight: 600;
+        }
+
+        .topbar-right {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .notif-btn {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: var(--cream);
+          border: 1px solid var(--border);
+          display: flex;
           align-items: center;
           justify-content: center;
-          padding: 3rem 2rem;
+          cursor: pointer;
+          color: var(--text-sub);
+          position: relative;
+          transition: background 0.15s;
         }
 
-        .form-card {
-          background: #fff;
-          border-radius: 18px;
-          border: 1px solid var(--border);
-          padding: 2.5rem;
-          width: 100%;
-          max-width: 400px;
-          box-shadow: 0 8px 32px rgba(107,45,15,0.08);
+        .notif-btn:hover { background: var(--border); }
+
+        .notif-dot {
+          position: absolute;
+          top: 6px;
+          right: 6px;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #BB0000;
+          border: 1.5px solid #fff;
         }
 
-        .form-eyebrow {
+        .avatar {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: var(--brown);
+          color: #fff;
+          font-size: 12px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid var(--gold);
+          cursor: pointer;
+        }
+
+        /* ── PAGE CONTENT ── */
+        .dash-content {
+          padding: 2rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.75rem;
+          max-width: 1200px;
+        }
+
+        /* ── GREETING CARD ── */
+        .greeting-card {
+          background: var(--brown);
+          border-radius: 16px;
+          padding: 1.75rem 2rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .greeting-card::before {
+          content: '';
+          position: absolute;
+          top: -60px;
+          right: -60px;
+          width: 200px;
+          height: 200px;
+          border-radius: 50%;
+          background: rgba(200,150,46,0.15);
+        }
+
+        .greeting-card::after {
+          content: '';
+          position: absolute;
+          bottom: -40px;
+          right: 100px;
+          width: 120px;
+          height: 120px;
+          border-radius: 50%;
+          background: rgba(200,150,46,0.08);
+        }
+
+        .greeting-left { position: relative; z-index: 1; }
+
+        .greeting-tag {
           font-size: 11px;
           font-weight: 600;
-          letter-spacing: 2px;
+          letter-spacing: 1.5px;
           text-transform: uppercase;
-          color: var(--gold);
-          margin-bottom: 0.4rem;
+          color: var(--gold-light);
+          margin-bottom: 0.35rem;
         }
 
-        .form-title {
+        .greeting-name {
           font-family: 'Playfair Display', serif;
-          font-size: 1.8rem;
-          font-weight: 600;
-          color: var(--text-main);
+          font-size: 1.6rem;
+          font-weight: 700;
+          color: #fff;
           margin-bottom: 0.3rem;
         }
 
-        .form-sub {
+        .greeting-dept {
           font-size: 13px;
-          color: var(--text-sub);
-          margin-bottom: 2rem;
+          color: rgba(255,255,255,0.6);
         }
 
-        .field-group { margin-bottom: 1.25rem; }
-
-        .field-label {
-          display: block;
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text-main);
-          margin-bottom: 6px;
-        }
-
-        .field-wrap {
+        .greeting-actions {
+          display: flex;
+          gap: 0.75rem;
           position: relative;
-          display: flex;
-          align-items: center;
+          z-index: 1;
+          flex-wrap: wrap;
         }
 
-        .field-icon {
-          position: absolute;
-          left: 13px;
-          color: var(--text-sub);
-          display: flex;
-          align-items: center;
-          pointer-events: none;
-        }
-
-        .field-input {
-          width: 100%;
-          height: 46px;
-          padding: 0 44px 0 40px;
-          border: 1.5px solid var(--border);
-          border-radius: 10px;
-          font-size: 14px;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          background: var(--cream);
-          color: var(--text-main);
-          outline: none;
-          transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
-        }
-
-        .field-input::placeholder { color: #C0A882; font-size: 13px; }
-
-        .field-input:focus {
-          border-color: var(--brown-mid);
-          background: #fff;
-          box-shadow: 0 0 0 3px rgba(139,69,19,0.1);
-        }
-
-        .eye-btn {
-          position: absolute;
-          right: 12px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: var(--text-sub);
-          display: flex;
-          align-items: center;
-          padding: 4px;
-          border-radius: 4px;
-          transition: color 0.15s;
-        }
-
-        .eye-btn:hover { color: var(--brown-mid); }
-
-        .error-msg {
+        .btn-primary {
           display: flex;
           align-items: center;
           gap: 7px;
-          background: #fff5f0;
-          border: 1px solid #f5c8a8;
+          background: var(--gold);
+          color: var(--brown-dark);
+          padding: 0.6rem 1.2rem;
           border-radius: 8px;
-          padding: 10px 12px;
-          font-size: 12.5px;
-          color: var(--brown-main);
-          margin-bottom: 1rem;
-        }
-
-        .form-row {
-          display: flex;
-          justify-content: flex-end;
-          margin-bottom: 1.5rem;
-          margin-top: -0.5rem;
-        }
-
-        .forgot-link {
-          font-size: 12px;
-          font-weight: 500;
-          color: var(--brown-mid);
+          font-size: 13px;
+          font-weight: 700;
           text-decoration: none;
+          transition: background 0.15s;
+          border: none;
+          cursor: pointer;
+          font-family: inherit;
         }
 
-        .forgot-link:hover { text-decoration: underline; }
+        .btn-primary:hover { background: var(--gold-light); }
 
-        /* ── THE BROWN BUTTON ── */
-        .submit-btn {
-          width: 100%;
-          height: 48px;
-          background: var(--brown-main);
+        .btn-ghost {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          background: rgba(255,255,255,0.1);
           color: #fff;
-          border: none;
-          border-radius: 10px;
-          font-size: 14px;
+          padding: 0.6rem 1.2rem;
+          border-radius: 8px;
+          font-size: 13px;
           font-weight: 600;
-          font-family: 'Plus Jakarta Sans', sans-serif;
+          text-decoration: none;
+          transition: background 0.15s;
+          border: 1px solid rgba(255,255,255,0.2);
           cursor: pointer;
+          font-family: inherit;
+        }
+
+        .btn-ghost:hover { background: rgba(255,255,255,0.18); }
+
+        /* ── STATS ROW ── */
+        .stats-row {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 1rem;
+        }
+
+        .stat-card {
+          background: #fff;
+          border-radius: 12px;
+          border: 1px solid var(--border);
+          padding: 1.25rem 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          box-shadow: 0 2px 8px rgba(107,45,15,0.05);
+        }
+
+        .stat-icon {
+          width: 44px;
+          height: 44px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
-          transition: background 0.15s, transform 0.1s;
-          position: relative;
-          overflow: hidden;
-        }
-
-        /* gold shimmer line on top */
-        .submit-btn::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: var(--gold);
-          border-radius: 10px 10px 0 0;
-        }
-
-        .submit-btn:hover:not(:disabled) { background: var(--brown-dark); }
-        .submit-btn:active:not(:disabled) { transform: scale(0.99); }
-        .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-
-        .spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255,255,255,0.3);
-          border-top-color: #fff;
-          border-radius: 50%;
-          animation: spin 0.7s linear infinite;
           flex-shrink: 0;
         }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .stat-value {
+          font-family: 'Playfair Display', serif;
+          font-size: 1.75rem;
+          font-weight: 700;
+          color: var(--text);
+          line-height: 1;
+        }
 
-        /* ── SIGNUP LINK ── */
-        .signup-row {
-          margin-top: 1.25rem;
-          text-align: center;
-          font-size: 13px;
+        .stat-label {
+          font-size: 12px;
           color: var(--text-sub);
+          margin-top: 3px;
         }
 
-        .signup-row a {
-          color: var(--brown-main);
-          font-weight: 600;
-          text-decoration: none;
-          border-bottom: 1px solid var(--gold);
-          padding-bottom: 1px;
-          transition: color 0.15s;
+        /* ── TWO COLUMN ── */
+        .two-col {
+          display: grid;
+          grid-template-columns: 1fr 340px;
+          gap: 1.5rem;
+          align-items: start;
         }
 
-        .signup-row a:hover { color: var(--gold); }
-
-        .form-footer {
-          margin-top: 1.5rem;
-          padding-top: 1.25rem;
-          border-top: 1px solid var(--border);
-          text-align: center;
+        /* ── SECTION CARD ── */
+        .section-card {
+          background: #fff;
+          border-radius: 14px;
+          border: 1px solid var(--border);
+          overflow: hidden;
+          box-shadow: 0 2px 8px rgba(107,45,15,0.04);
         }
 
-        .support-row {
+        .section-header {
+          padding: 1.1rem 1.5rem;
+          border-bottom: 1px solid var(--border);
           display: flex;
           align-items: center;
-          justify-content: center;
-          gap: 5px;
+          justify-content: space-between;
+        }
+
+        .section-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--text);
+        }
+
+        .section-link {
+          font-size: 12px;
+          color: var(--brown);
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-weight: 500;
+        }
+
+        .section-link:hover { text-decoration: underline; }
+
+        /* ── TABLE ── */
+        .ticket-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13px;
+        }
+
+        .ticket-table th {
+          padding: 0.75rem 1.5rem;
+          text-align: left;
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--text-sub);
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+          background: #FDFAF6;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .ticket-table td {
+          padding: 0.85rem 1.5rem;
+          border-bottom: 1px solid #F5EDE0;
+          color: var(--text);
+          vertical-align: middle;
+        }
+
+        .ticket-table tr:last-child td { border-bottom: none; }
+
+        .ticket-table tr:hover td { background: #FDFAF6; }
+
+        .ticket-id {
+          font-weight: 600;
+          color: var(--brown);
+          font-size: 12.5px;
+        }
+
+        .ticket-date {
           font-size: 12px;
           color: var(--text-sub);
         }
 
-        .support-link {
-          color: var(--brown-mid);
-          text-decoration: none;
-          font-weight: 500;
-        }
-
-        .support-link:hover { text-decoration: underline; }
-
-        .right-footer {
-          margin-top: 1.5rem;
+        .ticket-time {
           font-size: 11px;
-          color: #C0A882;
-          text-align: center;
-          max-width: 400px;
+          color: #B0906A;
         }
 
-        @media (max-width: 900px) {
-          .login-root { flex-direction: column; }
-          .login-left { width: 100%; min-height: 260px; }
-          .left-stats { display: none; }
-          .left-title { font-size: 1.6rem; }
-          .left-content { padding: 2rem; }
-          .login-right { padding: 2rem 1rem; }
-          .form-card { padding: 1.75rem 1.25rem; }
+        /* ── NOTICES ── */
+        .notice-list {
+          padding: 0.75rem 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .notice-item {
+          padding: 0.85rem 1rem;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: var(--cream);
+          position: relative;
+        }
+
+        .notice-item.urgent {
+          border-color: #F5C8A8;
+          background: #FFF8F3;
+        }
+
+        .notice-urgent-tag {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          color: #BB0000;
+          margin-bottom: 4px;
+        }
+
+        .notice-title {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 3px;
+        }
+
+        .notice-body {
+          font-size: 12px;
+          color: var(--text-sub);
+          line-height: 1.5;
+        }
+
+        .notice-date {
+          font-size: 11px;
+          color: #B0906A;
+          margin-top: 5px;
+        }
+
+        /* ── QUICK LINKS ── */
+        .quick-links {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
+          padding: 1rem;
+        }
+
+        .quick-link-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 1rem 0.5rem;
+          border-radius: 10px;
+          background: var(--cream);
+          border: 1px solid var(--border);
+          text-decoration: none;
+          color: var(--text);
+          font-size: 12px;
+          font-weight: 600;
+          text-align: center;
+          transition: background 0.15s, border-color 0.15s;
+        }
+
+        .quick-link-item:hover {
+          background: #F5E8D0;
+          border-color: var(--gold);
+        }
+
+        .quick-link-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          background: var(--brown);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+        }
+
+        @media (max-width: 1024px) {
+          .stats-row { grid-template-columns: repeat(2, 1fr); }
+          .two-col { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 600px) {
+          .dash-content { padding: 1rem; }
+          .greeting-card { flex-direction: column; align-items: flex-start; gap: 1rem; }
+          .stats-row { grid-template-columns: repeat(2, 1fr); }
         }
       `}</style>
 
-      <div className="login-root">
+      <div className="dash-root">
 
-        {/* LEFT PANEL */}
-        <div className="login-left">
-          <Image
-            src="/treasury-building.jpeg"
-            alt="National Treasury Building Nairobi"
-            fill
-            className="bg-image"
-            priority
-            quality={85}
-          />
-          <div className="bg-overlay" />
-
-          <div className="left-content">
-            <div className="left-logo-wrap">
-              <Image
-                src="/tnt-logo.jpeg"
-                alt="The National Treasury — Republic of Kenya"
-                width={220}
-                height={52}
-                style={{ objectFit: "contain", height: "40px", width: "auto" }}
-                priority
-              />
-            </div>
-
-            <p className="left-tagline">ICT Helpdesk Portal</p>
-            <h1 className="left-title">
-              Supporting Kenya&apos;s<br />
-              <span>Financial Future</span>
-            </h1>
-            <div className="left-divider" />
-            <p className="left-desc">
-              Centralized IT support for all National Treasury &amp; Economic Planning staff.
-              Raise tickets, track issues, and get assistance — securely and efficiently.
-            </p>
-
-            <div className="left-stats">
-              <div className="stat-item">
-                <p>99.9%</p>
-                <p>Uptime SLA</p>
-              </div>
-              <div className="stat-item">
-                <p>&lt;4hr</p>
-                <p>Avg. resolution</p>
-              </div>
-              <div className="stat-item">
-                <p>24/7</p>
-                <p>Support</p>
-              </div>
+        {/* TOPBAR */}
+        <div className="topbar">
+          <p className="topbar-left">
+            National Treasury &nbsp;/&nbsp; <span>Employee Dashboard</span>
+          </p>
+          <div className="topbar-right">
+            <button className="notif-btn" aria-label="Notifications">
+              <Bell size={16} />
+              <span className="notif-dot" />
+            </button>
+            <div className="avatar" title={`${user.firstName} ${user.lastName}`}>
+              {user.firstName[0]}{user.lastName[0]}
             </div>
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
-        <div className="login-right">
-          <div className="form-card">
-            <p className="form-eyebrow">Staff Access</p>
-            <h2 className="form-title">Welcome back</h2>
-            <p className="form-sub">Sign in with your official work credentials</p>
+        <div className="dash-content">
 
-            <form onSubmit={handleLogin} noValidate>
-              <div className="field-group">
-                <label htmlFor="email" className="field-label">Work Email</label>
-                <div className="field-wrap">
-                  <span className="field-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <rect x="2" y="4" width="20" height="16" rx="2" />
-                      <path d="m2 7 10 7 10-7" />
-                    </svg>
-                  </span>
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="yourname@treasury.go.ke"
-                    className="field-input"
-                    autoComplete="email"
-                  />
+          {/* GREETING CARD */}
+          <div className="greeting-card">
+            <div className="greeting-left">
+              <p className="greeting-tag">{getHour()}</p>
+              <h1 className="greeting-name">{user.firstName} {user.lastName}</h1>
+              <p className="greeting-dept">{user.department} &nbsp;·&nbsp; {user.email}</p>
+            </div>
+            <div className="greeting-actions">
+              <Link href="/request" className="btn-primary">
+                <LifeBuoy size={15} />
+                Raise a Ticket
+              </Link>
+              <Link href="/profile" className="btn-ghost">
+                <User size={15} />
+                My Profile
+              </Link>
+            </div>
+          </div>
+
+          {/* STATS */}
+          <div className="stats-row">
+            {stats.map((s) => {
+              const Icon = s.icon;
+              return (
+                <div className="stat-card" key={s.label}>
+                  <div className="stat-icon" style={{ background: `${s.color}18` }}>
+                    <Icon size={20} color={s.color} />
+                  </div>
+                  <div>
+                    <p className="stat-value">{s.value}</p>
+                    <p className="stat-label">{s.label}</p>
+                  </div>
                 </div>
-              </div>
+              );
+            })}
+          </div>
 
-              <div className="field-group">
-                <label htmlFor="password" className="field-label">Password</label>
-                <div className="field-wrap">
-                  <span className="field-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <rect x="3" y="11" width="18" height="11" rx="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                  </span>
-                  <input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••"
-                    className="field-input"
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    className="eye-btn"
-                    onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                        <line x1="1" y1="1" x2="23" y2="23" />
-                      </svg>
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
+          {/* TWO COLUMN */}
+          <div className="two-col">
 
-              {error && (
-                <div className="error-msg" role="alert">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  {error}
-                </div>
-              )}
-
-              <div className="form-row">
-                <Link href="/forgot-password" className="forgot-link">
-                  Forgot password?
+            {/* TICKET HISTORY */}
+            <div className="section-card">
+              <div className="section-header">
+                <p className="section-title">Recent Tickets</p>
+                <Link href="/tickets" className="section-link">
+                  View all <ArrowRight size={13} />
                 </Link>
               </div>
+              <table className="ticket-table">
+                <thead>
+                  <tr>
+                    <th>Date / Time</th>
+                    <th>Ticket ID</th>
+                    <th>Issue</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tickets.map((t) => (
+                    <tr key={t.id}>
+                      <td>
+                        <p className="ticket-date">{t.date}</p>
+                        <p className="ticket-time">{t.time}</p>
+                      </td>
+                      <td><span className="ticket-id">{t.id}</span></td>
+                      <td style={{ maxWidth: 200 }}>{t.issue}</td>
+                      <td>{t.category}</td>
+                      <td><PriorityDot priority={t.priority} /></td>
+                      <td><StatusBadge status={t.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? (
-                  <>
-                    <span className="spinner" />
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    Sign In
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </>
-                )}
-              </button>
+            {/* RIGHT COLUMN */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 
-              {/* SIGNUP LINK */}
-              <div className="signup-row">
-                Don&apos;t have an account?&nbsp;
-                <Link href="/signup">Request access</Link>
+              {/* QUICK LINKS */}
+              <div className="section-card">
+                <div className="section-header">
+                  <p className="section-title">Quick Actions</p>
+                </div>
+                <div className="quick-links">
+                  <Link href="/request" className="quick-link-item">
+                    <div className="quick-link-icon"><LifeBuoy size={16} /></div>
+                    Request Assistance
+                  </Link>
+                  <Link href="/tickets" className="quick-link-item">
+                    <div className="quick-link-icon"><Clock size={16} /></div>
+                    Ticket History
+                  </Link>
+                  <Link href="/profile" className="quick-link-item">
+                    <div className="quick-link-icon"><User size={16} /></div>
+                    My Profile
+                  </Link>
+                  <Link href="/support" className="quick-link-item">
+                    <div className="quick-link-icon"><Bell size={16} /></div>
+                    ICT Support
+                  </Link>
+                </div>
               </div>
-            </form>
 
-            <div className="form-footer">
-              <div className="support-row">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                Need help?&nbsp;
-                <Link href="/support" className="support-link">Contact ICT Support</Link>
+              {/* NOTICES */}
+              <div className="section-card">
+                <div className="section-header">
+                  <p className="section-title">ICT Notices</p>
+                </div>
+                <div className="notice-list">
+                  {notices.map((n, i) => (
+                    <div key={i} className={`notice-item${n.urgent ? " urgent" : ""}`}>
+                      {n.urgent && <p className="notice-urgent-tag">⚠ Urgent</p>}
+                      <p className="notice-title">{n.title}</p>
+                      <p className="notice-body">{n.body}</p>
+                      <p className="notice-date">{n.date}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
+
             </div>
           </div>
 
-          <p className="right-footer">
-            © {new Date().getFullYear()} National Treasury &amp; Economic Planning · Government of Kenya
-          </p>
         </div>
-
       </div>
     </>
   );
