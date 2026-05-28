@@ -1,10 +1,10 @@
+import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "../components/sidebar";
-import Topbar from "../components/topbar";
+import Sidebar from "@/components/sidebar";
 
-export const metadata = {
-  title: "IT Helpdesk Dashboard",
-  description: "National Treasury IT Helpdesk",
+export const metadata: Metadata = {
+  title: "National Treasury IT Helpdesk",
+  description: "ICT Support Portal — National Treasury & Economic Planning",
 };
 
 export default function RootLayout({
@@ -14,16 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-gray-100 text-black">
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar />
-
-          <div className="flex-1 flex flex-col overflow-y-auto">
-            <Topbar />
-
-            <main className="p-6">{children}</main>
-          </div>
-        </div>
+      <body style={{ display: "flex", minHeight: "100vh", margin: 0, padding: 0 }}>
+        <Sidebar />
+        <main style={{ flex: 1, minWidth: 0, overflow: "auto" }}>
+          {children}
+        </main>
       </body>
     </html>
   );
