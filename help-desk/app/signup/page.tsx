@@ -806,7 +806,7 @@ export default function SignupPage() {
 
               <div className="login-row">
                 Already have an account?&nbsp;
-                <Link href="/login">Sign in</Link>
+                <Link href="/login">Login</Link>
               </div>
 
             </form>
