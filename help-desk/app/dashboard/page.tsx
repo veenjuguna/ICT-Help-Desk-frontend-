@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { LifeBuoy, User, Clock, CheckCircle, AlertCircle, Loader, ArrowRight, Bell } from "lucide-react";
 
-// ── Mock data — replace with real Supabase fetch ──
 const user = {
   firstName: "Jane",
   lastName: "Doe",
@@ -12,14 +11,14 @@ const user = {
 };
 
 const stats = [
-  { label: "Total Raised",  value: 12, icon: AlertCircle, color: "#C8962E" },
-  { label: "Open",          value: 3,  icon: Clock,        color: "#E8B84B" },
-  { label: "In Progress",   value: 2,  icon: Loader,       color: "#6B2D0F" },
-  { label: "Resolved",      value: 7,  icon: CheckCircle,  color: "#2D6B0F" },
+  { label: "Total Raised", value: 12, icon: AlertCircle, color: "#C8962E" },
+  { label: "Open",         value: 3,  icon: Clock,       color: "#E8B84B" },
+  { label: "In Progress",  value: 2,  icon: Loader,      color: "#6B2D0F" },
+  { label: "Resolved",     value: 7,  icon: CheckCircle, color: "#2D6B0F" },
 ];
 
 const tickets = [
-  { id: "TKT-0012", date: "27 May 2026", time: "09:14", issue: "Laptop not connecting to VPN", category: "Network", priority: "High",   status: "Open"        },
+  { id: "TKT-0012", date: "27 May 2026", time: "09:14", issue: "Laptop not connecting to VPN", category: "Network",  priority: "High",   status: "Open"        },
   { id: "TKT-0011", date: "26 May 2026", time: "14:32", issue: "Cannot access HRMIS portal",   category: "Software", priority: "High",   status: "In Progress" },
   { id: "TKT-0010", date: "25 May 2026", time: "11:05", issue: "Printer offline - 3rd floor",  category: "Hardware", priority: "Medium", status: "Resolved"    },
   { id: "TKT-0009", date: "23 May 2026", time: "08:50", issue: "Password reset request",        category: "Access",   priority: "Low",    status: "Resolved"    },
@@ -87,12 +86,14 @@ export default function DashboardPage() {
         }
 
         .dash-root {
-          flex: 1;
+          width: 100%;
           min-height: 100vh;
           background: var(--cream);
           font-family: 'Plus Jakarta Sans', sans-serif;
           color: var(--text);
           overflow-y: auto;
+          display: flex;
+          flex-direction: column;
         }
 
         /* ── TOPBAR ── */
@@ -107,17 +108,11 @@ export default function DashboardPage() {
           position: sticky;
           top: 0;
           z-index: 10;
+          width: 100%;
         }
 
-        .topbar-left {
-          font-size: 13px;
-          color: var(--text-sub);
-        }
-
-        .topbar-left span {
-          color: var(--brown);
-          font-weight: 600;
-        }
+        .topbar-left { font-size: 13px; color: var(--text-sub); }
+        .topbar-left span { color: var(--brown); font-weight: 600; }
 
         .topbar-right {
           display: flex;
@@ -126,14 +121,11 @@ export default function DashboardPage() {
         }
 
         .notif-btn {
-          width: 36px;
-          height: 36px;
+          width: 36px; height: 36px;
           border-radius: 50%;
           background: var(--cream);
           border: 1px solid var(--border);
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          display: flex; align-items: center; justify-content: center;
           cursor: pointer;
           color: var(--text-sub);
           position: relative;
@@ -144,40 +136,35 @@ export default function DashboardPage() {
 
         .notif-dot {
           position: absolute;
-          top: 6px;
-          right: 6px;
-          width: 8px;
-          height: 8px;
+          top: 6px; right: 6px;
+          width: 8px; height: 8px;
           border-radius: 50%;
           background: #BB0000;
           border: 1.5px solid #fff;
         }
 
         .avatar {
-          width: 34px;
-          height: 34px;
+          width: 34px; height: 34px;
           border-radius: 50%;
           background: var(--brown);
           color: #fff;
-          font-size: 12px;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          font-size: 12px; font-weight: 700;
+          display: flex; align-items: center; justify-content: center;
           border: 2px solid var(--gold);
           cursor: pointer;
         }
 
-        /* ── PAGE CONTENT ── */
+        /* ── CONTENT ── */
         .dash-content {
           padding: 2rem;
           display: flex;
           flex-direction: column;
           gap: 1.75rem;
-          max-width: 1200px;
+          width: 100%;
+          flex: 1;
         }
 
-        /* ── GREETING CARD ── */
+        /* ── GREETING ── */
         .greeting-card {
           background: var(--brown);
           border-radius: 16px;
@@ -187,15 +174,14 @@ export default function DashboardPage() {
           justify-content: space-between;
           position: relative;
           overflow: hidden;
+          width: 100%;
         }
 
         .greeting-card::before {
           content: '';
           position: absolute;
-          top: -60px;
-          right: -60px;
-          width: 200px;
-          height: 200px;
+          top: -60px; right: -60px;
+          width: 200px; height: 200px;
           border-radius: 50%;
           background: rgba(200,150,46,0.15);
         }
@@ -203,10 +189,8 @@ export default function DashboardPage() {
         .greeting-card::after {
           content: '';
           position: absolute;
-          bottom: -40px;
-          right: 100px;
-          width: 120px;
-          height: 120px;
+          bottom: -40px; right: 100px;
+          width: 120px; height: 120px;
           border-radius: 50%;
           background: rgba(200,150,46,0.08);
         }
@@ -214,78 +198,56 @@ export default function DashboardPage() {
         .greeting-left { position: relative; z-index: 1; }
 
         .greeting-tag {
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 1.5px;
-          text-transform: uppercase;
-          color: var(--gold-light);
-          margin-bottom: 0.35rem;
+          font-size: 11px; font-weight: 600;
+          letter-spacing: 1.5px; text-transform: uppercase;
+          color: var(--gold-light); margin-bottom: 0.35rem;
         }
 
         .greeting-name {
           font-family: 'Playfair Display', serif;
-          font-size: 1.6rem;
-          font-weight: 700;
-          color: #fff;
-          margin-bottom: 0.3rem;
+          font-size: 1.6rem; font-weight: 700;
+          color: #fff; margin-bottom: 0.3rem;
         }
 
-        .greeting-dept {
-          font-size: 13px;
-          color: rgba(255,255,255,0.6);
-        }
+        .greeting-dept { font-size: 13px; color: rgba(255,255,255,0.6); }
 
         .greeting-actions {
-          display: flex;
-          gap: 0.75rem;
-          position: relative;
-          z-index: 1;
+          display: flex; gap: 0.75rem;
+          position: relative; z-index: 1;
           flex-wrap: wrap;
         }
 
         .btn-primary {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          background: var(--gold);
-          color: var(--brown-dark);
-          padding: 0.6rem 1.2rem;
-          border-radius: 8px;
-          font-size: 13px;
-          font-weight: 700;
+          display: flex; align-items: center; gap: 7px;
+          background: var(--gold); color: var(--brown-dark);
+          padding: 0.6rem 1.2rem; border-radius: 8px;
+          font-size: 13px; font-weight: 700;
           text-decoration: none;
           transition: background 0.15s;
-          border: none;
-          cursor: pointer;
-          font-family: inherit;
+          border: none; cursor: pointer; font-family: inherit;
         }
 
         .btn-primary:hover { background: var(--gold-light); }
 
         .btn-ghost {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          background: rgba(255,255,255,0.1);
-          color: #fff;
-          padding: 0.6rem 1.2rem;
-          border-radius: 8px;
-          font-size: 13px;
-          font-weight: 600;
+          display: flex; align-items: center; gap: 7px;
+          background: rgba(255,255,255,0.1); color: #fff;
+          padding: 0.6rem 1.2rem; border-radius: 8px;
+          font-size: 13px; font-weight: 600;
           text-decoration: none;
           transition: background 0.15s;
           border: 1px solid rgba(255,255,255,0.2);
-          cursor: pointer;
-          font-family: inherit;
+          cursor: pointer; font-family: inherit;
         }
 
         .btn-ghost:hover { background: rgba(255,255,255,0.18); }
 
-        /* ── STATS ROW ── */
+        /* ── STATS ── */
         .stats-row {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
           gap: 1rem;
+          width: 100%;
         }
 
         .stat-card {
@@ -293,42 +255,32 @@ export default function DashboardPage() {
           border-radius: 12px;
           border: 1px solid var(--border);
           padding: 1.25rem 1.5rem;
-          display: flex;
-          align-items: center;
-          gap: 1rem;
+          display: flex; align-items: center; gap: 1rem;
           box-shadow: 0 2px 8px rgba(107,45,15,0.05);
         }
 
         .stat-icon {
-          width: 44px;
-          height: 44px;
+          width: 44px; height: 44px;
           border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          display: flex; align-items: center; justify-content: center;
           flex-shrink: 0;
         }
 
         .stat-value {
           font-family: 'Playfair Display', serif;
-          font-size: 1.75rem;
-          font-weight: 700;
-          color: var(--text);
-          line-height: 1;
+          font-size: 1.75rem; font-weight: 700;
+          color: var(--text); line-height: 1;
         }
 
-        .stat-label {
-          font-size: 12px;
-          color: var(--text-sub);
-          margin-top: 3px;
-        }
+        .stat-label { font-size: 12px; color: var(--text-sub); margin-top: 3px; }
 
-        /* ── TWO COLUMN ── */
+        /* ── TWO COL ── */
         .two-col {
           display: grid;
-          grid-template-columns: 1fr 340px;
+          grid-template-columns: 1fr 320px;
           gap: 1.5rem;
           align-items: start;
+          width: 100%;
         }
 
         /* ── SECTION CARD ── */
@@ -338,49 +290,35 @@ export default function DashboardPage() {
           border: 1px solid var(--border);
           overflow: hidden;
           box-shadow: 0 2px 8px rgba(107,45,15,0.04);
+          width: 100%;
         }
 
         .section-header {
           padding: 1.1rem 1.5rem;
           border-bottom: 1px solid var(--border);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
+          display: flex; align-items: center; justify-content: space-between;
         }
 
-        .section-title {
-          font-size: 14px;
-          font-weight: 700;
-          color: var(--text);
-        }
+        .section-title { font-size: 14px; font-weight: 700; color: var(--text); }
 
         .section-link {
-          font-size: 12px;
-          color: var(--brown);
+          font-size: 12px; color: var(--brown);
           text-decoration: none;
-          display: flex;
-          align-items: center;
-          gap: 4px;
+          display: flex; align-items: center; gap: 4px;
           font-weight: 500;
         }
 
         .section-link:hover { text-decoration: underline; }
 
         /* ── TABLE ── */
-        .ticket-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 13px;
-        }
+        .ticket-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
         .ticket-table th {
           padding: 0.75rem 1.5rem;
           text-align: left;
-          font-size: 11px;
-          font-weight: 700;
+          font-size: 11px; font-weight: 700;
           color: var(--text-sub);
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
+          letter-spacing: 0.5px; text-transform: uppercase;
           background: #FDFAF6;
           border-bottom: 1px solid var(--border);
         }
@@ -388,36 +326,20 @@ export default function DashboardPage() {
         .ticket-table td {
           padding: 0.85rem 1.5rem;
           border-bottom: 1px solid #F5EDE0;
-          color: var(--text);
-          vertical-align: middle;
+          color: var(--text); vertical-align: middle;
         }
 
         .ticket-table tr:last-child td { border-bottom: none; }
-
         .ticket-table tr:hover td { background: #FDFAF6; }
 
-        .ticket-id {
-          font-weight: 600;
-          color: var(--brown);
-          font-size: 12.5px;
-        }
-
-        .ticket-date {
-          font-size: 12px;
-          color: var(--text-sub);
-        }
-
-        .ticket-time {
-          font-size: 11px;
-          color: #B0906A;
-        }
+        .ticket-id { font-weight: 600; color: var(--brown); font-size: 12.5px; }
+        .ticket-date { font-size: 12px; color: var(--text-sub); }
+        .ticket-time { font-size: 11px; color: #B0906A; }
 
         /* ── NOTICES ── */
         .notice-list {
           padding: 0.75rem 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
+          display: flex; flex-direction: column; gap: 0.5rem;
         }
 
         .notice-item {
@@ -425,41 +347,19 @@ export default function DashboardPage() {
           border-radius: 10px;
           border: 1px solid var(--border);
           background: var(--cream);
-          position: relative;
         }
 
-        .notice-item.urgent {
-          border-color: #F5C8A8;
-          background: #FFF8F3;
-        }
+        .notice-item.urgent { border-color: #F5C8A8; background: #FFF8F3; }
 
         .notice-urgent-tag {
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          color: #BB0000;
-          margin-bottom: 4px;
+          font-size: 10px; font-weight: 700;
+          letter-spacing: 1px; text-transform: uppercase;
+          color: #BB0000; margin-bottom: 4px;
         }
 
-        .notice-title {
-          font-size: 13px;
-          font-weight: 700;
-          color: var(--text);
-          margin-bottom: 3px;
-        }
-
-        .notice-body {
-          font-size: 12px;
-          color: var(--text-sub);
-          line-height: 1.5;
-        }
-
-        .notice-date {
-          font-size: 11px;
-          color: #B0906A;
-          margin-top: 5px;
-        }
+        .notice-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+        .notice-body { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
+        .notice-date { font-size: 11px; color: #B0906A; margin-top: 5px; }
 
         /* ── QUICK LINKS ── */
         .quick-links {
@@ -470,48 +370,44 @@ export default function DashboardPage() {
         }
 
         .quick-link-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          padding: 1rem 0.5rem;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          gap: 6px; padding: 1rem 0.5rem;
           border-radius: 10px;
           background: var(--cream);
           border: 1px solid var(--border);
           text-decoration: none;
           color: var(--text);
-          font-size: 12px;
-          font-weight: 600;
+          font-size: 12px; font-weight: 600;
           text-align: center;
           transition: background 0.15s, border-color 0.15s;
         }
 
-        .quick-link-item:hover {
-          background: #F5E8D0;
-          border-color: var(--gold);
-        }
+        .quick-link-item:hover { background: #F5E8D0; border-color: var(--gold); }
 
         .quick-link-icon {
-          width: 36px;
-          height: 36px;
+          width: 36px; height: 36px;
           border-radius: 8px;
           background: var(--brown);
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          display: flex; align-items: center; justify-content: center;
           color: #fff;
         }
 
-        @media (max-width: 1024px) {
-          .stats-row { grid-template-columns: repeat(2, 1fr); }
+        /* ── RESPONSIVE ── */
+        @media (max-width: 1100px) {
           .two-col { grid-template-columns: 1fr; }
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
+          .stats-row { grid-template-columns: repeat(2, 1fr); }
           .dash-content { padding: 1rem; }
           .greeting-card { flex-direction: column; align-items: flex-start; gap: 1rem; }
+        }
+
+        @media (max-width: 480px) {
           .stats-row { grid-template-columns: repeat(2, 1fr); }
+          .ticket-table th:nth-child(4),
+          .ticket-table td:nth-child(4) { display: none; }
         }
       `}</style>
 
@@ -535,7 +431,7 @@ export default function DashboardPage() {
 
         <div className="dash-content">
 
-          {/* GREETING CARD */}
+          {/* GREETING */}
           <div className="greeting-card">
             <div className="greeting-left">
               <p className="greeting-tag">{getHour()}</p>
@@ -544,12 +440,10 @@ export default function DashboardPage() {
             </div>
             <div className="greeting-actions">
               <Link href="/request" className="btn-primary">
-                <LifeBuoy size={15} />
-                Raise a Ticket
+                <LifeBuoy size={15} /> Raise a Ticket
               </Link>
               <Link href="/profile" className="btn-ghost">
-                <User size={15} />
-                My Profile
+                <User size={15} /> My Profile
               </Link>
             </div>
           </div>
@@ -575,7 +469,7 @@ export default function DashboardPage() {
           {/* TWO COLUMN */}
           <div className="two-col">
 
-            {/* TICKET HISTORY */}
+            {/* TICKETS */}
             <div className="section-card">
               <div className="section-header">
                 <p className="section-title">Recent Tickets</p>
@@ -602,7 +496,7 @@ export default function DashboardPage() {
                         <p className="ticket-time">{t.time}</p>
                       </td>
                       <td><span className="ticket-id">{t.id}</span></td>
-                      <td style={{ maxWidth: 200 }}>{t.issue}</td>
+                      <td style={{ maxWidth: 180 }}>{t.issue}</td>
                       <td>{t.category}</td>
                       <td><PriorityDot priority={t.priority} /></td>
                       <td><StatusBadge status={t.status} /></td>
@@ -615,7 +509,7 @@ export default function DashboardPage() {
             {/* RIGHT COLUMN */}
             <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 
-              {/* QUICK LINKS */}
+              {/* QUICK ACTIONS */}
               <div className="section-card">
                 <div className="section-header">
                   <p className="section-title">Quick Actions</p>
