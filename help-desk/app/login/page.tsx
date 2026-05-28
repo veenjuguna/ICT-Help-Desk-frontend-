@@ -520,7 +520,7 @@ export default function LoginPage() {
 
               <div className="signup-row">
                 Don&apos;t have an account?&nbsp;
-                <Link href="/signup">Request access</Link>
+                <Link href="/signup">Sign up</Link>
               </div>
             </form>
 
