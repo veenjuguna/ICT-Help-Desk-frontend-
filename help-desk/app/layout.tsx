@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   description: "ICT Support Portal — National Treasury & Economic Planning",
 };
 
+// Pages that should NOT show the sidebar
+const NO_SIDEBAR_ROUTES = ["/", "/login", "/signup"];
+
 export default function RootLayout({
   children,
 }: {
@@ -14,12 +17,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ display: "flex", minHeight: "100vh", margin: 0, padding: 0 }}>
-        <Sidebar />
-        <main style={{ flex: 1, minWidth: 0, overflow: "auto" }}>
+      <body style={{ display: "flex", minHeight: "100vh", margin: 0, padding: 0, overflow: "hidden" }}>
+        <SidebarWrapper>
           {children}
-        </main>
+        </SidebarWrapper>
       </body>
     </html>
   );
 }
+
+// We use a client component to conditionally show sidebar
+import SidebarWrapper from "@/components/sidebar-wrapper";
