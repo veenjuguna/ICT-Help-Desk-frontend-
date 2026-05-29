@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -16,7 +16,7 @@ export default function VerifyPage() {
   const [message, setMessage] = useState("");
   const [email, setEmail]     = useState("");
 
-  async function verifyToken(token: string) {
+  const verifyToken = useCallback(async (token: string) => {
     setStatus("verifying");
     try {
       const res = await fetch(`${API}/auth/verify?token=${token}`, {
