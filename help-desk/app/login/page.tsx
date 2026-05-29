@@ -5,15 +5,13 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-backend.onrender.com";
-
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail]       = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPw, setShowPw]     = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,8 +27,6 @@ export default function LoginPage() {
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login`, {
-    try {
-      const res = await fetch(`${API}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -52,19 +48,6 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error("❌ Login error:", err.message);
       setError(err.message || "Something went wrong. Please try again.");
-
-      if (!res.ok) {
-        setError(data?.message ?? "Invalid credentials. Please try again.");
-        return;
-      }
-
-      // Store user data — adjust keys if backend returns differently
-      if (data?.access_token) localStorage.setItem("token", data.access_token);
-      if (data?.user)         localStorage.setItem("user", JSON.stringify(data.user));
-
-      router.push("/dashboard");
-    } catch {
-      setError("Network error. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -73,350 +56,383 @@ export default function LoginPage() {
   return (
     <>
       <style>{`
-        :root {
-          --brown:      #6B2D0F;
-          --brown-dark: #4A1E0A;
-          --brown-mid:  #8B3E1A;
-          --gold:       #C8962E;
-          --gold-light: #E8B84B;
-          --cream:      #FDF8F2;
-          --text:       #2C1810;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+          --brown-dark:  #4A1E0A;
+          --brown-main:  #6B2D0F;
+          --brown-mid:   #8B4513;
+          --gold:        #C8962E;
+          --gold-light:  #E8B84B;
+          --cream:       #FDF8F2;
+          --border:      #E0D0C0;
+          --text-main:   #1A0F08;
+          --text-sub:    #7A5C44;
+        }
 
         .login-root {
+          display: flex;
           min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-          font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
-          background: var(--brown-dark);
+          font-family: 'Plus Jakarta Sans', sans-serif;
         }
 
-        .login-bg {
-          position: absolute;
-          inset: 0;
-          z-index: 0;
-        }
-
-        .login-bg-overlay {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            135deg,
-            rgba(74,30,10,0.88) 0%,
-            rgba(50,15,5,0.75) 50%,
-            rgba(30,8,2,0.90) 100%
-          );
-          z-index: 1;
-        }
-
-        .login-card {
-          position: relative;
-          z-index: 2;
-          width: 100%;
-          max-width: 900px;
-          margin: 1.5rem;
-          display: flex;
-          border-radius: 16px;
-          overflow: hidden;
-          box-shadow: 0 32px 80px rgba(0,0,0,0.5);
-        }
-
-        /* LEFT PANEL */
         .login-left {
-          width: 42%;
+          width: 55%;
           position: relative;
+          overflow: hidden;
           display: flex;
           flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          padding: 3rem 2rem;
-          text-align: center;
-          overflow: hidden;
-          background: var(--brown);
+          justify-content: flex-end;
         }
 
-        .login-left-bg {
-          position: absolute;
-          inset: 0;
-          z-index: 0;
-        }
-
-        .login-left-overlay {
+        .bg-overlay {
           position: absolute;
           inset: 0;
           background: linear-gradient(
             to bottom,
-            rgba(107,45,15,0.82) 0%,
-            rgba(74,30,10,0.90) 100%
+            rgba(74,30,10,0.3) 0%,
+            rgba(74,30,10,0.6) 50%,
+            rgba(74,30,10,0.92) 100%
           );
           z-index: 1;
         }
 
-        .login-left-content {
+        .left-content {
           position: relative;
           z-index: 2;
-          display: flex;
-          flex-direction: column;
+          padding: 3rem;
+        }
+
+        .left-logo-wrap {
+          margin-bottom: 2rem;
+          background: rgba(255,255,255,0.95);
+          display: inline-flex;
           align-items: center;
-          gap: 1rem;
+          padding: 8px 16px;
+          border-radius: 10px;
+          border-left: 4px solid var(--gold);
         }
 
-        .login-logo {
-          margin-bottom: 0.5rem;
-        }
-
-        .login-title {
-          font-size: 1.4rem;
-          font-weight: 800;
-          color: #fff;
-          line-height: 1.3;
-        }
-
-        .login-subtitle {
-          font-size: 0.75rem;
-          font-weight: 700;
-          letter-spacing: 2px;
+        .left-tagline {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 2.5px;
           text-transform: uppercase;
           color: var(--gold-light);
-          opacity: 0.9;
+          margin-bottom: 0.6rem;
         }
 
-        .login-divider {
-          width: 40px;
-          height: 2px;
+        .left-title {
+          font-family: 'Playfair Display', serif;
+          font-size: 2.4rem;
+          font-weight: 700;
+          color: #fff;
+          line-height: 1.2;
+          margin-bottom: 0.75rem;
+        }
+
+        .left-title span { color: var(--gold-light); }
+
+        .left-divider {
+          width: 52px;
+          height: 3px;
           background: var(--gold);
           border-radius: 2px;
-          margin: 0.25rem 0;
+          margin-bottom: 1rem;
         }
 
-        .login-tagline {
-          font-size: 0.82rem;
-          color: rgba(255,255,255,0.7);
-          max-width: 200px;
-          line-height: 1.6;
-        }
-
-        .login-badge {
-          margin-top: 1rem;
-          padding: 6px 14px;
-          background: rgba(200,150,46,0.2);
-          border: 1px solid rgba(200,150,46,0.4);
-          border-radius: 20px;
-          font-size: 0.7rem;
-          color: var(--gold-light);
-          font-weight: 600;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-        }
-
-        /* RIGHT PANEL */
-        .login-right {
-          flex: 1;
-          background: var(--cream);
-          padding: 3rem 2.5rem;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-        }
-
-        .login-welcome {
+        .left-desc {
+          font-size: 14px;
+          color: rgba(255,255,255,0.65);
+          line-height: 1.75;
+          max-width: 340px;
           margin-bottom: 2rem;
         }
 
-        .login-welcome h2 {
-          font-size: 1.7rem;
-          font-weight: 800;
-          color: var(--text);
+        .left-stats {
+          display: flex;
+          gap: 2rem;
+          padding-top: 1.5rem;
+          border-top: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .stat-item p:first-child {
+          font-family: 'Playfair Display', serif;
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: var(--gold-light);
+        }
+
+        .stat-item p:last-child {
+          font-size: 11px;
+          color: rgba(255,255,255,0.5);
+          margin-top: 2px;
+        }
+
+        .login-right {
+          flex: 1;
+          background: var(--cream);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 3rem 2rem;
+        }
+
+        .form-card {
+          background: #fff;
+          border-radius: 18px;
+          border: 1px solid var(--border);
+          padding: 2.5rem;
+          width: 100%;
+          max-width: 400px;
+          box-shadow: 0 8px 32px rgba(107,45,15,0.08);
+        }
+
+        .form-eyebrow {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: var(--gold);
+          margin-bottom: 0.4rem;
+        }
+
+        .form-title {
+          font-family: 'Playfair Display', serif;
+          font-size: 1.8rem;
+          font-weight: 600;
+          color: var(--text-main);
           margin-bottom: 0.3rem;
         }
 
-        .login-welcome p {
-          font-size: 0.875rem;
-          color: #888;
+        .form-sub {
+          font-size: 13px;
+          color: var(--text-sub);
+          margin-bottom: 2rem;
         }
 
-        .login-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1.2rem;
+        .field-group { margin-bottom: 1.25rem; }
+
+        .field-label {
+          display: block;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-main);
+          margin-bottom: 6px;
         }
 
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-        }
-
-        .form-group label {
-          font-size: 0.8rem;
-          font-weight: 700;
-          color: var(--text);
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-
-        .input-wrap {
+        .field-wrap {
           position: relative;
+          display: flex;
+          align-items: center;
         }
 
-        .input-wrap input {
-          width: 100%;
-          padding: 0.8rem 1rem;
-          padding-right: 2.8rem;
-          border: 1.5px solid #e0d5cc;
-          border-radius: 8px;
-          font-size: 0.9rem;
-          font-family: inherit;
-          background: #fff;
-          color: var(--text);
-          transition: border-color 0.15s, box-shadow 0.15s;
-          outline: none;
-        }
-
-        .input-wrap input:focus {
-          border-color: var(--brown);
-          box-shadow: 0 0 0 3px rgba(107,45,15,0.1);
-        }
-
-        .input-wrap input.error-input {
-          border-color: #4A1E0A;;
-        }
-
-        .pw-toggle {
+        .field-icon {
           position: absolute;
-          right: 0.9rem;
-          top: 50%;
-          transform: translateY(-50%);
+          left: 13px;
+          color: var(--text-sub);
+          display: flex;
+          align-items: center;
+          pointer-events: none;
+        }
+
+        .field-input {
+          width: 100%;
+          height: 46px;
+          padding: 0 44px 0 40px;
+          border: 1.5px solid var(--border);
+          border-radius: 10px;
+          font-size: 14px;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          background: var(--cream);
+          color: var(--text-main);
+          outline: none;
+          transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+        }
+
+        .field-input::placeholder { color: #C0A882; font-size: 13px; }
+
+        .field-input:focus {
+          border-color: var(--brown-mid);
+          background: #fff;
+          box-shadow: 0 0 0 3px rgba(139,69,19,0.1);
+        }
+
+        .eye-btn {
+          position: absolute;
+          right: 12px;
           background: none;
           border: none;
           cursor: pointer;
-          color: #aaa;
-          font-size: 0.75rem;
-          font-weight: 600;
-          font-family: inherit;
-          padding: 0;
+          color: var(--text-sub);
+          display: flex;
+          align-items: center;
+          padding: 4px;
+          border-radius: 4px;
+          transition: color 0.15s;
         }
 
-        .pw-toggle:hover { color: var(--brown); }
+        .eye-btn:hover { color: var(--brown-mid); }
 
         .error-msg {
-          background: #fdf0ee;
-          border: 1px solid #f5c6c0;
-          border-radius: 6px;
-          padding: 0.7rem 1rem;
-          font-size: 0.82rem;
-          color: #4A1E0A;;
-          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          background: #fff5f0;
+          border: 1px solid #f5c8a8;
+          border-radius: 8px;
+          padding: 10px 12px;
+          font-size: 12.5px;
+          color: var(--brown-main);
+          margin-bottom: 1rem;
         }
 
-        .login-btn {
+        .form-row {
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: 1.5rem;
+          margin-top: -0.5rem;
+        }
+
+        .forgot-link {
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--brown-mid);
+          text-decoration: none;
+        }
+
+        .forgot-link:hover { text-decoration: underline; }
+
+        .submit-btn {
           width: 100%;
-          padding: 0.9rem;
-          background: var(--brown);
+          height: 48px;
+          background: var(--brown-main);
           color: #fff;
           border: none;
-          border-radius: 8px;
-          font-size: 0.9rem;
-          font-weight: 700;
-          font-family: inherit;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 600;
+          font-family: 'Plus Jakarta Sans', sans-serif;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
           transition: background 0.15s, transform 0.1s;
           position: relative;
           overflow: hidden;
-          letter-spacing: 0.3px;
-          margin-top: 0.3rem;
         }
 
-        .login-btn::before {
+        .submit-btn::before {
           content: '';
           position: absolute;
           top: 0; left: 0; right: 0;
-          height: 1px;
-          background: linear-gradient(90deg, transparent, var(--gold), transparent);
+          height: 2px;
+          background: var(--gold);
+          border-radius: 10px 10px 0 0;
         }
 
-        .login-btn:hover:not(:disabled) { background: var(--brown-dark); }
-        .login-btn:active:not(:disabled) { transform: scale(0.99); }
-        .login-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        .submit-btn:hover:not(:disabled) { background: var(--brown-dark); }
+        .submit-btn:active:not(:disabled) { transform: scale(0.99); }
+        .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
-        .login-links {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: 1rem;
-          font-size: 0.82rem;
+        .spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: #fff;
+          border-radius: 50%;
+          animation: spin 0.7s linear infinite;
+          flex-shrink: 0;
         }
 
-        .login-links a {
-          color: var(--brown);
-          text-decoration: none;
-          font-weight: 600;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        .login-links a:hover { text-decoration: underline; }
-
-        .login-divider-line {
-          height: 1px;
-          background: #e8ddd5;
-          margin: 1.2rem 0;
-        }
-
-        .signup-prompt {
+        .signup-row {
+          margin-top: 1.25rem;
           text-align: center;
-          font-size: 0.83rem;
-          color: #888;
+          font-size: 13px;
+          color: var(--text-sub);
         }
 
-        .signup-prompt a {
-          color: var(--brown);
-          font-weight: 700;
+        .signup-row a {
+          color: var(--brown-main);
+          font-weight: 600;
           text-decoration: none;
-          margin-left: 0.3rem;
+          border-bottom: 1px solid var(--gold);
+          padding-bottom: 1px;
         }
 
-        .signup-prompt a:hover { text-decoration: underline; }
+        .signup-row a:hover { color: var(--gold); }
 
-        @media (max-width: 640px) {
-          .login-left { display: none; }
-          .login-card { max-width: 420px; }
-          .login-right { padding: 2.5rem 1.5rem; }
+        .form-footer {
+          margin-top: 1.5rem;
+          padding-top: 1.25rem;
+          border-top: 1px solid var(--border);
+          text-align: center;
+        }
+
+        .support-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          font-size: 12px;
+          color: var(--text-sub);
+        }
+
+        .support-link {
+          color: var(--brown-mid);
+          text-decoration: none;
+          font-weight: 500;
+        }
+
+        .support-link:hover { text-decoration: underline; }
+
+        .right-footer {
+          margin-top: 1.5rem;
+          font-size: 11px;
+          color: #C0A882;
+          text-align: center;
+          max-width: 400px;
+        }
+
+        @media (max-width: 900px) {
+          .login-root { flex-direction: column; }
+          .login-left { width: 100%; min-height: 260px; }
+          .left-stats { display: none; }
+          .left-title { font-size: 1.6rem; }
+          .left-content { padding: 2rem; }
+          .login-right { padding: 2rem 1rem; }
+          .form-card { padding: 1.75rem 1.25rem; }
         }
       `}</style>
 
       <div className="login-root">
         {/* LEFT PANEL */}
         <div className="login-left">
-        {/* BACKGROUND */}
-        <div className="login-bg">
           <Image
             src="/treasury-building.jpeg"
-            alt=""
+            alt="National Treasury Building Nairobi"
             fill
             style={{ objectFit: "cover", objectPosition: "center" }}
             priority
-            quality={70}
-            aria-hidden="true"
+            quality={85}
+            sizes="55vw"
           />
-          <div className="login-bg-overlay" />
-        </div>
-
-        <div className="login-card">
-          {/* LEFT */}
-          <div className="login-left">
-            <div className="login-left-bg">
+          <div className="bg-overlay" />
+          <div className="left-content">
+            <div className="left-logo-wrap">
               <Image
-                src="/treasury-building.jpeg"
-                alt=""
-                fill
-                style={{ objectFit: "cover" }}
-                quality={60}
-                aria-hidden="true"
+                src="/tnt-logo-1.png"
+                alt="The National Treasury — Republic of Kenya"
+                width={200}
+                height={48}
+                style={{ objectFit: "contain", height: "38px", width: "auto" }}
+                priority
               />
-              <div className="login-left-overlay" />
             </div>
             <p className="left-tagline">ICT Helpdesk Portal</p>
             <h1 className="left-title">
@@ -443,30 +459,9 @@ export default function LoginPage() {
                 <p>24/7</p>
                 <p>Support</p>
               </div>
-            <div className="login-left-content">
-              <div className="login-logo">
-                <Image
-                  src="/tnt-logo.jpeg"
-                  alt="The National Treasury"
-                  width={160}
-                  height={50}
-                  style={{
-                    objectFit: "contain",
-                    height: "50px",
-                    width: "auto",
-                    // filter: "brightness(0) invert(1)",
-                  }}
-                  priority
-                />
-              </div>
-              <div className="login-divider" />
-              <p className="login-subtitle">ICT Helpdesk Portal</p>
-              <p className="login-tagline">
-                Secure IT support for the National Treasury &amp; Economic Planning
-              </p>
-              <div className="login-badge">ICT Policy 2025</div>
             </div>
           </div>
+        </div>
 
         {/* RIGHT PANEL */}
         <div className="login-right">
@@ -496,17 +491,6 @@ export default function LoginPage() {
                       <path d="m2 7 10 7 10-7" />
                     </svg>
                   </span>
-          {/* RIGHT */}
-          <div className="login-right">
-            <div className="login-welcome">
-              <h2>Welcome Back</h2>
-              <p>Sign in to your helpdesk account</p>
-            </div>
-
-            <form className="login-form" onSubmit={handleLogin}>
-              <div className="form-group">
-                <label htmlFor="email">Work Email</label>
-                <div className="input-wrap">
                   <input
                     id="email"
                     type="email"
@@ -514,9 +498,6 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="yourname@treasury.go.ke"
                     className="field-input"
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="you@treasury.go.ke"
-                    className={error ? "error-input" : ""}
                     autoComplete="email"
                   />
                 </div>
@@ -540,16 +521,13 @@ export default function LoginPage() {
                       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                     </svg>
                   </span>
-              <div className="form-group">
-                <label htmlFor="password">Password</label>
-                <div className="input-wrap">
                   <input
                     id="password"
-                    type={showPw ? "text" : "password"}
+                    type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className={error ? "error-input" : ""}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••"
+                    className="field-input"
                     autoComplete="current-password"
                   />
                   <button
@@ -586,10 +564,6 @@ export default function LoginPage() {
                         <circle cx="12" cy="12" r="3" />
                       </svg>
                     )}
-                    className="pw-toggle"
-                    onClick={() => setShowPw(!showPw)}
-                  >
-                    {showPw ? "HIDE" : "SHOW"}
                   </button>
                 </div>
               </div>
@@ -639,15 +613,11 @@ export default function LoginPage() {
                     </svg>
                   </>
                 )}
-              {error && <div className="error-msg">{error}</div>}
-
-              <button type="submit" className="login-btn" disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
               </button>
 
-              <div className="login-links">
-                <Link href="/forgot-password">Forgot password?</Link>
-                <Link href="/support">Need help?</Link>
+              <div className="signup-row">
+                Don&apos;t have an account?&nbsp;
+                <Link href="/signup">Request access</Link>
               </div>
             </form>
 
@@ -675,13 +645,6 @@ export default function LoginPage() {
             © {new Date().getFullYear()} National Treasury &amp; Economic
             Planning · Government of Kenya
           </p>
-            <div className="login-divider-line" />
-
-            <p className="signup-prompt">
-              Don&apos;t have an account?
-              <Link href="/signup">Login</Link>
-            </p>
-          </div>
         </div>
       </div>
     </>
