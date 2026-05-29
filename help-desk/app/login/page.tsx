@@ -25,6 +25,10 @@ export default function LoginPage() {
     }
 
     setLoading(true);
+    console.log("🔐 Attempting login for:", email);
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login`, {
     try {
       const res = await fetch(`${API}/auth/login`, {
         method: "POST",
@@ -33,6 +37,21 @@ export default function LoginPage() {
       });
 
       const data = await res.json();
+      console.log("📦 Response status:", res.status);
+      console.log("📦 Response data:", data);
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Login failed");
+      }
+
+      // Save token
+      localStorage.setItem("token", data.access_token);
+      console.log("✅ Login successful! Token saved:", data.access_token);
+
+      router.push("/dashboard");
+    } catch (err: any) {
+      console.error("❌ Login error:", err.message);
+      setError(err.message || "Something went wrong. Please try again.");
 
       if (!res.ok) {
         setError(data?.message ?? "Invalid credentials. Please try again.");
@@ -369,6 +388,8 @@ export default function LoginPage() {
       `}</style>
 
       <div className="login-root">
+        {/* LEFT PANEL */}
+        <div className="login-left">
         {/* BACKGROUND */}
         <div className="login-bg">
           <Image
@@ -397,6 +418,31 @@ export default function LoginPage() {
               />
               <div className="login-left-overlay" />
             </div>
+            <p className="left-tagline">ICT Helpdesk Portal</p>
+            <h1 className="left-title">
+              Supporting Kenya&apos;s
+              <br />
+              <span>Financial Future</span>
+            </h1>
+            <div className="left-divider" />
+            <p className="left-desc">
+              Centralized IT support for all National Treasury &amp; Economic
+              Planning staff. Raise tickets, track issues, and get assistance —
+              securely and efficiently.
+            </p>
+            <div className="left-stats">
+              <div className="stat-item">
+                <p>99.9%</p>
+                <p>Uptime SLA</p>
+              </div>
+              <div className="stat-item">
+                <p>&lt;4hr</p>
+                <p>Avg. resolution</p>
+              </div>
+              <div className="stat-item">
+                <p>24/7</p>
+                <p>Support</p>
+              </div>
             <div className="login-left-content">
               <div className="login-logo">
                 <Image
@@ -422,6 +468,34 @@ export default function LoginPage() {
             </div>
           </div>
 
+        {/* RIGHT PANEL */}
+        <div className="login-right">
+          <div className="form-card">
+            <p className="form-eyebrow">Staff Access</p>
+            <h2 className="form-title">Welcome back</h2>
+            <p className="form-sub">
+              Sign in with your official work credentials
+            </p>
+
+            <form onSubmit={handleLogin} noValidate>
+              <div className="field-group">
+                <label htmlFor="email" className="field-label">
+                  Work Email
+                </label>
+                <div className="field-wrap">
+                  <span className="field-icon">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                    >
+                      <rect x="2" y="4" width="20" height="16" rx="2" />
+                      <path d="m2 7 10 7 10-7" />
+                    </svg>
+                  </span>
           {/* RIGHT */}
           <div className="login-right">
             <div className="login-welcome">
@@ -437,6 +511,9 @@ export default function LoginPage() {
                     id="email"
                     type="email"
                     value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="yourname@treasury.go.ke"
+                    className="field-input"
                     onChange={e => setEmail(e.target.value)}
                     placeholder="you@treasury.go.ke"
                     className={error ? "error-input" : ""}
@@ -445,6 +522,24 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              <div className="field-group">
+                <label htmlFor="password" className="field-label">
+                  Password
+                </label>
+                <div className="field-wrap">
+                  <span className="field-icon">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  </span>
               <div className="form-group">
                 <label htmlFor="password">Password</label>
                 <div className="input-wrap">
@@ -459,6 +554,38 @@ export default function LoginPage() {
                   />
                   <button
                     type="button"
+                    className="eye-btn"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showPassword ? (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                      >
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                      >
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
                     className="pw-toggle"
                     onClick={() => setShowPw(!showPw)}
                   >
@@ -467,6 +594,51 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              {error && (
+                <div className="error-msg" role="alert">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  {error}
+                </div>
+              )}
+
+              <div className="form-row">
+                <Link href="/forgot-password" className="forgot-link">
+                  Forgot password?
+                </Link>
+              </div>
+
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? (
+                  <>
+                    <span className="spinner" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    Sign In
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </>
+                )}
               {error && <div className="error-msg">{error}</div>}
 
               <button type="submit" className="login-btn" disabled={loading}>
@@ -479,6 +651,30 @@ export default function LoginPage() {
               </div>
             </form>
 
+            <div className="form-footer">
+              <div className="support-row">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                Need help?&nbsp;
+                <Link href="/support" className="support-link">
+                  Contact ICT Support
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <p className="right-footer">
+            © {new Date().getFullYear()} National Treasury &amp; Economic
+            Planning · Government of Kenya
+          </p>
             <div className="login-divider-line" />
 
             <p className="signup-prompt">
