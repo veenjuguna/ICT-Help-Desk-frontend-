@@ -5,539 +5,487 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-backend.onrender.com";
+
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [showPw, setShowPw]     = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
     if (!email || !password) {
       setError("Please fill in all fields.");
       return;
     }
+
     setLoading(true);
-    // 🔁 Replace with your real Supabase signIn logic
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    router.push("/dashboard");
+    try {
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data?.message ?? "Invalid credentials. Please try again.");
+        return;
+      }
+
+      // Store user data — adjust keys if backend returns differently
+      if (data?.access_token) localStorage.setItem("token", data.access_token);
+      if (data?.user)         localStorage.setItem("user", JSON.stringify(data.user));
+
+      router.push("/dashboard");
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
         :root {
-          --brown-dark:  #4A1E0A;
-          --brown-main:  #6B2D0F;
-          --brown-mid:   #8B4513;
-          --gold:        #C8962E;
-          --gold-light:  #E8B84B;
-          --cream:       #FDF8F2;
-          --border:      #E0D0C0;
-          --text-main:   #1A0F08;
-          --text-sub:    #7A5C44;
+          --brown:      #6B2D0F;
+          --brown-dark: #4A1E0A;
+          --brown-mid:  #8B3E1A;
+          --gold:       #C8962E;
+          --gold-light: #E8B84B;
+          --cream:      #FDF8F2;
+          --text:       #2C1810;
         }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         .login-root {
-          display: flex;
           min-height: 100vh;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-
-        .login-left {
-          width: 55%;
-          position: relative;
-          overflow: hidden;
           display: flex;
-          flex-direction: column;
-          justify-content: flex-end;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+          background: var(--brown-dark);
         }
 
-        .bg-overlay {
+        .login-bg {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+        }
+
+        .login-bg-overlay {
           position: absolute;
           inset: 0;
           background: linear-gradient(
-            to bottom,
-            rgba(74,30,10,0.3) 0%,
-            rgba(74,30,10,0.6) 50%,
-            rgba(74,30,10,0.92) 100%
+            135deg,
+            rgba(74,30,10,0.88) 0%,
+            rgba(50,15,5,0.75) 50%,
+            rgba(30,8,2,0.90) 100%
           );
           z-index: 1;
         }
 
-        .left-content {
+        .login-card {
           position: relative;
           z-index: 2;
-          padding: 3rem;
-        }
-
-        .left-logo-wrap {
-          margin-bottom: 2rem;
-          background: rgba(255,255,255,0.95);
-          display: inline-flex;
-          align-items: center;
-          padding: 8px 16px;
-          border-radius: 10px;
-          border-left: 4px solid var(--gold);
-        }
-
-        .left-tagline {
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 2.5px;
-          text-transform: uppercase;
-          color: var(--gold-light);
-          margin-bottom: 0.6rem;
-        }
-
-        .left-title {
-          font-family: 'Playfair Display', serif;
-          font-size: 2.4rem;
-          font-weight: 700;
-          color: #fff;
-          line-height: 1.2;
-          margin-bottom: 0.75rem;
-        }
-
-        .left-title span { color: var(--gold-light); }
-
-        .left-divider {
-          width: 52px;
-          height: 3px;
-          background: var(--gold);
-          border-radius: 2px;
-          margin-bottom: 1rem;
-        }
-
-        .left-desc {
-          font-size: 14px;
-          color: rgba(255,255,255,0.65);
-          line-height: 1.75;
-          max-width: 340px;
-          margin-bottom: 2rem;
-        }
-
-        .left-stats {
+          width: 100%;
+          max-width: 900px;
+          margin: 1.5rem;
           display: flex;
-          gap: 2rem;
-          padding-top: 1.5rem;
-          border-top: 1px solid rgba(255,255,255,0.15);
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 32px 80px rgba(0,0,0,0.5);
         }
 
-        .stat-item p:first-child {
-          font-family: 'Playfair Display', serif;
-          font-size: 1.5rem;
-          font-weight: 600;
-          color: var(--gold-light);
+        /* LEFT PANEL */
+        .login-left {
+          width: 42%;
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          padding: 3rem 2rem;
+          text-align: center;
+          overflow: hidden;
+          background: var(--brown);
         }
 
-        .stat-item p:last-child {
-          font-size: 11px;
-          color: rgba(255,255,255,0.5);
-          margin-top: 2px;
+        .login-left-bg {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
         }
 
-        .login-right {
-          flex: 1;
-          background: var(--cream);
+        .login-left-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            to bottom,
+            rgba(107,45,15,0.82) 0%,
+            rgba(74,30,10,0.90) 100%
+          );
+          z-index: 1;
+        }
+
+        .login-left-content {
+          position: relative;
+          z-index: 2;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: center;
-          padding: 3rem 2rem;
+          gap: 1rem;
         }
 
-        .form-card {
-          background: #fff;
-          border-radius: 18px;
-          border: 1px solid var(--border);
-          padding: 2.5rem;
-          width: 100%;
-          max-width: 400px;
-          box-shadow: 0 8px 32px rgba(107,45,15,0.08);
+        .login-logo {
+          margin-bottom: 0.5rem;
         }
 
-        .form-eyebrow {
-          font-size: 11px;
-          font-weight: 600;
+        .login-title {
+          font-size: 1.4rem;
+          font-weight: 800;
+          color: #fff;
+          line-height: 1.3;
+        }
+
+        .login-subtitle {
+          font-size: 0.75rem;
+          font-weight: 700;
           letter-spacing: 2px;
           text-transform: uppercase;
-          color: var(--gold);
-          margin-bottom: 0.4rem;
+          color: var(--gold-light);
+          opacity: 0.9;
         }
 
-        .form-title {
-          font-family: 'Playfair Display', serif;
-          font-size: 1.8rem;
+        .login-divider {
+          width: 40px;
+          height: 2px;
+          background: var(--gold);
+          border-radius: 2px;
+          margin: 0.25rem 0;
+        }
+
+        .login-tagline {
+          font-size: 0.82rem;
+          color: rgba(255,255,255,0.7);
+          max-width: 200px;
+          line-height: 1.6;
+        }
+
+        .login-badge {
+          margin-top: 1rem;
+          padding: 6px 14px;
+          background: rgba(200,150,46,0.2);
+          border: 1px solid rgba(200,150,46,0.4);
+          border-radius: 20px;
+          font-size: 0.7rem;
+          color: var(--gold-light);
           font-weight: 600;
-          color: var(--text-main);
-          margin-bottom: 0.3rem;
+          letter-spacing: 1px;
+          text-transform: uppercase;
         }
 
-        .form-sub {
-          font-size: 13px;
-          color: var(--text-sub);
+        /* RIGHT PANEL */
+        .login-right {
+          flex: 1;
+          background: var(--cream);
+          padding: 3rem 2.5rem;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+
+        .login-welcome {
           margin-bottom: 2rem;
         }
 
-        .field-group { margin-bottom: 1.25rem; }
-
-        .field-label {
-          display: block;
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text-main);
-          margin-bottom: 6px;
+        .login-welcome h2 {
+          font-size: 1.7rem;
+          font-weight: 800;
+          color: var(--text);
+          margin-bottom: 0.3rem;
         }
 
-        .field-wrap {
+        .login-welcome p {
+          font-size: 0.875rem;
+          color: #888;
+        }
+
+        .login-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1.2rem;
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+        }
+
+        .form-group label {
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: var(--text);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .input-wrap {
           position: relative;
-          display: flex;
-          align-items: center;
         }
 
-        .field-icon {
-          position: absolute;
-          left: 13px;
-          color: var(--text-sub);
-          display: flex;
-          align-items: center;
-          pointer-events: none;
-        }
-
-        .field-input {
+        .input-wrap input {
           width: 100%;
-          height: 46px;
-          padding: 0 44px 0 40px;
-          border: 1.5px solid var(--border);
-          border-radius: 10px;
-          font-size: 14px;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          background: var(--cream);
-          color: var(--text-main);
-          outline: none;
-          transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
-        }
-
-        .field-input::placeholder { color: #C0A882; font-size: 13px; }
-
-        .field-input:focus {
-          border-color: var(--brown-mid);
+          padding: 0.8rem 1rem;
+          padding-right: 2.8rem;
+          border: 1.5px solid #e0d5cc;
+          border-radius: 8px;
+          font-size: 0.9rem;
+          font-family: inherit;
           background: #fff;
-          box-shadow: 0 0 0 3px rgba(139,69,19,0.1);
+          color: var(--text);
+          transition: border-color 0.15s, box-shadow 0.15s;
+          outline: none;
         }
 
-        .eye-btn {
+        .input-wrap input:focus {
+          border-color: var(--brown);
+          box-shadow: 0 0 0 3px rgba(107,45,15,0.1);
+        }
+
+        .input-wrap input.error-input {
+          border-color: #4A1E0A;;
+        }
+
+        .pw-toggle {
           position: absolute;
-          right: 12px;
+          right: 0.9rem;
+          top: 50%;
+          transform: translateY(-50%);
           background: none;
           border: none;
           cursor: pointer;
-          color: var(--text-sub);
-          display: flex;
-          align-items: center;
-          padding: 4px;
-          border-radius: 4px;
-          transition: color 0.15s;
+          color: #aaa;
+          font-size: 0.75rem;
+          font-weight: 600;
+          font-family: inherit;
+          padding: 0;
         }
 
-        .eye-btn:hover { color: var(--brown-mid); }
+        .pw-toggle:hover { color: var(--brown); }
 
         .error-msg {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          background: #fff5f0;
-          border: 1px solid #f5c8a8;
-          border-radius: 8px;
-          padding: 10px 12px;
-          font-size: 12.5px;
-          color: var(--brown-main);
-          margin-bottom: 1rem;
-        }
-
-        .form-row {
-          display: flex;
-          justify-content: flex-end;
-          margin-bottom: 1.5rem;
-          margin-top: -0.5rem;
-        }
-
-        .forgot-link {
-          font-size: 12px;
+          background: #fdf0ee;
+          border: 1px solid #f5c6c0;
+          border-radius: 6px;
+          padding: 0.7rem 1rem;
+          font-size: 0.82rem;
+          color: #4A1E0A;;
           font-weight: 500;
-          color: var(--brown-mid);
-          text-decoration: none;
         }
 
-        .forgot-link:hover { text-decoration: underline; }
-
-        .submit-btn {
+        .login-btn {
           width: 100%;
-          height: 48px;
-          background: var(--brown-main);
+          padding: 0.9rem;
+          background: var(--brown);
           color: #fff;
           border: none;
-          border-radius: 10px;
-          font-size: 14px;
-          font-weight: 600;
-          font-family: 'Plus Jakarta Sans', sans-serif;
+          border-radius: 8px;
+          font-size: 0.9rem;
+          font-weight: 700;
+          font-family: inherit;
           cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
           transition: background 0.15s, transform 0.1s;
           position: relative;
           overflow: hidden;
+          letter-spacing: 0.3px;
+          margin-top: 0.3rem;
         }
 
-        .submit-btn::before {
+        .login-btn::before {
           content: '';
           position: absolute;
           top: 0; left: 0; right: 0;
-          height: 2px;
-          background: var(--gold);
-          border-radius: 10px 10px 0 0;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, var(--gold), transparent);
         }
 
-        .submit-btn:hover:not(:disabled) { background: var(--brown-dark); }
-        .submit-btn:active:not(:disabled) { transform: scale(0.99); }
-        .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        .login-btn:hover:not(:disabled) { background: var(--brown-dark); }
+        .login-btn:active:not(:disabled) { transform: scale(0.99); }
+        .login-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
-        .spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255,255,255,0.3);
-          border-top-color: #fff;
-          border-radius: 50%;
-          animation: spin 0.7s linear infinite;
-          flex-shrink: 0;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .signup-row {
-          margin-top: 1.25rem;
-          text-align: center;
-          font-size: 13px;
-          color: var(--text-sub);
-        }
-
-        .signup-row a {
-          color: var(--brown-main);
-          font-weight: 600;
-          text-decoration: none;
-          border-bottom: 1px solid var(--gold);
-          padding-bottom: 1px;
-        }
-
-        .signup-row a:hover { color: var(--gold); }
-
-        .form-footer {
-          margin-top: 1.5rem;
-          padding-top: 1.25rem;
-          border-top: 1px solid var(--border);
-          text-align: center;
-        }
-
-        .support-row {
+        .login-links {
           display: flex;
+          justify-content: space-between;
           align-items: center;
-          justify-content: center;
-          gap: 5px;
-          font-size: 12px;
-          color: var(--text-sub);
+          margin-top: 1rem;
+          font-size: 0.82rem;
         }
 
-        .support-link {
-          color: var(--brown-mid);
+        .login-links a {
+          color: var(--brown);
           text-decoration: none;
-          font-weight: 500;
+          font-weight: 600;
         }
 
-        .support-link:hover { text-decoration: underline; }
+        .login-links a:hover { text-decoration: underline; }
 
-        .right-footer {
-          margin-top: 1.5rem;
-          font-size: 11px;
-          color: #C0A882;
+        .login-divider-line {
+          height: 1px;
+          background: #e8ddd5;
+          margin: 1.2rem 0;
+        }
+
+        .signup-prompt {
           text-align: center;
-          max-width: 400px;
+          font-size: 0.83rem;
+          color: #888;
         }
 
-        @media (max-width: 900px) {
-          .login-root { flex-direction: column; }
-          .login-left { width: 100%; min-height: 260px; }
-          .left-stats { display: none; }
-          .left-title { font-size: 1.6rem; }
-          .left-content { padding: 2rem; }
-          .login-right { padding: 2rem 1rem; }
-          .form-card { padding: 1.75rem 1.25rem; }
+        .signup-prompt a {
+          color: var(--brown);
+          font-weight: 700;
+          text-decoration: none;
+          margin-left: 0.3rem;
+        }
+
+        .signup-prompt a:hover { text-decoration: underline; }
+
+        @media (max-width: 640px) {
+          .login-left { display: none; }
+          .login-card { max-width: 420px; }
+          .login-right { padding: 2.5rem 1.5rem; }
         }
       `}</style>
 
       <div className="login-root">
-
-        {/* LEFT PANEL */}
-        <div className="login-left">
+        {/* BACKGROUND */}
+        <div className="login-bg">
           <Image
             src="/treasury-building.jpeg"
-            alt="National Treasury Building Nairobi"
+            alt=""
             fill
             style={{ objectFit: "cover", objectPosition: "center" }}
             priority
-            quality={85}
-            sizes="55vw"
+            quality={70}
+            aria-hidden="true"
           />
-          <div className="bg-overlay" />
-          <div className="left-content">
-            <div className="left-logo-wrap">
-              <Image
-                src="/tnt-logo-1.png"
-                alt="The National Treasury — Republic of Kenya"
-                width={200}
-                height={48}
-                style={{ objectFit: "contain", height: "38px", width: "auto" }}
-                priority
-              />
-            </div>
-            <p className="left-tagline">ICT Helpdesk Portal</p>
-            <h1 className="left-title">
-              Supporting Kenya&apos;s<br />
-              <span>Financial Future</span>
-            </h1>
-            <div className="left-divider" />
-            <p className="left-desc">
-              Centralized IT support for all National Treasury &amp; Economic
-              Planning staff. Raise tickets, track issues, and get assistance —
-              securely and efficiently.
-            </p>
-            <div className="left-stats">
-              <div className="stat-item"><p>99.9%</p><p>Uptime SLA</p></div>
-              <div className="stat-item"><p>&lt;4hr</p><p>Avg. resolution</p></div>
-              <div className="stat-item"><p>24/7</p><p>Support</p></div>
-            </div>
-          </div>
+          <div className="login-bg-overlay" />
         </div>
 
-        {/* RIGHT PANEL */}
-        <div className="login-right">
-          <div className="form-card">
-            <p className="form-eyebrow">Staff Access</p>
-            <h2 className="form-title">Welcome back</h2>
-            <p className="form-sub">Sign in with your official work credentials</p>
+        <div className="login-card">
+          {/* LEFT */}
+          <div className="login-left">
+            <div className="login-left-bg">
+              <Image
+                src="/treasury-building.jpeg"
+                alt=""
+                fill
+                style={{ objectFit: "cover" }}
+                quality={60}
+                aria-hidden="true"
+              />
+              <div className="login-left-overlay" />
+            </div>
+            <div className="login-left-content">
+              <div className="login-logo">
+                <Image
+                  src="/tnt-logo.jpeg"
+                  alt="The National Treasury"
+                  width={160}
+                  height={50}
+                  style={{
+                    objectFit: "contain",
+                    height: "50px",
+                    width: "auto",
+                    // filter: "brightness(0) invert(1)",
+                  }}
+                  priority
+                />
+              </div>
+              <div className="login-divider" />
+              <p className="login-subtitle">ICT Helpdesk Portal</p>
+              <p className="login-tagline">
+                Secure IT support for the National Treasury &amp; Economic Planning
+              </p>
+              <div className="login-badge">ICT Policy 2025</div>
+            </div>
+          </div>
 
-            <form onSubmit={handleLogin} noValidate>
-              <div className="field-group">
-                <label htmlFor="email" className="field-label">Work Email</label>
-                <div className="field-wrap">
-                  <span className="field-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <rect x="2" y="4" width="20" height="16" rx="2" />
-                      <path d="m2 7 10 7 10-7" />
-                    </svg>
-                  </span>
+          {/* RIGHT */}
+          <div className="login-right">
+            <div className="login-welcome">
+              <h2>Welcome Back</h2>
+              <p>Sign in to your helpdesk account</p>
+            </div>
+
+            <form className="login-form" onSubmit={handleLogin}>
+              <div className="form-group">
+                <label htmlFor="email">Work Email</label>
+                <div className="input-wrap">
                   <input
-                    id="email" type="email" value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="yourname@treasury.go.ke"
-                    className="field-input" autoComplete="email"
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@treasury.go.ke"
+                    className={error ? "error-input" : ""}
+                    autoComplete="email"
                   />
                 </div>
               </div>
 
-              <div className="field-group">
-                <label htmlFor="password" className="field-label">Password</label>
-                <div className="field-wrap">
-                  <span className="field-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <rect x="3" y="11" width="18" height="11" rx="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                  </span>
+              <div className="form-group">
+                <label htmlFor="password">Password</label>
+                <div className="input-wrap">
                   <input
                     id="password"
-                    type={showPassword ? "text" : "password"}
+                    type={showPw ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••"
-                    className="field-input"
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className={error ? "error-input" : ""}
                     autoComplete="current-password"
                   />
-                  <button type="button" className="eye-btn"
-                    onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}>
-                    {showPassword ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                        <line x1="1" y1="1" x2="23" y2="23" />
-                      </svg>
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    )}
+                  <button
+                    type="button"
+                    className="pw-toggle"
+                    onClick={() => setShowPw(!showPw)}
+                  >
+                    {showPw ? "HIDE" : "SHOW"}
                   </button>
                 </div>
               </div>
 
-              {error && (
-                <div className="error-msg" role="alert">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  {error}
-                </div>
-              )}
+              {error && <div className="error-msg">{error}</div>}
 
-              <div className="form-row">
-                <Link href="/forgot-password" className="forgot-link">Forgot password?</Link>
-              </div>
-
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? (
-                  <><span className="spinner" />Signing in...</>
-                ) : (
-                  <>Sign In
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </>
-                )}
+              <button type="submit" className="login-btn" disabled={loading}>
+                {loading ? "Signing in..." : "Sign In"}
               </button>
 
-              <div className="signup-row">
-                Don&apos;t have an account?&nbsp;
-                <Link href="/signup">Request access</Link>
+              <div className="login-links">
+                <Link href="/forgot-password">Forgot password?</Link>
+                <Link href="/support">Need help?</Link>
               </div>
             </form>
 
-            <div className="form-footer">
-              <div className="support-row">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                Need help?&nbsp;
-                <Link href="/support" className="support-link">Contact ICT Support</Link>
-              </div>
-            </div>
-          </div>
+            <div className="login-divider-line" />
 
-          <p className="right-footer">
-            © {new Date().getFullYear()} National Treasury &amp; Economic Planning · Government of Kenya
-          </p>
+            <p className="signup-prompt">
+              Don&apos;t have an account?
+              <Link href="/signup">Login</Link>
+            </p>
+          </div>
         </div>
       </div>
     </>

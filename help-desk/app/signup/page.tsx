@@ -1,822 +1,892 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-const DEPARTMENTS = [
-  "Finance & Accounts",
-  "ICT Department",
-  "Human Resource",
-  "Procurement",
-  "Legal Services",
-  "Internal Audit",
-  "Public Debt Management",
-  "Budget & Fiscal Policy",
-  "Administration",
-  "Other",
-];
+const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-backend.onrender.com";
+
+interface Directorate { id: number; name: string; }
+interface Department  { id: number; name: string; }
+
+interface FormState {
+  personalNumber: string;
+  firstName:      string;
+  lastName:       string;
+  phone:          string;
+  email:          string;
+  password:       string;
+  confirmPw:      string;
+  directorateId:  string;
+  departmentId:   string;
+  officeNumber:   string;
+  officeLocation: string;
+  terms:          boolean;
+  dataConsent:    boolean;
+}
+
+const EMPTY: FormState = {
+  personalNumber: "", firstName: "", lastName: "", phone: "",
+  email: "", password: "", confirmPw: "", directorateId: "",
+  departmentId: "", officeNumber: "", officeLocation: "",
+  terms: false, dataConsent: false,
+};
 
 export default function SignupPage() {
   const router = useRouter();
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    phone: "",
-    email: "",
-    department: "",
-    password: "",
-    confirmPassword: "",
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [agreed, setAgreed] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [form, setForm]               = useState<FormState>(EMPTY);
+  const [directorates, setDirectorates] = useState<Directorate[]>([]);
+  const [departments, setDepartments]   = useState<Department[]>([]);
+  const [loadingDirs, setLoadingDirs]   = useState(true);
+  const [loadingDepts, setLoadingDepts] = useState(false);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState("");
+  const [showPw, setShowPw]             = useState(false);
+  const [showConfirm, setShowConfirm]   = useState(false);
 
-  const update = (field: string, value: string) =>
-    setForm((prev) => ({ ...prev, [field]: value }));
+  // Load directorates on mount
+  useEffect(() => {
+    const fetchDirectorates = async () => {
+      try {
+        const res = await fetch(`${API}/directorates`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setDirectorates(data);
+      } catch {
+        setDirectorates([
+          { id: 1, name: "Directorate of Budget, Fiscal and Economic Affairs" },
+          { id: 2, name: "Directorate of Public Debt Management" },
+          { id: 3, name: "Directorate of Accounting Services & Quality Assurance" },
+          { id: 4, name: "Directorate of Public Investment & Portfolio Management" },
+          { id: 5, name: "Public Private Partnerships (PPP) Directorate" },
+          { id: 6, name: "Directorate of Administrative and Support Services" },
+        ]);
+      } finally {
+        setLoadingDirs(false);
+      }
+    };
+    fetchDirectorates();
+  }, []);
 
-  const handleSignup = async (e: React.FormEvent) => {
+  // Load departments when directorate changes
+  useEffect(() => {
+    const fetchDepts = async () => {
+      if (!form.directorateId) {
+        setDepartments([]);
+        setLoadingDepts(false);
+        return;
+      }
+
+      setLoadingDepts(true);
+      try {
+        const res = await fetch(`${API}/directorates/${form.directorateId}/departments`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setDepartments(data);
+      } catch {
+        // fallback departments per directorate
+        const fallback: Record<string, Department[]> = {
+          "1": [
+            { id: 101, name: "Macro and Fiscal Affairs Department" },
+            { id: 102, name: "Budget Department" },
+            { id: 103, name: "Financial and Sectoral Affairs Department" },
+            { id: 104, name: "Inter-Governmental Fiscal Relations Department" },
+            { id: 105, name: "Public Procurement Department" },
+          ],
+          "2": [
+            { id: 201, name: "Resource Mobilization Department" },
+            { id: 202, name: "Debt Policy, Strategy and Risk Management Department" },
+            { id: 203, name: "Debt Recording and Settlement Department" },
+          ],
+          "3": [
+            { id: 301, name: "Government Accounting Services Department" },
+            { id: 302, name: "Internal Audit Department" },
+            { id: 303, name: "Financial Management Information Services (IFMIS) Department" },
+            { id: 304, name: "National Sub-County Treasuries Department" },
+            { id: 305, name: "Government Digital Payment Unit" },
+          ],
+          "4": [
+            { id: 401, name: "Government Investment and Public Enterprises Department" },
+            { id: 402, name: "Public Investment Management (PIM) Unit" },
+            { id: 403, name: "Pensions Department" },
+            { id: 404, name: "National Assets and Liabilities Management Department" },
+          ],
+          "5": [],
+          "6": [
+            { id: 601, name: "Human Resource Management & Development Department" },
+            { id: 602, name: "Legal Department" },
+            { id: 603, name: "Supply Chain Management Department" },
+            { id: 604, name: "ICT Department" },
+            { id: 605, name: "Central Planning Department" },
+            { id: 606, name: "Public Communications Department" },
+          ],
+        };
+        setDepartments(fallback[form.directorateId] ?? []);
+      } finally {
+        setLoadingDepts(false);
+      }
+    };
+    fetchDepts();
+  }, [form.directorateId]);
+
+  const set = (key: keyof FormState, val: string | boolean) =>
+    setForm(f => ({ ...f, [key]: val }));
+
+  // Password strength
+  const pwStrength = (() => {
+    const p = form.password;
+    if (!p) return 0;
+    let s = 0;
+    if (p.length >= 8)           s++;
+    if (/[A-Z]/.test(p))         s++;
+    if (/[0-9]/.test(p))         s++;
+    if (/[^A-Za-z0-9]/.test(p))  s++;
+    return s;
+  })();
+
+  const pwLabel  = ["", "Weak", "Fair", "Good", "Strong"][pwStrength];
+  const pwColor  = ["", "#e74c3c", "#e67e22", "#f1c40f", "#27ae60"][pwStrength];
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const { firstName, lastName, phone, email, department, password, confirmPassword } = form;
-    if (!firstName || !lastName || !phone || !email || !department || !password || !confirmPassword) {
-      setError("Please fill in all fields.");
-      return;
+
+    if (form.password !== form.confirmPw) {
+      setError("Passwords do not match."); return;
     }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
+    if (form.password.length < 8) {
+      setError("Password must be at least 8 characters."); return;
     }
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
+    if (!form.terms || !form.dataConsent) {
+      setError("Please accept the Terms & Conditions and Data Access Consent."); return;
     }
-    if (!agreed) {
-      setError("Please accept the Terms & Conditions to continue.");
-      return;
-    }
+
     setLoading(true);
-    // 🔁 Replace with your real Supabase signUp logic
-    await new Promise((r) => setTimeout(r, 1400));
-    setLoading(false);
-    router.push("/");
+    try {
+      const payload = {
+        personal_no:  form.personalNumber,
+        first_name:       form.firstName,
+        last_name:        form.lastName,
+        phone:            form.phone,
+        email:            form.email,
+        password:         form.password,
+        directorate_id:   form.directorateId ? Number(form.directorateId) : undefined,
+        department_id:    form.departmentId  ? Number(form.departmentId)  : undefined,
+        office_number:    form.officeNumber,
+        office_location:  form.officeLocation,
+      };
+
+      const res = await fetch(`${API}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data?.message ?? "Registration failed. Please try again.");
+        return;
+      }
+
+      // Store email for verify page
+      localStorage.setItem("pending_verify_email", form.email);
+      router.push("/verify");
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
-
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
         :root {
-          --brown-dark:  #4A1E0A;
-          --brown-main:  #6B2D0F;
-          --brown-mid:   #8B4513;
-          --gold:        #C8962E;
-          --gold-light:  #E8B84B;
-          --cream:       #FDF8F2;
-          --border:      #E0D0C0;
-          --text-main:   #1A0F08;
-          --text-sub:    #7A5C44;
+          --brown:      #6B2D0F;
+          --brown-dark: #4A1E0A;
+          --gold:       #C8962E;
+          --gold-light: #E8B84B;
+          --cream:      #FDF8F2;
+          --text:       #2C1810;
         }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         .signup-root {
-          display: flex;
           min-height: 100vh;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-
-        /* ── LEFT PANEL ── */
-        .signup-left {
-          width: 42%;
-          position: relative;
-          overflow: hidden;
           display: flex;
-          flex-direction: column;
-          justify-content: flex-end;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+          padding: 2rem 0;
         }
 
-        .bg-image {
+        .signup-bg {
           position: absolute;
           inset: 0;
-          object-fit: cover;
-          object-position: center;
           z-index: 0;
         }
 
-        .bg-overlay {
+        .signup-bg-overlay {
           position: absolute;
           inset: 0;
-          background: linear-gradient(
-            to bottom,
-            rgba(74,30,10,0.3) 0%,
-            rgba(74,30,10,0.65) 50%,
-            rgba(74,30,10,0.94) 100%
-          );
+          background: linear-gradient(135deg, rgba(74,30,10,0.88) 0%, rgba(30,8,2,0.90) 100%);
           z-index: 1;
         }
 
-        .left-content {
+        .signup-card {
           position: relative;
           z-index: 2;
-          padding: 3rem;
+          width: 100%;
+          max-width: 940px;
+          margin: 0 1.5rem;
+          display: flex;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 32px 80px rgba(0,0,0,0.5);
         }
 
-        .left-logo-wrap {
-          margin-bottom: 2rem;
-          background: rgba(255,255,255,0.95);
-          display: inline-flex;
-          align-items: center;
-          padding: 8px 14px;
-          border-radius: 10px;
-          border-left: 4px solid var(--gold);
-        }
-
-        .left-tagline {
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 2.5px;
-          text-transform: uppercase;
-          color: var(--gold-light);
-          margin-bottom: 0.5rem;
-        }
-
-        .left-title {
-          font-family: 'Playfair Display', serif;
-          font-size: 2rem;
-          font-weight: 700;
-          color: #fff;
-          line-height: 1.25;
-          margin-bottom: 0.75rem;
-        }
-
-        .left-title span { color: var(--gold-light); }
-
-        .left-divider {
-          width: 48px;
-          height: 3px;
-          background: var(--gold);
-          border-radius: 2px;
-          margin-bottom: 1rem;
-        }
-
-        .left-desc {
-          font-size: 13.5px;
-          color: rgba(255,255,255,0.62);
-          line-height: 1.75;
-          max-width: 300px;
-          margin-bottom: 2rem;
-        }
-
-        .left-steps {
+        /* LEFT */
+        .signup-left {
+          width: 38%;
+          position: relative;
           display: flex;
           flex-direction: column;
-          gap: 0.65rem;
-        }
-
-        .left-step {
-          display: flex;
+          justify-content: center;
           align-items: center;
-          gap: 10px;
-          font-size: 12.5px;
-          color: rgba(255,255,255,0.7);
+          padding: 3rem 1.75rem;
+          text-align: center;
+          overflow: hidden;
         }
 
-        .step-dot {
+        .signup-left-bg {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+        }
+
+        .signup-left-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(to bottom, rgba(107,45,15,0.85) 0%, rgba(74,30,10,0.93) 100%);
+          z-index: 1;
+        }
+
+        .signup-left-content {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .signup-left-divider {
+          width: 40px;
+          height: 2px;
+          background: var(--gold);
+          border-radius: 2px;
+        }
+
+        .signup-left-title {
+          font-size: 1.25rem;
+          font-weight: 800;
+          color: #fff;
+          line-height: 1.3;
+        }
+
+        .signup-left-sub {
+          font-size: 0.72rem;
+          font-weight: 700;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: var(--gold-light);
+        }
+
+        .signup-left-note {
+          font-size: 0.8rem;
+          color: rgba(255,255,255,0.65);
+          line-height: 1.7;
+          max-width: 180px;
+        }
+
+        .signup-steps {
+          margin-top: 0.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.85rem;
+          text-align: left;
+          width: 100%;
+        }
+
+        .signup-step {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.65rem;
+          font-size: 0.78rem;
+          color: rgba(255,255,255,0.7);
+          line-height: 1.5;
+        }
+
+        .signup-step-dot {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: var(--gold);
-          color: var(--brown-dark);
-          font-size: 10px;
+          background: rgba(200,150,46,0.25);
+          border: 1.5px solid var(--gold);
+          color: var(--gold-light);
+          font-size: 0.65rem;
           font-weight: 700;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
+          margin-top: 1px;
         }
 
-        .left-footer {
-          margin-top: 2rem;
-          padding-top: 1rem;
-          border-top: 1px solid rgba(255,255,255,0.1);
-          font-size: 11px;
-          color: rgba(255,255,255,0.3);
-        }
-
-        /* ── RIGHT PANEL ── */
+        /* RIGHT */
         .signup-right {
           flex: 1;
           background: var(--cream);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 2.5rem 2rem;
+          padding: 2.5rem 2.25rem;
           overflow-y: auto;
         }
 
-        .form-card {
-          background: #fff;
-          border-radius: 18px;
-          border: 1px solid var(--border);
-          padding: 2.25rem;
-          width: 100%;
-          max-width: 440px;
-          box-shadow: 0 8px 32px rgba(107,45,15,0.08);
+        .signup-header {
+          margin-bottom: 1.75rem;
         }
 
-        .form-eyebrow {
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          color: var(--gold);
-          margin-bottom: 0.4rem;
-        }
-
-        .form-title {
-          font-family: 'Playfair Display', serif;
-          font-size: 1.65rem;
-          font-weight: 600;
-          color: var(--text-main);
+        .signup-header h2 {
+          font-size: 1.5rem;
+          font-weight: 800;
+          color: var(--text);
           margin-bottom: 0.25rem;
         }
 
-        .form-sub {
-          font-size: 13px;
-          color: var(--text-sub);
-          margin-bottom: 1.5rem;
+        .signup-header p {
+          font-size: 0.82rem;
+          color: #888;
         }
 
-        /* two column row */
-        .field-row {
+        .form-section-label {
+          font-size: 0.68rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 1.5px;
+          color: var(--brown);
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid #e0d5cc;
+          margin-bottom: 1rem;
+          margin-top: 1.5rem;
+        }
+
+        .form-section-label:first-of-type { margin-top: 0; }
+
+        .form-row {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 0.85rem;
-          margin-bottom: 1rem;
+          gap: 1rem;
         }
 
-        .field-group { margin-bottom: 1rem; }
-
-        .field-label {
-          display: block;
-          font-size: 11.5px;
-          font-weight: 600;
-          color: var(--text-main);
-          margin-bottom: 5px;
-          letter-spacing: 0.1px;
-        }
-
-        .field-wrap {
-          position: relative;
+        .form-group {
           display: flex;
-          align-items: center;
+          flex-direction: column;
+          gap: 0.35rem;
         }
 
-        .field-icon {
-          position: absolute;
-          left: 12px;
-          color: var(--text-sub);
-          display: flex;
-          align-items: center;
-          pointer-events: none;
+        .form-group.full { grid-column: 1 / -1; }
+
+        .form-group label {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--text);
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
         }
 
-        .field-input {
+        .form-group label span {
+          color: #c0392b;
+          margin-left: 2px;
+        }
+
+        .input-wrap { position: relative; }
+
+        .input-wrap input,
+        .input-wrap select {
           width: 100%;
-          height: 43px;
-          padding: 0 12px 0 38px;
-          border: 1.5px solid var(--border);
-          border-radius: 9px;
-          font-size: 13.5px;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          background: var(--cream);
-          color: var(--text-main);
-          outline: none;
-          transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
-        }
-
-        .field-input.no-icon { padding-left: 12px; }
-
-        .field-input::placeholder { color: #C0A882; font-size: 12.5px; }
-
-        .field-input:focus {
-          border-color: var(--brown-mid);
+          padding: 0.72rem 0.9rem;
+          border: 1.5px solid #e0d5cc;
+          border-radius: 7px;
+          font-size: 0.875rem;
+          font-family: inherit;
           background: #fff;
-          box-shadow: 0 0 0 3px rgba(139,69,19,0.09);
+          color: var(--text);
+          transition: border-color 0.15s, box-shadow 0.15s;
+          outline: none;
+          appearance: none;
         }
 
-        select.field-input {
-          appearance: none;
-          cursor: pointer;
-          padding-right: 32px;
+        .input-wrap input:focus,
+        .input-wrap select:focus {
+          border-color: var(--brown);
+          box-shadow: 0 0 0 3px rgba(107,45,15,0.08);
+        }
+
+        .input-wrap select:disabled {
+          background: #f5ede6;
+          color: #aaa;
+          cursor: not-allowed;
         }
 
         .select-arrow {
           position: absolute;
-          right: 12px;
+          right: 0.9rem;
+          top: 50%;
+          transform: translateY(-50%);
           pointer-events: none;
-          color: var(--text-sub);
+          color: #aaa;
+          font-size: 0.7rem;
         }
 
-        .eye-btn {
+        .pw-toggle {
           position: absolute;
-          right: 10px;
+          right: 0.9rem;
+          top: 50%;
+          transform: translateY(-50%);
           background: none;
           border: none;
           cursor: pointer;
-          color: var(--text-sub);
-          display: flex;
-          align-items: center;
-          padding: 4px;
-          border-radius: 4px;
-          transition: color 0.15s;
+          color: #aaa;
+          font-size: 0.7rem;
+          font-weight: 700;
+          font-family: inherit;
         }
 
-        .eye-btn:hover { color: var(--brown-mid); }
+        .pw-toggle:hover { color: var(--brown); }
 
         /* password strength */
-        .strength-bar {
+        .pw-strength {
           display: flex;
-          gap: 3px;
-          margin-top: 5px;
+          gap: 4px;
+          margin-top: 0.35rem;
+          align-items: center;
         }
 
-        .strength-seg {
-          flex: 1;
+        .pw-bar {
           height: 3px;
+          flex: 1;
           border-radius: 2px;
-          background: var(--border);
+          background: #e0d5cc;
           transition: background 0.2s;
         }
 
-        .strength-seg.weak   { background: #BB0000; }
-        .strength-seg.medium { background: var(--gold); }
-        .strength-seg.strong { background: #2D6B0F; }
-
-        .strength-label {
-          font-size: 10.5px;
-          color: var(--text-sub);
-          margin-top: 3px;
+        .pw-label {
+          font-size: 0.7rem;
+          font-weight: 600;
+          min-width: 42px;
+          text-align: right;
         }
 
-        /* error */
-        .error-msg {
+        /* pw match */
+        .pw-match {
+          font-size: 0.72rem;
+          font-weight: 600;
+          margin-top: 0.3rem;
+        }
+
+        /* checkboxes */
+        .checkbox-group {
           display: flex;
-          align-items: center;
-          gap: 7px;
-          background: #fff5f0;
-          border: 1px solid #f5c8a8;
-          border-radius: 8px;
-          padding: 9px 12px;
-          font-size: 12px;
-          color: var(--brown-main);
-          margin-bottom: 1rem;
-        }
-
-        /* checkbox */
-        .checkbox-row {
-          display: flex;
-          align-items: flex-start;
-          gap: 10px;
-          margin-bottom: 1.25rem;
-          margin-top: 0.25rem;
-        }
-
-        .checkbox-row input[type="checkbox"] {
-          width: 16px;
-          height: 16px;
-          accent-color: var(--brown-main);
-          cursor: pointer;
-          flex-shrink: 0;
-          margin-top: 2px;
+          flex-direction: column;
+          gap: 0.75rem;
+          margin-top: 1rem;
         }
 
         .checkbox-label {
-          font-size: 12px;
-          color: var(--text-sub);
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+          font-size: 0.8rem;
+          color: #666;
+          cursor: pointer;
           line-height: 1.5;
         }
 
-        .checkbox-label a {
-          color: var(--brown-main);
-          font-weight: 600;
-          text-decoration: none;
-          border-bottom: 1px solid var(--gold);
+        .checkbox-label input[type="checkbox"] {
+          width: 16px;
+          height: 16px;
+          flex-shrink: 0;
+          margin-top: 2px;
+          accent-color: var(--brown);
+          cursor: pointer;
         }
 
-        .checkbox-label a:hover { color: var(--gold); }
+        .checkbox-label a {
+          color: var(--brown);
+          font-weight: 600;
+          text-decoration: none;
+        }
 
-        /* submit */
-        .submit-btn {
+        .checkbox-label a:hover { text-decoration: underline; }
+
+        .error-msg {
+          background: #fdf0ee;
+          border: 1px solid #f5c6c0;
+          border-radius: 6px;
+          padding: 0.7rem 1rem;
+          font-size: 0.82rem;
+          color: #c0392b;
+          font-weight: 500;
+          margin-top: 1rem;
+        }
+
+        .signup-btn {
           width: 100%;
-          height: 46px;
-          background: var(--brown-main);
+          padding: 0.9rem;
+          background: var(--brown);
           color: #fff;
           border: none;
-          border-radius: 10px;
-          font-size: 14px;
-          font-weight: 600;
-          font-family: 'Plus Jakarta Sans', sans-serif;
+          border-radius: 8px;
+          font-size: 0.9rem;
+          font-weight: 700;
+          font-family: inherit;
           cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
+          margin-top: 1.25rem;
           transition: background 0.15s, transform 0.1s;
           position: relative;
           overflow: hidden;
         }
 
-        .submit-btn::before {
+        .signup-btn::before {
           content: '';
           position: absolute;
           top: 0; left: 0; right: 0;
-          height: 2px;
-          background: var(--gold);
-          border-radius: 10px 10px 0 0;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, var(--gold), transparent);
         }
 
-        .submit-btn:hover:not(:disabled) { background: var(--brown-dark); }
-        .submit-btn:active:not(:disabled) { transform: scale(0.99); }
-        .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        .signup-btn:hover:not(:disabled) { background: var(--brown-dark); }
+        .signup-btn:active:not(:disabled) { transform: scale(0.99); }
+        .signup-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
-        .spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255,255,255,0.3);
-          border-top-color: #fff;
-          border-radius: 50%;
-          animation: spin 0.7s linear infinite;
-          flex-shrink: 0;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .login-row {
-          margin-top: 1.1rem;
+        .signin-prompt {
           text-align: center;
-          font-size: 13px;
-          color: var(--text-sub);
+          font-size: 0.82rem;
+          color: #888;
+          margin-top: 1rem;
         }
 
-        .login-row a {
-          color: var(--brown-main);
-          font-weight: 600;
+        .signin-prompt a {
+          color: var(--brown);
+          font-weight: 700;
           text-decoration: none;
-          border-bottom: 1px solid var(--gold);
-          padding-bottom: 1px;
+          margin-left: 0.3rem;
         }
 
-        .login-row a:hover { color: var(--gold); }
+        .signin-prompt a:hover { text-decoration: underline; }
 
-        .right-footer {
-          margin-top: 1.5rem;
-          font-size: 11px;
-          color: #C0A882;
-          text-align: center;
-          max-width: 440px;
-        }
-
-        @media (max-width: 900px) {
-          .signup-root { flex-direction: column; }
-          .signup-left { width: 100%; min-height: 220px; }
-          .left-steps { display: none; }
-          .signup-right { padding: 2rem 1rem; }
-          .form-card { padding: 1.5rem 1.1rem; }
-          .field-row { grid-template-columns: 1fr; }
+        @media (max-width: 680px) {
+          .signup-left { display: none; }
+          .signup-card { max-width: 480px; }
+          .form-row { grid-template-columns: 1fr; }
         }
       `}</style>
 
       <div className="signup-root">
-
-        {/* LEFT PANEL */}
-        <div className="signup-left">
+        <div className="signup-bg">
           <Image
             src="/treasury-building.jpeg"
-            alt="National Treasury Building"
+            alt=""
             fill
-            className="bg-image"
+            style={{ objectFit: "cover" }}
             priority
-            quality={85}
-            sizes="42vw"
+            quality={65}
+            aria-hidden="true"
           />
-          <div className="bg-overlay" />
-          <div className="left-content">
-            <div className="left-logo-wrap">
-              <Image
-                src="/tnt-logo-1.png"
-                alt="The National Treasury"
-                width={190}
-                height={46}
-                style={{ objectFit: "contain", height: "36px", width: "auto" }}
-                priority
-              />
-            </div>
-            <p className="left-tagline">Staff Registration</p>
-            <h1 className="left-title">
-              Join the<br /><span>IT Helpdesk Portal</span>
-            </h1>
-            <div className="left-divider" />
-            <p className="left-desc">
-              Create your account to access IT support, raise tickets, and track issues across the National Treasury.
-            </p>
-            <div className="left-steps">
-              <div className="left-step">
-                <span className="step-dot">1</span>
-                Fill in your staff details
-              </div>
-              <div className="left-step">
-                <span className="step-dot">2</span>
-                Accept the Data Access Policy
-              </div>
-              <div className="left-step">
-                <span className="step-dot">3</span>
-                Start raising and tracking tickets
-              </div>
-            </div>
-            <div className="left-footer">
-              Treasury Building, Harambee Avenue · Nairobi, Kenya
-            </div>
-          </div>
+          <div className="signup-bg-overlay" />
         </div>
 
-        {/* RIGHT PANEL */}
-        <div className="signup-right">
-          <div className="form-card">
-            <p className="form-eyebrow">New Account</p>
-            <h2 className="form-title">Create your account</h2>
-            <p className="form-sub">All fields are required</p>
+        <div className="signup-card">
+          {/* LEFT */}
+          <div className="signup-left">
+            <div className="signup-left-bg">
+              <Image src="/treasury-building.jpeg" alt="" fill style={{ objectFit: "cover" }} quality={50} aria-hidden="true" />
+              <div className="signup-left-overlay" />
+            </div>
+            <div className="signup-left-content">
+              <Image
+                src="/tnt-logo.jpeg"
+                alt="National Treasury"
+                width={150}
+                height={46}
+                  style={{ objectFit: "contain", height: "46px", width: "auto",  }}
+                priority
+              />
+              <div className="signup-left-divider" />
+              <p className="signup-left-sub">ICT Helpdesk Portal</p>
+              <p className="signup-left-title">Request Account Access</p>
+              <p className="signup-left-note">
+                For National Treasury staff only. Your account will be verified by ICT.
+              </p>
+              <div className="signup-steps">
+                <div className="signup-step">
+                  <div className="signup-step-dot">1</div>
+                  <span>Fill in your personal and office details</span>
+                </div>
+                <div className="signup-step">
+                  <div className="signup-step-dot">2</div>
+                  <span>Verify your work email via the link we&apos;ll send</span>
+                </div>
+                <div className="signup-step">
+                  <div className="signup-step-dot">3</div>
+                  <span>Log in and raise your first IT support ticket</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-            <form onSubmit={handleSignup} noValidate>
+          {/* RIGHT */}
+          <div className="signup-right">
+            <div className="signup-header">
+              <h2>Create Account</h2>
+              <p>All fields marked <span style={{ color: "#c0392b" }}>*</span> are required</p>
+            </div>
 
-              {/* First + Last name */}
-              <div className="field-row">
-                <div className="field-group" style={{ marginBottom: 0 }}>
-                  <label htmlFor="firstName" className="field-label">First Name</label>
-                  <div className="field-wrap">
-                    <span className="field-icon">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                        <circle cx="12" cy="7" r="4" />
-                      </svg>
-                    </span>
+            <form onSubmit={handleSubmit}>
+
+              {/* ── PERSONAL INFO ── */}
+              <div className="form-section-label">Personal Information</div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Personal Number <span>*</span></label>
+                  <div className="input-wrap">
                     <input
-                      id="firstName"
                       type="text"
-                      value={form.firstName}
-                      onChange={(e) => update("firstName", e.target.value)}
+                      placeholder="e.g. TNT/001234"
+                      value={form.personalNumber}
+                      onChange={e => set("personalNumber", e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Phone Number <span>*</span></label>
+                  <div className="input-wrap">
+                    <input
+                      type="tel"
+                      placeholder="+254 7XX XXX XXX"
+                      value={form.phone}
+                      onChange={e => set("phone", e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>First Name <span>*</span></label>
+                  <div className="input-wrap">
+                    <input
+                      type="text"
                       placeholder="Jane"
-                      className="field-input"
-                      autoComplete="given-name"
+                      value={form.firstName}
+                      onChange={e => set("firstName", e.target.value)}
+                      required
                     />
                   </div>
                 </div>
-                <div className="field-group" style={{ marginBottom: 0 }}>
-                  <label htmlFor="lastName" className="field-label">Last Name</label>
-                  <div className="field-wrap">
-                    <span className="field-icon">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                        <circle cx="12" cy="7" r="4" />
-                      </svg>
-                    </span>
+
+                <div className="form-group">
+                  <label>Last Name <span>*</span></label>
+                  <div className="input-wrap">
                     <input
-                      id="lastName"
                       type="text"
-                      value={form.lastName}
-                      onChange={(e) => update("lastName", e.target.value)}
                       placeholder="Doe"
-                      className="field-input"
-                      autoComplete="family-name"
+                      value={form.lastName}
+                      onChange={e => set("lastName", e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group full">
+                  <label>Work Email <span>*</span></label>
+                  <div className="input-wrap">
+                    <input
+                      type="email"
+                      placeholder="you@treasury.go.ke"
+                      value={form.email}
+                      onChange={e => set("email", e.target.value)}
+                      required
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Phone */}
-              <div className="field-group">
-                <label htmlFor="phone" className="field-label">Phone Number</label>
-                <div className="field-wrap">
-                  <span className="field-icon">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.86a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z" />
-                    </svg>
-                  </span>
-                  <input
-                    id="phone"
-                    type="tel"
-                    value={form.phone}
-                    onChange={(e) => update("phone", e.target.value)}
-                    placeholder="+254 700 000 000"
-                    className="field-input"
-                    autoComplete="tel"
-                  />
+              {/* ── OFFICE INFO ── */}
+              <div className="form-section-label">Office Information</div>
+              <div className="form-row">
+                <div className="form-group full">
+                  <label>Directorate <span>*</span></label>
+                  <div className="input-wrap">
+                    <select
+                      value={form.directorateId}
+                      onChange={e => { set("directorateId", e.target.value); set("departmentId", ""); }}
+                      required
+                      disabled={loadingDirs}
+                    >
+                      <option value="">{loadingDirs ? "Loading..." : "— Select Directorate —"}</option>
+                      {directorates.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                    <span className="select-arrow">▼</span>
+                  </div>
+                </div>
+
+                <div className="form-group full">
+                  <label>Department</label>
+                  <div className="input-wrap">
+                    <select
+                      value={form.departmentId}
+                      onChange={e => set("departmentId", e.target.value)}
+                      disabled={!form.directorateId || loadingDepts}
+                    >
+                      <option value="">
+                        {!form.directorateId
+                          ? "Select directorate first"
+                          : loadingDepts
+                          ? "Loading departments..."
+                          : departments.length === 0
+                          ? "No departments"
+                          : "— Select Department —"}
+                      </option>
+                      {departments.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                    <span className="select-arrow">▼</span>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Office Number</label>
+                  <div className="input-wrap">
+                    <input
+                      type="text"
+                      placeholder="e.g. Room 4B"
+                      value={form.officeNumber}
+                      onChange={e => set("officeNumber", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Office Location</label>
+                  <div className="input-wrap">
+                    <input
+                      type="text"
+                      placeholder="e.g. Treasury Building, 4th Floor"
+                      value={form.officeLocation}
+                      onChange={e => set("officeLocation", e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Email */}
-              <div className="field-group">
-                <label htmlFor="email" className="field-label">Work Email</label>
-                <div className="field-wrap">
-                  <span className="field-icon">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <rect x="2" y="4" width="20" height="16" rx="2" />
-                      <path d="m2 7 10 7 10-7" />
-                    </svg>
-                  </span>
-                  <input
-                    id="email"
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => update("email", e.target.value)}
-                    placeholder="yourname@treasury.go.ke"
-                    className="field-input"
-                    autoComplete="email"
-                  />
-                </div>
-              </div>
-
-              {/* Department */}
-              <div className="field-group">
-                <label htmlFor="department" className="field-label">Department</label>
-                <div className="field-wrap">
-                  <span className="field-icon">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                      <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
-                  </span>
-                  <select
-                    id="department"
-                    value={form.department}
-                    onChange={(e) => update("department", e.target.value)}
-                    className="field-input"
-                  >
-                    <option value="">Select department...</option>
-                    {DEPARTMENTS.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                  <span className="select-arrow">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </span>
-                </div>
-              </div>
-
-              {/* Password */}
-              <div className="field-group">
-                <label htmlFor="password" className="field-label">Password</label>
-                <div className="field-wrap">
-                  <span className="field-icon">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <rect x="3" y="11" width="18" height="11" rx="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                  </span>
-                  <input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={form.password}
-                    onChange={(e) => update("password", e.target.value)}
-                    placeholder="Min. 8 characters"
-                    className="field-input"
-                    autoComplete="new-password"
-                  />
-                  <button type="button" className="eye-btn" onClick={() => setShowPassword(!showPassword)} aria-label="Toggle password">
-                    {showPassword ? (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                        <line x1="1" y1="1" x2="23" y2="23" />
-                      </svg>
-                    ) : (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                {form.password.length > 0 && (
-                  <>
-                    <div className="strength-bar">
-                      <div className={`strength-seg ${form.password.length >= 1 ? (form.password.length < 6 ? "weak" : form.password.length < 10 ? "medium" : "strong") : ""}`} />
-                      <div className={`strength-seg ${form.password.length >= 6 ? (form.password.length < 10 ? "medium" : "strong") : ""}`} />
-                      <div className={`strength-seg ${form.password.length >= 10 ? "strong" : ""}`} />
+              {/* ── SECURITY ── */}
+              <div className="form-section-label">Security</div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Password <span>*</span></label>
+                  <div className="input-wrap">
+                    <input
+                      type={showPw ? "text" : "password"}
+                      placeholder="Min. 8 characters"
+                      value={form.password}
+                      onChange={e => set("password", e.target.value)}
+                      required
+                    />
+                    <button type="button" className="pw-toggle" onClick={() => setShowPw(!showPw)}>
+                      {showPw ? "HIDE" : "SHOW"}
+                    </button>
+                  </div>
+                  {form.password && (
+                    <div className="pw-strength">
+                      {[1,2,3,4].map(n => (
+                        <div
+                          key={n}
+                          className="pw-bar"
+                          style={{ background: n <= pwStrength ? pwColor : undefined }}
+                        />
+                      ))}
+                      <span className="pw-label" style={{ color: pwColor }}>{pwLabel}</span>
                     </div>
-                    <p className="strength-label">
-                      {form.password.length < 6 ? "Weak" : form.password.length < 10 ? "Medium" : "Strong"}
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label>Confirm Password <span>*</span></label>
+                  <div className="input-wrap">
+                    <input
+                      type={showConfirm ? "text" : "password"}
+                      placeholder="Re-enter password"
+                      value={form.confirmPw}
+                      onChange={e => set("confirmPw", e.target.value)}
+                      required
+                    />
+                    <button type="button" className="pw-toggle" onClick={() => setShowConfirm(!showConfirm)}>
+                      {showConfirm ? "HIDE" : "SHOW"}
+                    </button>
+                  </div>
+                  {form.confirmPw && (
+                    <p
+                      className="pw-match"
+                      style={{ color: form.password === form.confirmPw ? "#27ae60" : "#c0392b" }}
+                    >
+                      {form.password === form.confirmPw ? "✓ Passwords match" : "✗ Passwords don't match"}
                     </p>
-                  </>
-                )}
+                  )}
+                </div>
               </div>
 
-              {/* Confirm Password */}
-              <div className="field-group">
-                <label htmlFor="confirmPassword" className="field-label">Confirm Password</label>
-                <div className="field-wrap">
-                  <span className="field-icon">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <rect x="3" y="11" width="18" height="11" rx="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                  </span>
+              {/* CHECKBOXES */}
+              <div className="checkbox-group">
+                <label className="checkbox-label">
                   <input
-                    id="confirmPassword"
-                    type={showConfirm ? "text" : "password"}
-                    value={form.confirmPassword}
-                    onChange={(e) => update("confirmPassword", e.target.value)}
-                    placeholder="Repeat your password"
-                    className="field-input"
-                    autoComplete="new-password"
-                    style={{
-                      borderColor: form.confirmPassword.length > 0
-                        ? form.confirmPassword === form.password ? "#2D6B0F" : "#BB0000"
-                        : undefined
-                    }}
+                    type="checkbox"
+                    checked={form.terms}
+                    onChange={e => set("terms", e.target.checked)}
                   />
-                  <button type="button" className="eye-btn" onClick={() => setShowConfirm(!showConfirm)} aria-label="Toggle confirm password">
-                    {showConfirm ? (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                        <line x1="1" y1="1" x2="23" y2="23" />
-                      </svg>
-                    ) : (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {error && (
-                <div className="error-msg" role="alert">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  {error}
-                </div>
-              )}
-
-              {/* Terms checkbox */}
-              <div className="checkbox-row">
-                <input
-                  type="checkbox"
-                  id="terms"
-                  checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
-                />
-                <label htmlFor="terms" className="checkbox-label">
-                  I agree to the{" "}
-                  <Link href="/terms">Terms & Conditions</Link>
-                  {" "}and{" "}
-                  <Link href="/privacy">Data Access Consent Policy</Link>
-                  {" "}of the National Treasury ICT Helpdesk.
+                  I agree to the <a href="/terms" target="_blank">Terms &amp; Conditions</a> of the National Treasury ICT Helpdesk
+                </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={form.dataConsent}
+                    onChange={e => set("dataConsent", e.target.checked)}
+                  />
+                  I consent to the processing of my personal data in accordance with the{" "}
+                  <a href="/privacy" target="_blank">Kenya Data Protection Act 2019</a>
                 </label>
               </div>
 
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? (
-                  <>
-                    <span className="spinner" />
-                    Creating account...
-                  </>
-                ) : (
-                  <>
-                    Create Account
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </>
-                )}
+              {error && <div className="error-msg">{error}</div>}
+
+              <button type="submit" className="signup-btn" disabled={loading}>
+                {loading ? "Creating account..." : "Create Account"}
               </button>
 
-              <div className="login-row">
-                Already have an account?&nbsp;
-                <Link href="/login">Login</Link>
-              </div>
-
+              <p className="signin-prompt">
+                Already have an account?
+                <Link href="/login">Sign in</Link>
+              </p>
             </form>
           </div>
-
-          <p className="right-footer">
-            © {new Date().getFullYear()} National Treasury &amp; Economic Planning · Government of Kenya
-          </p>
         </div>
-
       </div>
     </>
   );
