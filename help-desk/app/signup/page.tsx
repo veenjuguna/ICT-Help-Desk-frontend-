@@ -52,7 +52,7 @@ export default function SignupPage() {
         const data = await res.json();
         setDirectorates(data);
       } catch (err) {
-      console.error("❌ Register error:", err);
+      console.error("Directorate fetch error:", err);
         setDirectorates([
           { id: 1, name: "Directorate of Budget, Fiscal and Economic Affairs" },
           { id: 2, name: "Directorate of Public Debt Management" },
