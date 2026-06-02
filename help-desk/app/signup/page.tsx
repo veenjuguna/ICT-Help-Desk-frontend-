@@ -186,7 +186,7 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        console.error("❌ Register failed:", data);
+        console.error(" Register failed:", data);
         setError(data?.message ?? "Registration failed. Please try again.");
         return;
       }
@@ -195,7 +195,7 @@ export default function SignupPage() {
       localStorage.setItem("pending_verify_email", form.email);
       router.push("/verify");
     } catch (err) {
-      console.error("❌ Register error:", err);
+      console.error(" Register error:", err);
       setError("Network error. Please check your connection and try again.");
     } finally {
       setLoading(false);
