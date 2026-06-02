@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "@/components/sidebar";
+import SidebarWrapper from "@/components/sidebar-wrapper";
 
 export const metadata: Metadata = {
   title: "National Treasury IT Helpdesk",
   description: "ICT Support Portal — National Treasury & Economic Planning",
 };
-
-// Pages that should NOT show the sidebar
-const NO_SIDEBAR_ROUTES = ["/", "/login", "/signup"];
 
 export default function RootLayout({
   children,
@@ -25,6 +22,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-// We use a client component to conditionally show sidebar
-import SidebarWrapper from "@/components/sidebar-wrapper";
