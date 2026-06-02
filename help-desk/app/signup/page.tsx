@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-backend.onrender.com";
+
 interface Directorate { id: number; name: string; }
 interface Department  { id: number; name: string; }
 
@@ -47,12 +49,11 @@ export default function SignupPage() {
   useEffect(() => {
     const fetchDirectorates = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/directorates/`);
+        const res = await fetch(`${API}/directorates`);
         if (!res.ok) throw new Error();
         const data = await res.json();
         setDirectorates(data);
-      } catch (err) {
-      console.error("Directorate fetch error:", err);
+      } catch {
         setDirectorates([
           { id: 1, name: "Directorate of Budget, Fiscal and Economic Affairs" },
           { id: 2, name: "Directorate of Public Debt Management" },
@@ -79,12 +80,11 @@ export default function SignupPage() {
 
       setLoadingDepts(true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/directorates/${form.directorateId}/departments`);
+        const res = await fetch(`${API}/directorates/${form.directorateId}/departments`);
         if (!res.ok) throw new Error();
         const data = await res.json();
         setDepartments(data);
-      } catch (err) {
-      console.error("❌ Register error:", err);
+      } catch {
         // fallback departments per directorate
         const fallback: Record<string, Department[]> = {
           "1": [
@@ -165,7 +165,7 @@ export default function SignupPage() {
     setLoading(true);
     try {
       const payload = {
-        personal_no:      form.personalNumber,
+        personal_no:  form.personalNumber,
         first_name:       form.firstName,
         last_name:        form.lastName,
         phone:            form.phone,
@@ -177,7 +177,7 @@ export default function SignupPage() {
         office_location:  form.officeLocation,
       };
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
+      const res = await fetch(`${API}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -186,7 +186,6 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        console.error(" Register failed:", data);
         setError(data?.message ?? "Registration failed. Please try again.");
         return;
       }
@@ -194,8 +193,7 @@ export default function SignupPage() {
       // Store email for verify page
       localStorage.setItem("pending_verify_email", form.email);
       router.push("/verify");
-    } catch (err) {
-      console.error(" Register error:", err);
+    } catch {
       setError("Network error. Please check your connection and try again.");
     } finally {
       setLoading(false);

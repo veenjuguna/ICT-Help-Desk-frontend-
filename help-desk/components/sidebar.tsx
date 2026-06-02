@@ -184,7 +184,11 @@ export default function Sidebar() {
             {/* HEADER — logo with white filter applied */}
             <div className="sidebar-header">
               <Image
+<<<<<<< HEAD
                 src="/tnt-logo-1.png"
+=======
+                src="/tnt-logo.jpeg"
+>>>>>>> a85be8cb75815767df5742a9e537f0ee7ef0ff50
                 alt="The National Treasury — Republic of Kenya"
                 width={190}
                 height={48}
@@ -193,7 +197,11 @@ export default function Sidebar() {
                   height: "40px",
                   width: "auto",
                   maxWidth: "200px",
+<<<<<<< HEAD
                   filter: "brightness(0) invert(1)",
+=======
+                  // filter: "brightness(0) invert(1)",
+>>>>>>> a85be8cb75815767df5742a9e537f0ee7ef0ff50
                 }}
                 priority
               />
