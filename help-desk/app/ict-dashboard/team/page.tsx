@@ -1,3 +1,4 @@
+
 "use client";
 
 interface TeamMember {
@@ -278,3 +279,4 @@ export default function TeamPage() {
     </div>
   );
 }
+

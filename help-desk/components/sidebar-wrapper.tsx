@@ -3,24 +3,28 @@
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/sidebar";
 
-const NO_SIDEBAR = ["/", "/login", "/signup"];
-
 export default function SidebarWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const showSidebar = !NO_SIDEBAR.includes(pathname);
+
+  const noSidebarRoutes = [
+    "/login",
+    "/signup",
+    "/ict-dashboard",
+  ];
+
+  const hideSidebar =
+    noSidebarRoutes.some((route) => pathname.startsWith(route));
+
+  if (hideSidebar) {
+    return <>{children}</>;
+  }
 
   return (
-    <>
-      {showSidebar && <Sidebar />}
-      <main style={{
-        flex: 1,
-        minWidth: 0,
-        overflowY: "auto",
-        height: "100vh",
-        width: showSidebar ? undefined : "100%",
-      }}>
+    <div style={{ display: "flex", minHeight: "100vh", width: "100%" }}>
+      <Sidebar />
+      <main style={{ flex: 1, minWidth: 0, overflowY: "auto", height: "100vh" }}>
         {children}
       </main>
-    </>
+    </div>
   );
 }
