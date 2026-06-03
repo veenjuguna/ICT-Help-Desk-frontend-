@@ -1,146 +1,308 @@
-import { User, Pencil } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { User, Pencil, Shield, KeyRound } from "lucide-react";
 import ProfileInput from "@/components/profile-input";
 
 export default function ProfilePage() {
+  const [editing, setEditing] = useState(false);
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-black">Profile Settings</h1>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+          --gold: #C8962E; --brown: #6B2D0F; --brown-dark: #4A1E0A;
+          --cream: #FDF8F2; --border: #EDE0D0;
+          --text: #1A0F08; --text-sub: #7A5C44;
+        }
+        .profile-root {
+          width: 100%;
+          min-height: 100vh;
+          background: var(--cream);
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          color: var(--text);
+        }
+        .profile-topbar {
+          background: #fff;
+          border-bottom: 1px solid var(--border);
+          padding: 0 2rem;
+          height: 56px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          position: sticky;
+          top: 0;
+          z-index: 5;
+        }
+        .profile-topbar-title { font-size: 13px; color: var(--text-sub); }
+        .profile-topbar-title span { color: var(--brown); font-weight: 600; }
+        .profile-header { padding: 2rem 2rem 0; }
+        .profile-title {
+          font-family: 'Playfair Display', serif;
+          font-size: 1.6rem;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 0.25rem;
+        }
+        .profile-sub { font-size: 13px; color: var(--text-sub); }
+        .profile-content {
+          padding: 1.5rem 2rem;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1.25rem;
+        }
+        .profile-card {
+          background: #fff;
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+        }
+        .card-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .card-title {
+          font-size: 15px;
+          font-weight: 700;
+          color: var(--text);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .card-title-icon {
+          width: 30px;
+          height: 30px;
+          border-radius: 8px;
+          background: #FDF8F2;
+          border: 1px solid var(--border);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--brown);
+        }
+        .edit-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          border: 1.5px solid var(--brown);
+          color: var(--brown);
+          background: none;
+          padding: 6px 14px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+        .edit-btn:hover { background: #FDF8F2; }
+        .edit-btn.active { background: var(--brown); color: #fff; }
+        .avatar-wrap {
+          display: flex;
+          justify-content: center;
+          padding: 0.5rem 0 0.25rem;
+        }
+        .avatar-circle {
+          width: 80px;
+          height: 80px;
+          border-radius: 50%;
+          background: rgba(200,150,46,0.12);
+          border: 2px solid rgba(200,150,46,0.35);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--brown);
+        }
+        .fields-stack { display: flex; flex-direction: column; gap: 1rem; }
+        .divider { border: none; border-top: 1px solid var(--border); margin: 0.25rem 0; }
+        .section-label {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: var(--text-sub);
+          margin-bottom: 0.75rem;
+        }
+        .reset-btn {
+          width: 100%;
+          height: 42px;
+          background: var(--brown);
+          color: #fff;
+          border: none;
+          border-radius: 9px;
+          font-size: 13px;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          margin-top: 0.25rem;
+          transition: background 0.15s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+        .reset-btn:hover { background: var(--brown-dark); }
+        @media (max-width: 900px) {
+          .profile-content { grid-template-columns: 1fr; }
+        }
+      `}</style>
 
-        <p className="text-gray-500 mt-1">
-          Manage your account information and security
-        </p>
-      </div>
+      <div className="profile-root">
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Left Card */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          {/* Card Header */}
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-black">
-              Profile Information
-            </h2>
-
-            <button
-              className="
-                flex
-                items-center
-                gap-2
-                border
-                border-green-700
-                text-green-700
-                px-4
-                py-2
-                rounded-md
-                hover:bg-green-50
-                transition
-              "
-            >
-              <Pencil size={18} />
-              Edit
-            </button>
-          </div>
-
-          {/* Avatar */}
-          <div className="flex justify-center my-8">
+        {/* Topbar */}
+        <div className="profile-topbar">
+          <p className="profile-topbar-title">
+            National Treasury &nbsp;/&nbsp; <span>Profile</span>
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div
-              className="
-                w-24
-                h-24
-                rounded-full
-                bg-green-100
-                flex
-                items-center
-                justify-center
-              "
+              style={{
+                width: 32, height: 32, borderRadius: "50%",
+                background: "#6B2D0F", color: "#fff",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 700,
+              }}
             >
-              <User size={42} className="text-green-700" />
+              AM
             </div>
-          </div>
-
-          {/* Inputs */}
-          <div className="space-y-5">
-            <ProfileInput label="Username" value="jkamau" />
-
-            <ProfileInput label="Full Name" value="John Kamau" />
-
-            <ProfileInput
-              label="Email Address"
-              value="john.kamau@treasury.go.ke"
-              type="email"
-            />
-
-            <ProfileInput label="Phone Number" value="+254 700 123 456" />
-
-            <ProfileInput label="Department" value="ICT Services" />
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#1A0F08" }}>Ann Mwangi</p>
+              <p style={{ fontSize: 10, color: "#7A5C44" }}>Revenue Department</p>
+            </div>
           </div>
         </div>
 
-        {/* Right Card */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-2xl font-bold text-black mb-6">Security</h2>
+        {/* Page header */}
+        <div className="profile-header">
+          <h1 className="profile-title">Profile Settings</h1>
+          <p className="profile-sub">Manage your account information and security</p>
+        </div>
 
-          {/* Account Info */}
-          <div className="space-y-5">
-            <ProfileInput label="Username" value="jkamau" />
+        <div className="profile-content">
 
-            <ProfileInput
-              label="Email"
-              value="john.kamau@treasury.go.ke"
-              type="email"
-            />
+          {/* ── Left card: Profile Information ── */}
+          <div className="profile-card">
+            <div className="card-header">
+              <p className="card-title">
+                <span className="card-title-icon"><User size={15} /></span>
+                Profile Information
+              </p>
+              <button
+                className={`edit-btn${editing ? " active" : ""}`}
+                onClick={() => setEditing((v) => !v)}
+              >
+                <Pencil size={14} />
+                {editing ? "Done" : "Edit"}
+              </button>
+            </div>
+
+            {/* Avatar */}
+            <div className="avatar-wrap">
+              <div className="avatar-circle">
+                <User size={36} />
+              </div>
+            </div>
+
+            {/* Fields — no Specialization for employees */}
+            <div className="fields-stack">
+              <ProfileInput
+                label="Username"
+                value="amwangi"
+                placeholder="Enter username"
+              />
+              <ProfileInput
+                label="Full Name"
+                value="Ann Mwangi"
+                placeholder="Enter full name"
+              />
+              <ProfileInput
+                label="Email Address"
+                value="ann.mwangi@treasury.go.ke"
+                placeholder="Enter email address"
+                type="email"
+              />
+              <ProfileInput
+                label="Phone Number"
+                value="+254 700 000 000"
+                placeholder="Enter phone number"
+              />
+              <ProfileInput
+                label="Department"
+                value="Revenue"
+                placeholder="Enter department"
+              />
+              <ProfileInput
+                label="Job Title"
+                value="Revenue Officer"
+                placeholder="Enter job title"
+              />
+            </div>
           </div>
 
-          {/* Divider */}
-          <div className="border-t border-gray-200 my-8"></div>
+          {/* ── Right card: Security ── */}
+          <div className="profile-card">
+            <div className="card-header">
+              <p className="card-title">
+                <span className="card-title-icon"><Shield size={15} /></span>
+                Security
+              </p>
+            </div>
 
-          {/* Password Reset */}
-          <div>
-            <h3 className="text-xl font-bold text-black mb-6">
-              Change Password
-            </h3>
-
-            <div className="space-y-5">
+            {/* Account info */}
+            <div className="fields-stack">
               <ProfileInput
-                label="Current Password"
-                placeholder="Enter current password"
-                type="password"
+                label="Username"
+                value="amwangi"
+                placeholder="Username"
               />
-
               <ProfileInput
-                label="New Password"
-                placeholder="Enter new password"
-                type="password"
-              />
-
-              <ProfileInput
-                label="Confirm New Password"
-                placeholder="Confirm new password"
-                type="password"
+                label="Email"
+                value="ann.mwangi@treasury.go.ke"
+                placeholder="Email"
+                type="email"
               />
             </div>
 
-            {/* Button */}
-            <button
-              className="
-                w-full
-                bg-green-700
-                hover:bg-green-800
-                text-white
-                font-semibold
-                py-3
-                rounded-md
-                mt-6
-                transition
-              "
-            >
-              Reset Password
-            </button>
+            <hr className="divider" />
+
+            {/* Change password */}
+            <div>
+              <p className="section-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <KeyRound size={12} />
+                Change Password
+              </p>
+              <div className="fields-stack">
+                <ProfileInput
+                  label="Current Password"
+                  placeholder="Enter current password"
+                  type="password"
+                />
+                <ProfileInput
+                  label="New Password"
+                  placeholder="Enter new password"
+                  type="password"
+                />
+                <ProfileInput
+                  label="Confirm New Password"
+                  placeholder="Confirm new password"
+                  type="password"
+                />
+              </div>
+              <button className="reset-btn" style={{ marginTop: "1rem" }}>
+                <KeyRound size={14} />
+                Reset Password
+              </button>
+            </div>
           </div>
+
         </div>
       </div>
-    </div>
+    </>
   );
 }
