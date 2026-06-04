@@ -26,7 +26,13 @@ export default function LoginPage() {
     console.log("Attempting login for:", email);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}auth/login`, {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+
+      if (!apiBaseUrl) {
+        throw new Error("API URL is not configured.");
+      }
+
+      const res = await fetch(`${apiBaseUrl}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
