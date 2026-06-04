@@ -80,9 +80,9 @@ export default function TechnicianDashboard() {
         {/* ── Stats Grid: 1 col mobile, 2 col sm, 4 col lg ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: "Assigned to Me", value: "8", icon: "🎫" },
-            { label: "Completed Today", value: "5", icon: "✅" },
-            { label: "Pending Review", value: "3", icon: "🕐" },
+            { label: "Assigned to Me", value: "8", icon: "" },
+            { label: "Completed Today", value: "5", icon: "" },
+            { label: "Pending Review", value: "3", icon: "" },
             { label: "Avg Response Time", value: "15 min", icon: "↑" },
           ].map((s) => (
             <div
