@@ -5,8 +5,15 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
-  LayoutDashboard, Ticket, CheckCircle,
-  Clock, Users, User, LogOut, Menu, X,
+  LayoutDashboard,
+  Ticket,
+  CheckCircle,
+  Clock,
+  Users,
+  User,
+  LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 
 function getUserFromStorage(): { name: string; dept: string } {
@@ -15,8 +22,8 @@ function getUserFromStorage(): { name: string; dept: string } {
     if (raw) {
       const user = JSON.parse(raw);
       const first = user.first_name || user.firstName || "";
-      const last  = user.last_name  || user.lastName  || "";
-      const name  = `${first} ${last}`.trim();
+      const last = user.last_name || user.lastName || "";
+      const name = `${first} ${last}`.trim();
       return { name: name || "Technician", dept: user.department || "" };
     }
   } catch {}
@@ -24,24 +31,40 @@ function getUserFromStorage(): { name: string; dept: string } {
 }
 
 const NAV_LINKS = [
-  { href: "/ict-dashboard/dashboard",        label: "Dashboard",         icon: LayoutDashboard },
-  { href: "/ict-dashboard/tickets/all",       label: "All Tickets",       icon: Ticket          },
-  { href: "/ict-dashboard/tickets/pending",   label: "Pending Tickets",   icon: Clock           },
-  { href: "/ict-dashboard/tickets/completed", label: "Completed Tickets", icon: CheckCircle     },
-  { href: "/ict-dashboard/team",              label: "Team",              icon: Users           },
-  { href: "/ict-dashboard/profile",           label: "Profile",           icon: User            },
+  {
+    href: "/ict-dashboard/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+  },
+  { href: "/ict-dashboard/tickets/all", label: "All Tickets", icon: Ticket },
+  {
+    href: "/ict-dashboard/tickets/pending",
+    label: "Pending Tickets",
+    icon: Clock,
+  },
+  {
+    href: "/ict-dashboard/my-completed",
+    label: "Completed Tickets",
+    icon: CheckCircle,
+  },
+  { href: "/ict-dashboard/team", label: "Team", icon: Users },
+  { href: "/ict-dashboard/profile", label: "Profile", icon: User },
 ];
 
 export default function IctSidebar() {
   const pathname = usePathname();
-  const router   = useRouter();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const [userName] = useState<string>(() => getUserFromStorage().name);
   const [userDept] = useState<string>(() => getUserFromStorage().dept);
 
   const initials = userName
-    .split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -231,23 +254,31 @@ export default function IctSidebar() {
         <div className="ict-sidebar-inner">
           <div>
             {/* Header with close button on mobile */}
-            <div className="ict-sidebar-header" style={{ justifyContent: "space-between" }}>
+            <div
+              className="ict-sidebar-header"
+              style={{ justifyContent: "space-between" }}
+            >
               <Image
                 src="/tnt-logo.jpeg"
                 alt="The National Treasury"
                 width={190}
                 height={48}
                 style={{
-                  objectFit: "contain", height: "40px",
-                  width: "auto", maxWidth: "180px",
+                  objectFit: "contain",
+                  height: "40px",
+                  width: "auto",
+                  maxWidth: "180px",
                 }}
                 priority
               />
               <button
                 onClick={() => setOpen(false)}
                 style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "rgba(255,255,255,0.5)", padding: 4,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "rgba(255,255,255,0.5)",
+                  padding: 4,
                   display: "none",
                 }}
                 className="ict-close-btn"
@@ -262,7 +293,8 @@ export default function IctSidebar() {
               {NAV_LINKS.map(({ href, label, icon: Icon }) => {
                 const isActive =
                   pathname === href ||
-                  (href !== "/ict-dashboard/dashboard" && pathname.startsWith(href));
+                  (href !== "/ict-dashboard/dashboard" &&
+                    pathname.startsWith(href));
                 return (
                   <Link
                     key={href}
