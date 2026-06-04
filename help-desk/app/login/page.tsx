@@ -46,7 +46,10 @@ export default function LoginPage() {
 
       router.push("/dashboard");
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.";
       console.error(" Login error:", errorMessage);
       setError(errorMessage);
     } finally {
