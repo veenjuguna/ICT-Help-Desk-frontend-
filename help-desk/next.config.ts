@@ -4,8 +4,9 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  allowedDevOrigins: ["192.168.5.148"],
   images: {
-    qualities: [70, 75, 85],
+    qualities: [60, 70, 75, 85],
     unoptimized: true,
   },
 };
