@@ -5,7 +5,7 @@ import { LifeBuoy, User, Clock, CheckCircle, AlertCircle, Loader, ArrowRight, Be
 
 const user = {
   firstName: "Jane",
-  lastName: "Doe",
+  lastName: "Wanjiku",
   department: "Finance & Accounts",
   email: "jane.doe@treasury.go.ke",
 };
