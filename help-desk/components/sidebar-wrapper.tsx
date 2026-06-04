@@ -7,8 +7,11 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
   const pathname = usePathname();
 
   const noSidebarRoutes = [
+    "/",
     "/login",
     "/signup",
+    "/verify",
+    "/forgot-password",
     "/ict-dashboard",
   ];
 
