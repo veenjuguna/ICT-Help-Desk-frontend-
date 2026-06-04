@@ -66,10 +66,10 @@ export default function TechnicianDashboard() {
             Available
           </div>
           <div className="relative cursor-pointer">
-            <span className="text-gray-500 text-2xl">🔔</span>
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-semibold">
-              3
-            </span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="white" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
           </div>
         </div>
       </div>
@@ -80,9 +80,9 @@ export default function TechnicianDashboard() {
         {/* ── Stats Grid: 1 col mobile, 2 col sm, 4 col lg ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: "Assigned to Me", value: "8", icon: "🎫" },
-            { label: "Completed Today", value: "5", icon: "✅" },
-            { label: "Pending Review", value: "3", icon: "🕐" },
+            { label: "Assigned to Me", value: "8", icon: "" },
+            { label: "Completed Today", value: "5", icon: "" },
+            { label: "Pending Review", value: "3", icon: "" },
             { label: "Avg Response Time", value: "15 min", icon: "↑" },
           ].map((s) => (
             <div
