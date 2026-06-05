@@ -115,7 +115,7 @@ export default function SignupPage() {
     (async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/directorates`,
+          `${process.env.NEXT_PUBLIC_API_URL}/directorates/`,
         );
         if (!res.ok) throw new Error();
         setDirectorates(await res.json());
