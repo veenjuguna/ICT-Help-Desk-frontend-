@@ -110,7 +110,6 @@ export default function SignupPage() {
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Load directorates once
   useEffect(() => {
     (async () => {
       try {
@@ -127,7 +126,6 @@ export default function SignupPage() {
     })();
   }, []);
 
-  // Load departments when directorate changes — all setState inside async
   useEffect(() => {
     (async () => {
       if (!form.directorateId) {
@@ -224,184 +222,55 @@ export default function SignupPage() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-          --brown-dark: #4A1E0A;
-          --brown-main: #6B2D0F;
-          --brown-mid:  #8B4513;
-          --gold:       #C8962E;
-          --gold-light: #E8B84B;
-          --cream:      #FDF8F2;
-          --border:     #E0D0C0;
-          --text-main:  #1A0F08;
-          --text-sub:   #7A5C44;
+          --brown-dark: #4A1E0A; --brown-main: #6B2D0F; --brown-mid: #8B4513;
+          --gold: #C8962E; --gold-light: #E8B84B; --cream: #FDF8F2;
+          --border: #E0D0C0; --text-main: #1A0F08; --text-sub: #7A5C44;
         }
 
-        .su-root {
-          display: flex;
-          width: 100%;
-          height: 100vh;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          overflow: hidden;
-        }
+        .su-root { display: flex; width: 100%; height: 100vh; font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; }
 
-        /* LEFT — sticky, centered, never scrolls */
-        .su-left {
-          width: 42%;
-          flex-shrink: 0;
-          position: relative;
-          height: 100vh;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          overflow: hidden;
-        }
-
-        .su-left-overlay {
-          position: absolute; inset: 0; z-index: 1;
-          background: linear-gradient(160deg, rgba(74,30,10,0.55) 0%, rgba(50,15,5,0.82) 60%, rgba(30,8,2,0.94) 100%);
-        }
-
-        .su-left-content {
-          position: relative; z-index: 2;
-          padding: 3rem 2.75rem;
-          display: flex; flex-direction: column; gap: 1.1rem;
-        }
-
-        .su-logo-wrap {
-          display: inline-flex; align-items: center;
-          background: rgba(255,255,255,0.95);
-          padding: 7px 14px; border-radius: 9px;
-          border-left: 4px solid var(--gold);
-          width: fit-content;
-        }
-
-        .su-tagline {
-          font-size: 10.5px; font-weight: 700;
-          letter-spacing: 2.5px; text-transform: uppercase;
-          color: var(--gold-light);
-        }
-
-        .su-title {
-          font-family: 'Playfair Display', serif;
-          font-size: 2.1rem; font-weight: 700;
-          color: #fff; line-height: 1.25;
-        }
-
+        .su-left { width: 42%; flex-shrink: 0; position: relative; height: 100vh; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+        .su-left-overlay { position: absolute; inset: 0; z-index: 1; background: linear-gradient(160deg, rgba(74,30,10,0.55) 0%, rgba(50,15,5,0.82) 60%, rgba(30,8,2,0.94) 100%); }
+        .su-left-content { position: relative; z-index: 2; padding: 3rem 2.75rem; display: flex; flex-direction: column; gap: 1.1rem; }
+        .su-logo-wrap { display: inline-flex; align-items: center; background: rgba(255,255,255,0.95); padding: 7px 14px; border-radius: 9px; border-left: 4px solid var(--gold); width: fit-content; }
+        .su-tagline { font-size: 10.5px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold-light); }
+        .su-title { font-family: 'Playfair Display', serif; font-size: 2.1rem; font-weight: 700; color: #fff; line-height: 1.25; }
         .su-title span { color: var(--gold-light); }
-
         .su-divider { width: 48px; height: 3px; background: var(--gold); border-radius: 2px; }
+        .su-desc { font-size: 13px; color: rgba(255,255,255,0.62); line-height: 1.75; max-width: 290px; }
+        .su-steps { display: flex; flex-direction: column; gap: 0.8rem; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.14); }
+        .su-step { display: flex; align-items: flex-start; gap: 0.65rem; font-size: 12.5px; color: rgba(255,255,255,0.65); line-height: 1.5; }
+        .su-step-dot { width: 22px; height: 22px; border-radius: 50%; background: rgba(200,150,46,0.22); border: 1.5px solid var(--gold); color: var(--gold-light); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
 
-        .su-desc {
-          font-size: 13px; color: rgba(255,255,255,0.62);
-          line-height: 1.75; max-width: 290px;
-        }
+        .su-right { flex: 1; min-width: 0; height: 100vh; overflow-y: auto; background: var(--cream); display: flex; flex-direction: column; align-items: center; padding: 2.5rem 2rem 3rem; }
 
-        .su-steps {
-          display: flex; flex-direction: column; gap: 0.8rem;
-          padding-top: 1.25rem;
-          border-top: 1px solid rgba(255,255,255,0.14);
-        }
-
-        .su-step {
-          display: flex; align-items: flex-start; gap: 0.65rem;
-          font-size: 12.5px; color: rgba(255,255,255,0.65); line-height: 1.5;
-        }
-
-        .su-step-dot {
-          width: 22px; height: 22px; border-radius: 50%;
-          background: rgba(200,150,46,0.22); border: 1.5px solid var(--gold);
-          color: var(--gold-light); font-size: 11px; font-weight: 700;
-          display: flex; align-items: center; justify-content: center;
-          flex-shrink: 0; margin-top: 1px;
-        }
-
-        /* RIGHT — only this scrolls */
-        .su-right {
-          flex: 1; min-width: 0;
-          height: 100vh;
-          overflow-y: auto;
-          background: var(--cream);
-          display: flex; flex-direction: column;
-          align-items: center;
-          padding: 2.5rem 2rem 3rem;
-        }
-
-        .su-card {
-          background: #fff; border-radius: 18px;
-          border: 1px solid var(--border);
-          padding: 2.25rem 2.25rem 2rem;
-          width: 100%; max-width: 500px;
-          box-shadow: 0 8px 32px rgba(107,45,15,0.08);
-        }
-
-        .su-eyebrow {
-          font-size: 11px; font-weight: 700; letter-spacing: 2px;
-          text-transform: uppercase; color: var(--gold); margin-bottom: 0.35rem;
-        }
-
-        .su-card-title {
-          font-family: 'Playfair Display', serif;
-          font-size: 1.7rem; font-weight: 600;
-          color: var(--text-main); margin-bottom: 0.3rem;
-        }
-
+        .su-card { background: #fff; border-radius: 18px; border: 1px solid var(--border); padding: 2.25rem 2.25rem 2rem; width: 100%; max-width: 500px; box-shadow: 0 8px 32px rgba(107,45,15,0.08); }
+        .su-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 0.35rem; }
+        .su-card-title { font-family: 'Playfair Display', serif; font-size: 1.7rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.3rem; }
         .su-card-sub { font-size: 13px; color: var(--text-sub); margin-bottom: 1.5rem; }
 
-        .su-section {
-          font-size: 10px; font-weight: 700; text-transform: uppercase;
-          letter-spacing: 1.5px; color: var(--brown-main);
-          padding-bottom: 0.5rem; border-bottom: 1px solid #e8ddd4;
-          margin-bottom: 1rem; margin-top: 1.5rem;
-        }
-
+        .su-section { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--brown-main); padding-bottom: 0.5rem; border-bottom: 1px solid #e8ddd4; margin-bottom: 1rem; margin-top: 1.5rem; }
         .su-section:first-of-type { margin-top: 0; }
 
         .su-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
-
         .su-field { display: flex; flex-direction: column; gap: 0.3rem; }
         .su-field.full { grid-column: 1 / -1; }
-
-        .su-field label {
-          font-size: 11px; font-weight: 700; text-transform: uppercase;
-          letter-spacing: 0.4px; color: var(--text-main);
-        }
-
+        .su-field label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-main); }
         .su-field label span { color: #c0392b; margin-left: 2px; }
-
         .su-input-wrap { position: relative; }
 
         .su-input-wrap input,
-        .su-input-wrap select {
-          width: 100%; padding: 0.68rem 0.9rem;
-          border: 1.5px solid var(--border); border-radius: 9px;
-          font-size: 13.5px; font-family: inherit;
-          background: var(--cream); color: var(--text-main);
-          outline: none; appearance: none;
-          transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
-        }
+        .su-input-wrap select { width: 100%; padding: 0.68rem 0.9rem; border: 1.5px solid var(--border); border-radius: 9px; font-size: 13.5px; font-family: inherit; background: var(--cream); color: var(--text-main); outline: none; appearance: none; transition: border-color 0.15s, box-shadow 0.15s, background 0.15s; }
 
         .su-input-wrap input:focus,
-        .su-input-wrap select:focus {
-          border-color: var(--brown-mid); background: #fff;
-          box-shadow: 0 0 0 3px rgba(139,69,19,0.09);
-        }
+        .su-input-wrap select:focus { border-color: var(--brown-mid); background: #fff; box-shadow: 0 0 0 3px rgba(139,69,19,0.09); }
 
         .su-input-wrap input::placeholder { color: #C0A882; font-size: 13px; }
         .su-input-wrap select:disabled { background: #f5ede6; color: #aaa; cursor: not-allowed; }
 
-        .su-arrow {
-          position: absolute; right: 0.9rem; top: 50%;
-          transform: translateY(-50%);
-          pointer-events: none; color: #aaa; font-size: 0.65rem;
-        }
+        .su-arrow { position: absolute; right: 0.9rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: #aaa; font-size: 0.65rem; }
 
-        .su-pw-toggle {
-          position: absolute; right: 0.9rem; top: 50%;
-          transform: translateY(-50%);
-          background: none; border: none; cursor: pointer;
-          color: var(--text-sub); font-size: 11px; font-weight: 700;
-          font-family: inherit; transition: color 0.15s;
-        }
-
+        .su-pw-toggle { position: absolute; right: 0.9rem; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-sub); font-size: 11px; font-weight: 700; font-family: inherit; transition: color 0.15s; }
         .su-pw-toggle:hover { color: var(--brown-main); }
 
         .su-strength { display: flex; gap: 4px; margin-top: 0.3rem; align-items: center; }
@@ -410,76 +279,30 @@ export default function SignupPage() {
         .su-match { font-size: 11px; font-weight: 600; margin-top: 0.25rem; }
 
         .su-checks { display: flex; flex-direction: column; gap: 0.65rem; margin-top: 1.1rem; }
-
-        .su-check {
-          display: flex; align-items: flex-start; gap: 0.6rem;
-          font-size: 12px; color: #666; cursor: pointer; line-height: 1.55;
-        }
-
-        .su-check input[type="checkbox"] {
-          width: 15px; height: 15px; flex-shrink: 0;
-          margin-top: 2px; accent-color: var(--brown-main); cursor: pointer;
-        }
-
+        .su-check { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 12px; color: #666; cursor: pointer; line-height: 1.55; }
+        .su-check input[type="checkbox"] { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; accent-color: var(--brown-main); cursor: pointer; }
         .su-check a { color: var(--brown-main); font-weight: 600; text-decoration: none; }
         .su-check a:hover { text-decoration: underline; }
 
-        .su-error {
-          background: #fff5f0; border: 1px solid #f5c8a8;
-          border-radius: 8px; padding: 10px 13px;
-          font-size: 12.5px; color: var(--brown-main); margin-top: 1rem;
-          display: flex; align-items: center; gap: 7px;
-        }
+        .su-error { background: #fff5f0; border: 1px solid #f5c8a8; border-radius: 8px; padding: 10px 13px; font-size: 12.5px; color: var(--brown-main); margin-top: 1rem; display: flex; align-items: center; gap: 7px; }
 
-        .su-btn {
-          width: 100%; height: 48px;
-          background: var(--brown-main); color: #fff;
-          border: none; border-radius: 10px;
-          font-size: 14px; font-weight: 600; font-family: inherit;
-          cursor: pointer; margin-top: 1.25rem;
-          display: flex; align-items: center; justify-content: center; gap: 8px;
-          transition: background 0.15s, transform 0.1s;
-          position: relative; overflow: hidden;
-        }
-
-        .su-btn::before {
-          content: ''; position: absolute; top: 0; left: 0; right: 0;
-          height: 2px; background: var(--gold); border-radius: 10px 10px 0 0;
-        }
-
+        .su-btn { width: 100%; height: 48px; background: var(--brown-main); color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; margin-top: 1.25rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s, transform 0.1s; position: relative; overflow: hidden; }
+        .su-btn::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--gold); border-radius: 10px 10px 0 0; }
         .su-btn:hover:not(:disabled) { background: var(--brown-dark); }
         .su-btn:active:not(:disabled) { transform: scale(0.99); }
         .su-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
-        .su-spinner {
-          width: 16px; height: 16px;
-          border: 2px solid rgba(255,255,255,0.3);
-          border-top-color: #fff; border-radius: 50%;
-          animation: su-spin 0.7s linear infinite; flex-shrink: 0;
-        }
-
+        .su-spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: su-spin 0.7s linear infinite; flex-shrink: 0; }
         @keyframes su-spin { to { transform: rotate(360deg); } }
 
         .su-signin { text-align: center; font-size: 13px; color: var(--text-sub); margin-top: 1rem; }
-        .su-signin a {
-          color: var(--brown-main); font-weight: 600; text-decoration: none;
-          border-bottom: 1px solid var(--gold); padding-bottom: 1px;
-        }
+        .su-signin a { color: var(--brown-main); font-weight: 600; text-decoration: none; border-bottom: 1px solid var(--gold); padding-bottom: 1px; }
         .su-signin a:hover { color: var(--gold); }
 
         .su-footer { margin-top: 1.5rem; font-size: 11px; color: #C0A882; text-align: center; max-width: 500px; }
 
-        @media (max-width: 860px) {
-          .su-left { display: none; }
-          .su-root { height: auto; overflow: visible; }
-          .su-right { height: auto; }
-        }
-
-        @media (max-width: 480px) {
-          .su-grid { grid-template-columns: 1fr; }
-          .su-right { padding: 1.5rem 1rem 2rem; }
-          .su-card { padding: 1.75rem 1.25rem; }
-        }
+        @media (max-width: 860px) { .su-left { display: none; } .su-root { height: auto; overflow: visible; } .su-right { height: auto; } }
+        @media (max-width: 480px) { .su-grid { grid-template-columns: 1fr; } .su-right { padding: 1.5rem 1rem 2rem; } .su-card { padding: 1.75rem 1.25rem; } }
       `}</style>
 
       <div className="su-root">
@@ -675,7 +498,7 @@ export default function SignupPage() {
                   </div>
                 </div>
                 <div className="su-field">
-                  <label>Office Number</label>
+                  <label>Job Title <span>*</span></label>
                   <div className="su-input-wrap">
                     <input
                       type="text"
