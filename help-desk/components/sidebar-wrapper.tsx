@@ -10,7 +10,7 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
 
   const noSidebarPrefix = [
     "/login",
-    "/signup",
+    "/signup", "/verify", "/forgot-password",
     "/verify",
     "/forgot-password",
     "/ict-dashboard",
