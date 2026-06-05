@@ -115,7 +115,7 @@ export default function SignupPage() {
     (async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/directorates/`,
+          `${process.env.NEXT_PUBLIC_API_URL}directorates/`,
         );
         if (!res.ok) throw new Error();
         setDirectorates(await res.json());
@@ -138,7 +138,7 @@ export default function SignupPage() {
       setLoadingDepts(true);
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/directorates/${form.directorateId}/departments`,
+          `${process.env.NEXT_PUBLIC_API_URL}directorates/${form.directorateId}/departments`,
         );
         if (!res.ok) throw new Error();
         setDepartments(await res.json());
@@ -183,7 +183,7 @@ export default function SignupPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}staff`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
