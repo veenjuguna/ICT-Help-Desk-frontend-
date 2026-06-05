@@ -9,6 +9,7 @@ import {
   History,
   User,
   LogOut,
+  
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -19,6 +20,7 @@ export default function Sidebar() {
     { href: "/request",   label: "Request Assistance", icon: LifeBuoy        },
     { href: "/tickets",   label: "Ticket History",     icon: History         },
     { href: "/profile",   label: "Profile",            icon: User            },
+
   ];
 
   return (

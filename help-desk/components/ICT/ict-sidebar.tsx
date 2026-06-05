@@ -44,7 +44,7 @@ const NAV_LINKS = [
   },
   {
     href: "/ict-dashboard/my-completed",
-    label: "Completed Tickets",
+    label: "My Completed ",
     icon: CheckCircle,
   },
   { href: "/ict-dashboard/team", label: "Team", icon: Users },
