@@ -39,9 +39,9 @@ const DEPARTMENTS: Record<number, { id: number; name: string }[]> = {
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = Number(params.id);
+  const { id: idStr } = await params; const id = Number(idStr);
   const depts = DEPARTMENTS[id] ?? [];
   return NextResponse.json(depts);
 }
