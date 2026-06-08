@@ -68,7 +68,7 @@ function VerifyContent() {
           setTimeout(() => {
             if (!cancelled) {
               setStage("success");
-              localStorage.removeItem("pending_verify_email");
+              // localStorage.removeItem("pending_verify_email");
             }
           }, 400);
         } else {
