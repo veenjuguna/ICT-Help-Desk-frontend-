@@ -30,6 +30,7 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
+        credentials: "include", // ← add this
       });
 
       const data = await res.json();
@@ -41,8 +42,8 @@ export default function LoginPage() {
       }
 
       // Save token
-      localStorage.setItem("access_token", data.access_token);
-      console.log(" Login successful! Token saved:", data.access_token);
+      localStorage.setItem("staff_id", data.staff_id);
+      console.log(" Login successful! Staff ID saved:", data.staff_id);
 
       router.push("/dashboard");
     } catch (err: unknown) {
