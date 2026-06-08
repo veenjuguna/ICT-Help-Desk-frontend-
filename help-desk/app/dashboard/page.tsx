@@ -154,14 +154,14 @@ export default function DashboardPage() {
     (async () => {
       try {
         const token = localStorage.getItem("access_token");
+        if (!token) return;
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
-          credentials: "include", // ← cookies sent automatically, no token header needed
+          headers: { Authorization: `Bearer ${token}` }, // ← use token
         });
         if (res.ok) setUser(await res.json());
       } catch {}
     })();
   }, []);
-
   const fullName = user?.full_name ?? "Loading...";
   const department = user?.department?.name ?? "National Treasury";
   const email = user?.email ?? "";
