@@ -4,7 +4,7 @@ import SidebarWrapper from "@/components/sidebar-wrapper";
 
 export const metadata: Metadata = {
   title: "National Treasury IT Helpdesk",
-  description: "ICT Support Portal — National Treasury & Economic Planning",
+  description: "ICT Support Portal – National Treasury & Economic Planning",
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ display: "flex", minHeight: "100vh", margin: 0, padding: 0, overflow: "hidden" }}>
+      <body style={{ display: "flex", minHeight: "100vh", margin: 0, padding: 0 }}>
         <SidebarWrapper>
           {children}
         </SidebarWrapper>

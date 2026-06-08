@@ -23,18 +23,18 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    console.log("🔐 Attempting login for:", email);
+    console.log("Attempting login for:", email);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
-      console.log("📦 Response status:", res.status);
-      console.log("📦 Response data:", data);
+      console.log(" Response status:", res.status);
+      console.log(" Response data:", data);
 
       if (!res.ok) {
         throw new Error(data.detail || "Login failed");
@@ -42,12 +42,16 @@ export default function LoginPage() {
 
       // Save token
       localStorage.setItem("token", data.access_token);
-      console.log("✅ Login successful! Token saved:", data.access_token);
+      console.log(" Login successful! Token saved:", data.access_token);
 
       router.push("/dashboard");
-    } catch (err: any) {
-      console.error("❌ Login error:", err.message);
-      setError(err.message || "Something went wrong. Please try again.");
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.";
+      console.error(" Login error:", errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -72,10 +76,12 @@ export default function LoginPage() {
         }
 
         .login-root {
-          display: flex;
-          min-height: 100vh;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-        }
+         display: flex;
+         min-height: 100vh;
+         width: 100%;
+         font-family: 'Plus Jakarta Sans', sans-serif;
+         overflow: hidden;
+         }
 
         .login-left {
           width: 55%;
@@ -171,14 +177,15 @@ export default function LoginPage() {
         }
 
         .login-right {
-          flex: 1;
-          background: var(--cream);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 3rem 2rem;
-        }
+         flex: 1;
+         min-width: 0;
+         background: var(--cream);
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+         justify-content: center;
+         padding: 3rem 2rem;
+         }
 
         .form-card {
           background: #fff;
@@ -617,7 +624,7 @@ export default function LoginPage() {
 
               <div className="signup-row">
                 Don&apos;t have an account?&nbsp;
-                <Link href="/signup">Request access</Link>
+                <Link href="/signup">Sign Up</Link>
               </div>
             </form>
 

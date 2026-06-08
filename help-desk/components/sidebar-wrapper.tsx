@@ -6,14 +6,19 @@ import Sidebar from "@/components/sidebar";
 export default function SidebarWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const noSidebarRoutes = [
+  const noSidebarExact = ["/"];
+
+  const noSidebarPrefix = [
     "/login",
-    "/signup",
+    "/signup", "/verify", "/forgot-password",
+    "/verify",
+    "/forgot-password",
     "/ict-dashboard",
   ];
 
   const hideSidebar =
-    noSidebarRoutes.some((route) => pathname.startsWith(route));
+    noSidebarExact.includes(pathname) ||
+    noSidebarPrefix.some((route) => pathname.startsWith(route));
 
   if (hideSidebar) {
     return <>{children}</>;
