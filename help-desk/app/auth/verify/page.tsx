@@ -110,7 +110,7 @@ function VerifyContent() {
   useEffect(() => {
     if (stage !== "success") return;
     if (countdown <= 0) {
-      router.push("/dashboard");
+      router.push("/login");
       return;
     }
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
@@ -122,11 +122,9 @@ function VerifyContent() {
     setResending(true);
     try {
       await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/resend-verification`,
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/resend-verification?email=${encodeURIComponent(email)}`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
         },
       );
     } catch {

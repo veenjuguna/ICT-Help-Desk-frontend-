@@ -17,7 +17,6 @@ interface Department {
 interface FormState {
   personalNumber: string;
   fullName: string;
-  jobTitle: string;
   phone: string;
   email: string;
   password: string;
@@ -200,6 +199,7 @@ export default function SignupPage() {
           password: form.password,
           confirm_password: form.confirmPw,
         }),
+        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) {
@@ -587,11 +587,7 @@ export default function SignupPage() {
                     />
                   </div>
                 </div>
-                <div className="su-field full">
-                  
-                   
-                  </div>
-                </div>
+
                 <div className="su-field full">
                   <label>
                     Work Email <span>*</span>
