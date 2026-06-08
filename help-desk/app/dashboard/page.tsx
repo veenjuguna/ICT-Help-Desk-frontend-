@@ -155,7 +155,7 @@ export default function DashboardPage() {
       try {
         const token = localStorage.getItem("access_token");
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include", // ← cookies sent automatically, no token header needed
         });
         if (res.ok) setUser(await res.json());
       } catch {}
