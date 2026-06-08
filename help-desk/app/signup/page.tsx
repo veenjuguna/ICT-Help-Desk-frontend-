@@ -195,7 +195,6 @@ export default function SignupPage() {
           department_id: form.departmentId
             ? Number(form.departmentId)
             : undefined,
-          job_title: form.jobTitle,
           office_number: form.officeNumber,
           office_location: form.officeLocation,
           role: "STAFF",
