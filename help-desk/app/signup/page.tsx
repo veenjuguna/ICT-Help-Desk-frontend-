@@ -17,7 +17,6 @@ interface Department {
 interface FormState {
   personalNumber: string;
   fullName: string;
-  jobTitle: string;
   phone: string;
   email: string;
   password: string;
@@ -33,7 +32,6 @@ interface FormState {
 const EMPTY: FormState = {
   personalNumber: "",
   fullName: "", // ← was "   fullName"
-  jobTitle: "", // ← was "   jobTitle"
   phone: "",
   email: "",
   password: "",
@@ -195,7 +193,6 @@ export default function SignupPage() {
           department_id: form.departmentId
             ? Number(form.departmentId)
             : undefined,
-          job_title: form.jobTitle,
           office_number: form.officeNumber,
           office_location: form.officeLocation,
           role: "STAFF",
@@ -589,20 +586,7 @@ export default function SignupPage() {
                     />
                   </div>
                 </div>
-                <div className="su-field full">
-                  <label>
-                    Job Title <span>*</span>
-                  </label>
-                  <div className="su-input-wrap">
-                    <input
-                      type="text"
-                      placeholder="e.g. Senior ICT Officer"
-                      value={form.jobTitle}
-                      onChange={(e) => set("jobTitle", e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
+
                 <div className="su-field full">
                   <label>
                     Work Email <span>*</span>
