@@ -209,7 +209,7 @@ export default function SignupPage() {
         return;
       }
       localStorage.setItem("pending_verify_email", form.email);
-      router.push("/verify");
+      router.push("/auth/verify"); // ← updated
     } catch {
       setError("Network error. Please check your connection and try again.");
     } finally {
