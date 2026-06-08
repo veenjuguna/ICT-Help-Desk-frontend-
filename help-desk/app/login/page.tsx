@@ -41,7 +41,7 @@ export default function LoginPage() {
       }
 
       // Save token
-      localStorage.setItem("token", data.access_token);
+      localStorage.setItem("access_token", data.access_token);
       console.log(" Login successful! Token saved:", data.access_token);
 
       router.push("/dashboard");

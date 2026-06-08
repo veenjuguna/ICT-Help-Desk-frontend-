@@ -1,33 +1,91 @@
 "use client";
 
 import Link from "next/link";
-import { LifeBuoy, User, Clock, CheckCircle, AlertCircle, Loader, ArrowRight, Bell } from "lucide-react";
+import {
+  LifeBuoy,
+  User,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Loader,
+  ArrowRight,
+  Bell,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
-const user = {
-  firstName: "Jane",
-  lastName: "Wanjiku",
-  department: "Finance & Accounts",
-  email: "jane.doe@treasury.go.ke",
-};
-
+interface User {
+  full_name: string;
+  email: string;
+  department?: { name: string };
+}
 const stats = [
   { label: "Total Raised", value: 12, icon: AlertCircle, color: "#C8962E" },
-  { label: "Open",         value: 3,  icon: Clock,       color: "#E8B84B" },
-  { label: "In Progress",  value: 2,  icon: Loader,      color: "#6B2D0F" },
-  { label: "Resolved",     value: 7,  icon: CheckCircle, color: "#2D6B0F" },
+  { label: "Open", value: 3, icon: Clock, color: "#E8B84B" },
+  { label: "In Progress", value: 2, icon: Loader, color: "#6B2D0F" },
+  { label: "Resolved", value: 7, icon: CheckCircle, color: "#2D6B0F" },
 ];
 
 const tickets = [
-  { id: "TKT-0012", date: "27 May 2026", time: "09:14", issue: "Laptop not connecting to VPN", category: "Network",  priority: "High",   status: "Open"        },
-  { id: "TKT-0011", date: "26 May 2026", time: "14:32", issue: "Cannot access HRMIS portal",   category: "Software", priority: "High",   status: "In Progress" },
-  { id: "TKT-0010", date: "25 May 2026", time: "11:05", issue: "Printer offline - 3rd floor",  category: "Hardware", priority: "Medium", status: "Resolved"    },
-  { id: "TKT-0009", date: "23 May 2026", time: "08:50", issue: "Password reset request",        category: "Access",   priority: "Low",    status: "Resolved"    },
-  { id: "TKT-0008", date: "20 May 2026", time: "16:20", issue: "Email not syncing on phone",    category: "Software", priority: "Medium", status: "Resolved"    },
+  {
+    id: "TKT-0012",
+    date: "27 May 2026",
+    time: "09:14",
+    issue: "Laptop not connecting to VPN",
+    category: "Network",
+    priority: "High",
+    status: "Open",
+  },
+  {
+    id: "TKT-0011",
+    date: "26 May 2026",
+    time: "14:32",
+    issue: "Cannot access HRMIS portal",
+    category: "Software",
+    priority: "High",
+    status: "In Progress",
+  },
+  {
+    id: "TKT-0010",
+    date: "25 May 2026",
+    time: "11:05",
+    issue: "Printer offline - 3rd floor",
+    category: "Hardware",
+    priority: "Medium",
+    status: "Resolved",
+  },
+  {
+    id: "TKT-0009",
+    date: "23 May 2026",
+    time: "08:50",
+    issue: "Password reset request",
+    category: "Access",
+    priority: "Low",
+    status: "Resolved",
+  },
+  {
+    id: "TKT-0008",
+    date: "20 May 2026",
+    time: "16:20",
+    issue: "Email not syncing on phone",
+    category: "Software",
+    priority: "Medium",
+    status: "Resolved",
+  },
 ];
 
 const notices = [
-  { title: "Scheduled Maintenance", body: "Core systems will be offline Sat 31 May, 11pm–2am.", date: "27 May 2026", urgent: true  },
-  { title: "New ICT Policy 2025",   body: "Please review the updated ICT Policy on the portal.", date: "20 May 2026", urgent: false },
+  {
+    title: "Scheduled Maintenance",
+    body: "Core systems will be offline Sat 31 May, 11pm–2am.",
+    date: "27 May 2026",
+    urgent: true,
+  },
+  {
+    title: "New ICT Policy 2025",
+    body: "Please review the updated ICT Policy on the portal.",
+    date: "20 May 2026",
+    urgent: false,
+  },
 ];
 
 function getHour() {
@@ -39,34 +97,79 @@ function getHour() {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string }> = {
-    "Open":        { bg: "#FFF3E0", color: "#C8962E" },
+    Open: { bg: "#FFF3E0", color: "#C8962E" },
     "In Progress": { bg: "#FFF8E0", color: "#6B2D0F" },
-    "Resolved":    { bg: "#E8F5E9", color: "#2D6B0F" },
-    "Closed":      { bg: "#F3F3F3", color: "#555"    },
+    Resolved: { bg: "#E8F5E9", color: "#2D6B0F" },
+    Closed: { bg: "#F3F3F3", color: "#555" },
   };
   const s = map[status] ?? { bg: "#eee", color: "#333" };
   return (
-    <span style={{
-      background: s.bg, color: s.color,
-      padding: "3px 10px", borderRadius: "20px",
-      fontSize: "11.5px", fontWeight: 600, whiteSpace: "nowrap",
-    }}>
+    <span
+      style={{
+        background: s.bg,
+        color: s.color,
+        padding: "3px 10px",
+        borderRadius: "20px",
+        fontSize: "11.5px",
+        fontWeight: 600,
+        whiteSpace: "nowrap",
+      }}
+    >
       {status}
     </span>
   );
 }
 
 function PriorityDot({ priority }: { priority: string }) {
-  const colors: Record<string, string> = { High: "#BB0000", Medium: "#C8962E", Low: "#2D6B0F" };
+  const colors: Record<string, string> = {
+    High: "#BB0000",
+    Medium: "#C8962E",
+    Low: "#2D6B0F",
+  };
   return (
     <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-      <span style={{ width: 7, height: 7, borderRadius: "50%", background: colors[priority] ?? "#aaa", flexShrink: 0, display: "inline-block" }} />
+      <span
+        style={{
+          width: 7,
+          height: 7,
+          borderRadius: "50%",
+          background: colors[priority] ?? "#aaa",
+          flexShrink: 0,
+          display: "inline-block",
+        }}
+      />
       {priority}
     </span>
   );
 }
 
 export default function DashboardPage() {
+  const [user, setUser] = useState<{
+    full_name: string;
+    email: string;
+    department?: { name: string };
+  } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) setUser(await res.json());
+      } catch {}
+    })();
+  }, []);
+
+  const fullName = user?.full_name ?? "Loading...";
+  const department = user?.department?.name ?? "National Treasury";
+  const email = user?.email ?? "";
+  const initials = fullName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2);
   return (
     <>
       <style>{`
@@ -412,7 +515,6 @@ export default function DashboardPage() {
       `}</style>
 
       <div className="dash-root">
-
         {/* TOPBAR */}
         <div className="topbar">
           <p className="topbar-left">
@@ -423,20 +525,19 @@ export default function DashboardPage() {
               <Bell size={16} />
               <span className="notif-dot" />
             </button>
-            <div className="avatar" title={`${user.firstName} ${user.lastName}`}>
-              {user.firstName[0]}{user.lastName[0]}
-            </div>
+            <div className="avatar" title={fullName}></div>
           </div>
         </div>
 
         <div className="dash-content">
-
           {/* GREETING */}
           <div className="greeting-card">
             <div className="greeting-left">
               <p className="greeting-tag">{getHour()}</p>
-              <h1 className="greeting-name">{user.firstName} {user.lastName}</h1>
-              <p className="greeting-dept">{user.department} &nbsp;·&nbsp; {user.email}</p>
+              <h1 className="greeting-name">{fullName}</h1>{" "}
+              <p className="greeting-dept">
+                {department} &nbsp;·&nbsp; {email}
+              </p>
             </div>
             <div className="greeting-actions">
               <Link href="/request" className="btn-primary">
@@ -454,7 +555,10 @@ export default function DashboardPage() {
               const Icon = s.icon;
               return (
                 <div className="stat-card" key={s.label}>
-                  <div className="stat-icon" style={{ background: `${s.color}18` }}>
+                  <div
+                    className="stat-icon"
+                    style={{ background: `${s.color}18` }}
+                  >
                     <Icon size={20} color={s.color} />
                   </div>
                   <div>
@@ -468,7 +572,6 @@ export default function DashboardPage() {
 
           {/* TWO COLUMN */}
           <div className="two-col">
-
             {/* TICKETS */}
             <div className="section-card">
               <div className="section-header">
@@ -495,11 +598,17 @@ export default function DashboardPage() {
                         <p className="ticket-date">{t.date}</p>
                         <p className="ticket-time">{t.time}</p>
                       </td>
-                      <td><span className="ticket-id">{t.id}</span></td>
+                      <td>
+                        <span className="ticket-id">{t.id}</span>
+                      </td>
                       <td style={{ maxWidth: 180 }}>{t.issue}</td>
                       <td>{t.category}</td>
-                      <td><PriorityDot priority={t.priority} /></td>
-                      <td><StatusBadge status={t.status} /></td>
+                      <td>
+                        <PriorityDot priority={t.priority} />
+                      </td>
+                      <td>
+                        <StatusBadge status={t.status} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -507,8 +616,13 @@ export default function DashboardPage() {
             </div>
 
             {/* RIGHT COLUMN */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "1.5rem",
+              }}
+            >
               {/* QUICK ACTIONS */}
               <div className="section-card">
                 <div className="section-header">
@@ -516,19 +630,27 @@ export default function DashboardPage() {
                 </div>
                 <div className="quick-links">
                   <Link href="/request" className="quick-link-item">
-                    <div className="quick-link-icon"><LifeBuoy size={16} /></div>
+                    <div className="quick-link-icon">
+                      <LifeBuoy size={16} />
+                    </div>
                     Request Assistance
                   </Link>
                   <Link href="/tickets" className="quick-link-item">
-                    <div className="quick-link-icon"><Clock size={16} /></div>
+                    <div className="quick-link-icon">
+                      <Clock size={16} />
+                    </div>
                     Ticket History
                   </Link>
                   <Link href="/profile" className="quick-link-item">
-                    <div className="quick-link-icon"><User size={16} /></div>
+                    <div className="quick-link-icon">
+                      <User size={16} />
+                    </div>
                     My Profile
                   </Link>
                   <Link href="/support" className="quick-link-item">
-                    <div className="quick-link-icon"><Bell size={16} /></div>
+                    <div className="quick-link-icon">
+                      <Bell size={16} />
+                    </div>
                     ICT Support
                   </Link>
                 </div>
@@ -541,8 +663,13 @@ export default function DashboardPage() {
                 </div>
                 <div className="notice-list">
                   {notices.map((n, i) => (
-                    <div key={i} className={`notice-item${n.urgent ? " urgent" : ""}`}>
-                      {n.urgent && <p className="notice-urgent-tag">⚠ Urgent</p>}
+                    <div
+                      key={i}
+                      className={`notice-item${n.urgent ? " urgent" : ""}`}
+                    >
+                      {n.urgent && (
+                        <p className="notice-urgent-tag">⚠ Urgent</p>
+                      )}
                       <p className="notice-title">{n.title}</p>
                       <p className="notice-body">{n.body}</p>
                       <p className="notice-date">{n.date}</p>
@@ -550,10 +677,8 @@ export default function DashboardPage() {
                   ))}
                 </div>
               </div>
-
             </div>
           </div>
-
         </div>
       </div>
     </>
