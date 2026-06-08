@@ -523,7 +523,9 @@ export default function DashboardPage() {
               <Bell size={16} />
               <span className="notif-dot" />
             </button>
-            <div className="avatar" title={fullName}></div>
+            <div className="avatar" title={fullName}>
+              {initials}
+            </div>
           </div>
         </div>
 

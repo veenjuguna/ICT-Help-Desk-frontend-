@@ -37,7 +37,7 @@ export default function LoginPage() {
 
       // No localStorage needed — cookie is set automatically
 
-      router.push("/dashboard");
+      router.push("/login");
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error

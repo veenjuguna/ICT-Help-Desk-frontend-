@@ -199,6 +199,7 @@ export default function SignupPage() {
           password: form.password,
           confirm_password: form.confirmPw,
         }),
+        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) {
