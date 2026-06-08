@@ -36,7 +36,7 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data.detail || "Login failed");
 
       // No localStorage needed — cookie is set automatically
-      localStorage.setItem("staff_id", data.staff_id); // keep only if needed elsewhere
+
       router.push("/dashboard");
     } catch (err: unknown) {
       const errorMessage =
