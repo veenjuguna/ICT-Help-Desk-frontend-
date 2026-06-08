@@ -29,19 +29,14 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
+        credentials: "include", // ← this sets the cookie
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Login failed");
 
-      if (!res.ok) {
-        throw new Error(data.detail || "Login failed");
-      }
-
-      // Save token — check which field has the token
-      const token = data.token ?? data.access_token ?? data.session_token;
-      localStorage.setItem("access_token", token);
-      localStorage.setItem("staff_id", data.staff_id);
-
+      // No localStorage needed — cookie is set automatically
+      localStorage.setItem("staff_id", data.staff_id); // keep only if needed elsewhere
       router.push("/dashboard");
     } catch (err: unknown) {
       const errorMessage =
