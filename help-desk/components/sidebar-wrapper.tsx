@@ -7,11 +7,11 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
   const pathname = usePathname();
 
   const noSidebarExact = ["/"];
-
   const noSidebarPrefix = [
     "/login",
-    "/signup","/forgot-password",
+    "/signup",
     "/verify",
+    "/auth",
     "/forgot-password",
     "/ict-dashboard",
   ];
