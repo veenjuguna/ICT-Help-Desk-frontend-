@@ -153,10 +153,8 @@ export default function DashboardPage() {
   useEffect(() => {
     (async () => {
       try {
-        const token = localStorage.getItem("access_token");
-        if (!token) return;
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
-          headers: { Authorization: `Bearer ${token}` }, // ← use token
+          credentials: "include",
         });
         if (res.ok) setUser(await res.json());
       } catch {}
