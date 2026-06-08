@@ -23,27 +23,24 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    console.log("Attempting login for:", email);
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
-        credentials: "include", // ← add this
       });
 
       const data = await res.json();
-      console.log(" Response status:", res.status);
-      console.log(" Response data:", data);
 
       if (!res.ok) {
         throw new Error(data.detail || "Login failed");
       }
 
-      // Save token
+      // Save token — check which field has the token
+      const token = data.token ?? data.access_token ?? data.session_token;
+      localStorage.setItem("access_token", token);
       localStorage.setItem("staff_id", data.staff_id);
-      console.log(" Login successful! Staff ID saved:", data.staff_id);
 
       router.push("/dashboard");
     } catch (err: unknown) {
@@ -51,7 +48,6 @@ export default function LoginPage() {
         err instanceof Error
           ? err.message
           : "Something went wrong. Please try again.";
-      console.error(" Login error:", errorMessage);
       setError(errorMessage);
     } finally {
       setLoading(false);
