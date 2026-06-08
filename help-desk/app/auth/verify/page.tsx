@@ -110,7 +110,7 @@ function VerifyContent() {
   useEffect(() => {
     if (stage !== "success") return;
     if (countdown <= 0) {
-      router.push("/dashboard");
+      router.push("/login");
       return;
     }
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);

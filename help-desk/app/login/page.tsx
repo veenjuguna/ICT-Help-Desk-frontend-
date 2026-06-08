@@ -37,7 +37,7 @@ export default function LoginPage() {
 
       // No localStorage needed — cookie is set automatically
 
-      router.push("/login");
+      router.push("/dashboard");
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error
@@ -621,7 +621,7 @@ export default function LoginPage() {
             </form>
 
             <div className="form-footer">
-              <div className="support-row">
+              {/* <div className="support-row">
                 <svg
                   width="13"
                   height="13"
@@ -636,7 +636,7 @@ export default function LoginPage() {
                 <Link href="/support" className="support-link">
                   Contact ICT Support
                 </Link>
-              </div>
+              </div> */}
             </div>
           </div>
 
