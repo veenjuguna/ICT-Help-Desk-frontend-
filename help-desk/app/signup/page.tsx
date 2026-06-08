@@ -551,6 +551,7 @@ export default function SignupPage() {
                   <div className="su-input-wrap">
                     <input
                       type="text"
+                      placeholder="e.g. TNT/001234"
                       value={form.personalNumber}
                       onChange={(e) => set("personalNumber", e.target.value)}
                       required
@@ -564,6 +565,7 @@ export default function SignupPage() {
                   <div className="su-input-wrap">
                     <input
                       type="tel"
+                      placeholder="+254 7XX XXX XXX"
                       value={form.phone}
                       onChange={(e) => set("phone", e.target.value)}
                       required
@@ -577,6 +579,7 @@ export default function SignupPage() {
                   <div className="su-input-wrap">
                     <input
                       type="text"
+                      placeholder="e.g. Jane Doe"
                       value={form.fullName}
                       onChange={(e) => set("fullName", e.target.value)}
                       required
@@ -591,6 +594,7 @@ export default function SignupPage() {
                   <div className="su-input-wrap">
                     <input
                       type="email"
+                      placeholder="you@treasury.go.ke"
                       value={form.email}
                       onChange={(e) => set("email", e.target.value)}
                       required
