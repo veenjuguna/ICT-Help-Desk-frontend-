@@ -32,7 +32,7 @@ function getUserFromStorage(): { name: string; dept: string } {
 
 const NAV_LINKS = [
   {
-    href: "/ict-dashboard/dashboard",
+    href: "/ict-dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
   },
@@ -44,7 +44,7 @@ const NAV_LINKS = [
   },
   {
     href: "/ict-dashboard/my-completed",
-    label: "Completed Tickets",
+    label: "My Completed ",
     icon: CheckCircle,
   },
   { href: "/ict-dashboard/team", label: "Team", icon: Users },
@@ -293,7 +293,7 @@ export default function IctSidebar() {
               {NAV_LINKS.map(({ href, label, icon: Icon }) => {
                 const isActive =
                   pathname === href ||
-                  (href !== "/ict-dashboard/dashboard" &&
+                  (href !== "/ict-dashboard" &&
                     pathname.startsWith(href));
                 return (
                   <Link

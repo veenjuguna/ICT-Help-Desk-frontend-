@@ -9,6 +9,7 @@ import {
   History,
   User,
   LogOut,
+  
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -19,6 +20,7 @@ export default function Sidebar() {
     { href: "/request",   label: "Request Assistance", icon: LifeBuoy        },
     { href: "/tickets",   label: "Ticket History",     icon: History         },
     { href: "/profile",   label: "Profile",            icon: User            },
+
   ];
 
   return (
@@ -184,7 +186,7 @@ export default function Sidebar() {
             {/* HEADER — logo with white filter applied */}
             <div className="sidebar-header">
               <Image
-                src="/tnt-logo-1.png"
+                src="/tnt-logo.jpeg"
                 alt="The National Treasury — Republic of Kenya"
                 width={190}
                 height={48}
@@ -193,7 +195,7 @@ export default function Sidebar() {
                   height: "40px",
                   width: "auto",
                   maxWidth: "200px",
-                  filter: "brightness(0) invert(1)",
+                  
                 }}
                 priority
               />
