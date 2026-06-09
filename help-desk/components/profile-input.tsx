@@ -3,7 +3,8 @@ type ProfileInputProps = {
   placeholder?: string;
   value?: string;
   type?: string;
-  disabled?: boolean; // ← add
+  disabled?: boolean;
+  onChange?: (val: string) => void; // ← add
 };
 export default function ProfileInput({
   label,
@@ -11,6 +12,7 @@ export default function ProfileInput({
   value,
   type = "text",
   disabled = false, // ← add
+  onChange, // ← add
 }: ProfileInputProps) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -27,8 +29,10 @@ export default function ProfileInput({
       </label>
       <input
         type={type}
-        defaultValue={value}
+        value={value ?? ""}
         placeholder={placeholder}
+        onChange={(e) => onChange?.(e.target.value)}
+        disabled={disabled}
         style={{
           width: "100%",
           height: 42,
@@ -45,7 +49,6 @@ export default function ProfileInput({
         }}
         onFocus={(e) => (e.target.style.borderColor = "#6B2D0F")}
         onBlur={(e) => (e.target.style.borderColor = "#EDE0D0")}
-        disabled={disabled}
       />
     </div>
   );

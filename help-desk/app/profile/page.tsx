@@ -17,13 +17,26 @@ export default function ProfilePage() {
     department?: { name: string };
   } | null>(null);
 
+  // ADD these 4 lines right after:  const [user, setUser] = useState<...>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editNumber, setEditNumber] = useState("");
+
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
           credentials: "include",
         });
-        if (res.ok) setUser(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data);
+          setEditName(data.full_name ?? "");
+          setEditPhone(data.phone_number ?? "");
+          setEditLocation(data.office_location ?? "");
+          setEditNumber(data.office_number ?? "");
+        }
       } catch {}
     })();
   }, []);
@@ -42,7 +55,7 @@ export default function ProfilePage() {
       .join("")
       .slice(0, 2) || "—";
 
-  // REPLACE handleSave
+  // REPLACE the entire handleSave
   const handleSave = async () => {
     if (editing && user) {
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/${user.id}`, {
@@ -50,16 +63,26 @@ export default function ProfilePage() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          full_name: fullName,
-          phone_number: phone,
-          office_location: officeLocation,
-          office_number: officeNumber,
+          ...(editName && { full_name: editName }),
+          ...(editPhone && { phone_number: editPhone }),
+          ...(editLocation && { office_location: editLocation }),
+          ...(editNumber && { office_number: editNumber }),
         }),
       });
+      setUser((u) =>
+        u
+          ? {
+              ...u,
+              full_name: editName,
+              phone_number: editPhone,
+              office_location: editLocation,
+              office_number: editNumber,
+            }
+          : u,
+      );
     }
     setEditing((v) => !v);
   };
-
   return (
     <>
       <style>{`
@@ -280,9 +303,11 @@ export default function ProfilePage() {
               />
               <ProfileInput
                 label="Full Name"
-                value={fullName}
+                value={editName} // ← correct
+                onChange={setEditName}
                 disabled={!editing}
               />
+
               <ProfileInput
                 label="Email Address"
                 value={email}
@@ -291,6 +316,7 @@ export default function ProfilePage() {
               <ProfileInput
                 label="Phone Number"
                 value={phone}
+                onChange={setEditPhone}
                 disabled={!editing}
               />
               <ProfileInput
@@ -301,11 +327,13 @@ export default function ProfilePage() {
               <ProfileInput
                 label="Office Location"
                 value={officeLocation}
+                onChange={setEditLocation}
                 disabled={!editing}
               />
               <ProfileInput
                 label="Office Number"
                 value={officeNumber}
+                onChange={setEditNumber}
                 disabled={!editing}
               />
             </div>
