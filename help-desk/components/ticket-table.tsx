@@ -3,11 +3,10 @@ import StatusBadge from "./status-badge";
 import { useEffect, useState } from "react";
 
 type Ticket = {
-  id: string;
-  ticket_number: string;
-  issue_description: string;
-  category: { name: string };
-  priority: string;
+  id: number;
+  description: string; // not issue_description
+  category: string; // enum string e.g. "HARDWARE", not { name: string }
+  priority?: string;
   status: string;
   created_at: string;
 };
@@ -77,14 +76,11 @@ export default function TicketTable() {
                     </div>
                   </td>
                   <td className="p-4 text-green-700 font-medium">
-                    {ticket.ticket_number}
+                    TKT-{String(ticket.id).padStart(3, "0")}
                   </td>
-                  <td className="p-4">{ticket.issue_description}</td>
+                  <td className="p-4">{ticket.description}</td>
                   <td className="p-4">
-                    <div>{ticket.category?.name}</div>
-                    <div className="text-sm text-gray-500">
-                      {ticket.priority}
-                    </div>
+                    <div>{ticket.category}</div>
                   </td>
                   <td className="p-4">
                     <StatusBadge status={ticket.status as any} />
