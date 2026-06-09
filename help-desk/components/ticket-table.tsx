@@ -1,36 +1,34 @@
+"use client";
 import StatusBadge from "./status-badge";
+import { useEffect, useState } from "react";
 
-const tickets = [
-  {
-    id: "TKT-001",
-    issue: "Laptop not connecting to WiFi network",
-    category: "Network",
-    priority: "High Priority",
-    status: "Open",
-    date: "2026-05-13",
-    time: "09:30",
-  },
-  {
-    id: "TKT-002",
-    issue: "MS Office activation error",
-    category: "Software",
-    priority: "Medium Priority",
-    status: "In Progress",
-    date: "2026-05-12",
-    time: "14:15",
-  },
-  {
-    id: "TKT-003",
-    issue: "Cannot access shared drive folders",
-    category: "Access & Permissions",
-    priority: "High Priority",
-    status: "Open",
-    date: "2026-05-11",
-    time: "11:00",
-  },
-];
+type Ticket = {
+  id: string;
+  ticket_number: string;
+  issue_description: string;
+  category: { name: string };
+  priority: string;
+  status: string;
+  created_at: string;
+};
 
 export default function TicketTable() {
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/`, {
+          credentials: "include",
+        });
+        if (res.ok) setTickets(await res.json());
+      } catch {
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       {/* Header */}
@@ -52,28 +50,48 @@ export default function TicketTable() {
           </thead>
 
           <tbody>
-            {tickets.map((ticket) => (
-              <tr key={ticket.id} className="border-t border-gray-200">
-                <td className="p-4">
-                  <div>{ticket.date}</div>
-                  <div className="text-sm text-gray-500">{ticket.time}</div>
-                </td>
-
-                <td className="p-4 text-green-700 font-medium">{ticket.id}</td>
-
-                <td className="p-4">{ticket.issue}</td>
-
-                <td className="p-4">
-                  <div>{ticket.category}</div>
-
-                  <div className="text-sm text-gray-500">{ticket.priority}</div>
-                </td>
-
-                <td className="p-4">
-                  <StatusBadge status={ticket.status as any} />
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="p-6 text-center text-gray-400">
+                  Loading tickets...
                 </td>
               </tr>
-            ))}
+            ) : tickets.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="p-6 text-center text-gray-400">
+                  No tickets found.
+                </td>
+              </tr>
+            ) : (
+              tickets.map((ticket) => (
+                <tr key={ticket.id} className="border-t border-gray-200">
+                  <td className="p-4">
+                    <div>
+                      {new Date(ticket.created_at).toLocaleDateString()}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {new Date(ticket.created_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                  </td>
+                  <td className="p-4 text-green-700 font-medium">
+                    {ticket.ticket_number}
+                  </td>
+                  <td className="p-4">{ticket.issue_description}</td>
+                  <td className="p-4">
+                    <div>{ticket.category?.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {ticket.priority}
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <StatusBadge status={ticket.status as any} />
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
