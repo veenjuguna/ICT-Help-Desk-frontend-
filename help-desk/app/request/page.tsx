@@ -63,6 +63,12 @@ export default function RequestPage() {
       setError("Please describe the issue in at least 5 characters.");
       return;
     }
+    if (!staffId) {
+      setError(
+        "Unable to identify your account. Please log out and log back in.",
+      );
+      return;
+    }
 
     setLoading(true);
     try {
@@ -79,7 +85,14 @@ export default function RequestPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.detail ?? "Failed to submit ticket. Please try again.");
+        const detail = data?.detail;
+        const msg =
+          typeof detail === "string"
+            ? detail
+            : Array.isArray(detail)
+              ? detail.map((d: { msg?: string }) => d.msg).join(", ")
+              : "Failed to submit ticket. Please try again.";
+        setError(msg);
         return;
       }
       setSuccess(true);
