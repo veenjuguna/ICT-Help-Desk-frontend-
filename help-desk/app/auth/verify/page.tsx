@@ -68,7 +68,7 @@ function VerifyContent() {
           setTimeout(() => {
             if (!cancelled) {
               setStage("success");
-              localStorage.removeItem("pending_verify_email");
+              // localStorage.removeItem("pending_verify_email");
             }
           }, 400);
         } else {
@@ -118,7 +118,7 @@ function VerifyContent() {
   }, [stage, countdown, router]);
 
   const handleResend = async () => {
-    if (!email || resending) return;
+    if (resending) return;
     setResending(true);
     try {
       await fetch(
@@ -482,7 +482,7 @@ function VerifyContent() {
                   <button
                     className="vp-btn-ghost"
                     onClick={handleResend}
-                    disabled={resending || !email}
+                    disabled={resending}
                   >
                     {resending ? "Sending..." : "Resend verification email"}
                   </button>
