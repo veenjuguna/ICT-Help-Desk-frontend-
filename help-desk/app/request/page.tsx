@@ -25,7 +25,7 @@ export default function RequestPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
           credentials: "include",
         });
         if (res.ok) {
