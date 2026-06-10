@@ -1,4 +1,4 @@
-//dashboard
+// staff dashboard
 "use client";
 
 import Link from "next/link";
