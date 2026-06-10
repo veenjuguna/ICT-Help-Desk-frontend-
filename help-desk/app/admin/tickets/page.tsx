@@ -1,0 +1,784 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  Search,
+  ChevronDown,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  UserCheck,
+  RefreshCw,
+  X,
+  Loader2,
+  MessageSquare,
+  Paperclip,
+  Send,
+  Calendar,
+  ChevronUp,
+  Wifi,
+  Monitor,
+  HardDrive,
+  Mail,
+  Settings,
+} from "lucide-react";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface Ticket {
+  id: number;
+  ticket_no: string;
+  subject: string;
+  description: string;
+  status: "open" | "in_progress" | "resolved" | "closed";
+  priority: "low" | "medium" | "high" | "critical";
+  category: string;
+  created_at: string;
+  updated_at: string;
+  raised_by: { id: number; first_name: string; last_name: string; department: string };
+  assigned_to: { id: number; first_name: string; last_name: string } | null;
+  comments_count: number;
+  attachments_count: number;
+}
+
+interface IctPersonnel {
+  id: number;
+  first_name: string;
+  last_name: string;
+  category: string;
+  availability_status: "available" | "busy" | "offline";
+  open_tickets_count: number;
+}
+
+interface Comment {
+  id: number;
+  author: string;
+  body: string;
+  created_at: string;
+  is_internal: boolean;
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-backend.onrender.com";
+
+const MOCK_PERSONNEL: IctPersonnel[] = [
+  { id: 1, first_name: "Brian",  last_name: "Odhiambo", category: "Hardware", availability_status: "busy",      open_tickets_count: 3 },
+  { id: 2, first_name: "Ann",    last_name: "Wanjiku",   category: "Network",  availability_status: "available", open_tickets_count: 2 },
+  { id: 3, first_name: "Ivy",    last_name: "Njuguna",   category: "Software", availability_status: "available", open_tickets_count: 1 },
+  { id: 4, first_name: "Kevin",  last_name: "Mutua",     category: "Email",    availability_status: "offline",   open_tickets_count: 0 },
+  { id: 5, first_name: "Stella", last_name: "Kimani",    category: "Hardware", availability_status: "available", open_tickets_count: 1 },
+];
+
+const MOCK_TICKETS: Ticket[] = [
+  { id: 1,  ticket_no: "TKT-0041", subject: "Cannot access email — Outlook not opening",  description: "Outlook freezes on startup. Tried restarting but issue persists.",           status: "open",        priority: "high",     category: "Email",    created_at: "2025-06-09T08:14:00Z", updated_at: "2025-06-09T08:14:00Z", raised_by: { id: 10, first_name: "Grace",  last_name: "Mwangi",  department: "Budget"      }, assigned_to: null,                                               comments_count: 0, attachments_count: 1 },
+  { id: 2,  ticket_no: "TKT-0040", subject: "Printer on 4th floor offline",               description: "HP LaserJet shows offline. Other users affected too.",                        status: "in_progress", priority: "medium",   category: "Hardware", created_at: "2025-06-08T11:30:00Z", updated_at: "2025-06-09T07:00:00Z", raised_by: { id: 11, first_name: "James",  last_name: "Kariuki", department: "Procurement" }, assigned_to: { id: 1, first_name: "Brian",  last_name: "Odhiambo" }, comments_count: 3, attachments_count: 0 },
+  { id: 3,  ticket_no: "TKT-0039", subject: "VPN disconnecting frequently",               description: "VPN drops every 20–30 minutes when working remotely.",                       status: "open",        priority: "critical", category: "Network",  created_at: "2025-06-08T09:05:00Z", updated_at: "2025-06-08T09:05:00Z", raised_by: { id: 12, first_name: "Faith",  last_name: "Njoroge", department: "Debt Mgmt"   }, assigned_to: null,                                               comments_count: 1, attachments_count: 0 },
+  { id: 4,  ticket_no: "TKT-0038", subject: "New staff laptop setup request",             description: "New hire starting Monday — needs laptop configured.",                        status: "in_progress", priority: "medium",   category: "Hardware", created_at: "2025-06-07T14:20:00Z", updated_at: "2025-06-08T10:00:00Z", raised_by: { id: 13, first_name: "Peter",  last_name: "Kamau",   department: "HR"          }, assigned_to: { id: 5, first_name: "Stella", last_name: "Kimani"   }, comments_count: 2, attachments_count: 2 },
+  { id: 5,  ticket_no: "TKT-0037", subject: "IFMIS login error — account locked",        description: "Getting 'account locked' when logging into IFMIS portal.",                  status: "resolved",    priority: "high",     category: "Software", created_at: "2025-06-06T16:00:00Z", updated_at: "2025-06-07T11:45:00Z", raised_by: { id: 14, first_name: "Susan",  last_name: "Achieng", department: "Accounts"    }, assigned_to: { id: 3, first_name: "Ivy",    last_name: "Njuguna"  }, comments_count: 4, attachments_count: 0 },
+  { id: 6,  ticket_no: "TKT-0036", subject: "Screen flickering on desktop monitor",      description: "Monitor flickers intermittently. Checked cable — no improvement.",          status: "closed",      priority: "low",      category: "Hardware", created_at: "2025-06-05T10:00:00Z", updated_at: "2025-06-06T09:30:00Z", raised_by: { id: 15, first_name: "David",  last_name: "Otieno",  department: "Legal"       }, assigned_to: { id: 1, first_name: "Brian",  last_name: "Odhiambo" }, comments_count: 2, attachments_count: 1 },
+  { id: 7,  ticket_no: "TKT-0035", subject: "Slow internet on 6th floor",                description: "Internet noticeably slow between 9–11am. Affects all staff on the floor.", status: "open",        priority: "high",     category: "Network",  created_at: "2025-06-09T07:50:00Z", updated_at: "2025-06-09T07:50:00Z", raised_by: { id: 16, first_name: "Lilian", last_name: "Wambua",  department: "Public Debt" }, assigned_to: null,                                               comments_count: 0, attachments_count: 0 },
+  { id: 8,  ticket_no: "TKT-0034", subject: "Email signature not saving",                description: "Every time I update my signature it reverts after a day.",                  status: "open",        priority: "low",      category: "Email",    created_at: "2025-06-09T06:30:00Z", updated_at: "2025-06-09T06:30:00Z", raised_by: { id: 17, first_name: "Moses",  last_name: "Barasa",  department: "Finance"     }, assigned_to: null,                                               comments_count: 0, attachments_count: 0 },
+  { id: 9,  ticket_no: "TKT-0033", subject: "Excel crashing on large files",             description: "Excel closes unexpectedly when opening files above 10MB.",                  status: "in_progress", priority: "medium",   category: "Software", created_at: "2025-06-08T14:00:00Z", updated_at: "2025-06-09T08:00:00Z", raised_by: { id: 18, first_name: "Rachel", last_name: "Ouma",    department: "Planning"    }, assigned_to: { id: 3, first_name: "Ivy",    last_name: "Njuguna"  }, comments_count: 1, attachments_count: 0 },
+  { id: 10, ticket_no: "TKT-0032", subject: "Switch on 3rd floor showing errors",        description: "Network switch LED showing amber — intermittent drops on the floor.",       status: "open",        priority: "critical", category: "Network",  created_at: "2025-06-07T11:00:00Z", updated_at: "2025-06-07T11:00:00Z", raised_by: { id: 19, first_name: "Tom",    last_name: "Simiyu",  department: "ICT"         }, assigned_to: { id: 2, first_name: "Ann",    last_name: "Wanjiku"  }, comments_count: 2, attachments_count: 1 },
+];
+
+const MOCK_COMMENTS: Comment[] = [
+  { id: 1, author: "Brian Odhiambo", body: "Checked the printer driver — will update and restart the spooler.", created_at: "2025-06-08T12:00:00Z", is_internal: false },
+  { id: 2, author: "Brian Odhiambo", body: "Driver updated. Printer back online — please confirm.",            created_at: "2025-06-09T07:00:00Z", is_internal: false },
+  { id: 3, author: "James Kariuki",  body: "Confirmed, printer is working now. Thank you!",                    created_at: "2025-06-09T08:00:00Z", is_internal: false },
+];
+
+const STATUS_CONFIG = {
+  open:        { label: "Open",        color: "#E53E3E", bg: "#FFF5F5", icon: AlertCircle  },
+  in_progress: { label: "In Progress", color: "#C8962E", bg: "#FDF6E7", icon: Clock        },
+  resolved:    { label: "Resolved",    color: "#2F855A", bg: "#F0FFF4", icon: CheckCircle2 },
+  closed:      { label: "Closed",      color: "#718096", bg: "#F7FAFC", icon: XCircle      },
+};
+
+const PRIORITY_CONFIG = {
+  low:      { label: "Low",      color: "#718096", dot: "#CBD5E0" },
+  medium:   { label: "Medium",   color: "#C8962E", dot: "#C8962E" },
+  high:     { label: "High",     color: "#E53E3E", dot: "#E53E3E" },
+  critical: { label: "Critical", color: "#9B2C2C", dot: "#C53030" },
+};
+
+const CATEGORY_ICONS: Record<string, React.ElementType> = {
+  Hardware: HardDrive,
+  Network:  Wifi,
+  Software: Monitor,
+  Email:    Mail,
+};
+
+const AVAIL_CONFIG = {
+  available: { label: "Available", color: "#2F855A", dot: "#38A169" },
+  busy:      { label: "Busy",      color: "#C8962E", dot: "#C8962E" },
+  offline:   { label: "Offline",   color: "#A0AEC0", dot: "#CBD5E0" },
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmt(iso: string) {
+  return new Date(iso).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function timeAgo(iso: string) {
+  const h = Math.floor((Date.now() - new Date(iso).getTime()) / 3600000);
+  if (h < 1) return "Just now";
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+export default function AdminTicketsPage() {
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [tickets, setTickets]     = useState<Ticket[]>(MOCK_TICKETS);
+  const [personnel, setPersonnel] = useState<IctPersonnel[]>(MOCK_PERSONNEL);
+  const [loading, setLoading]     = useState(false);
+  const [search, setSearch]       = useState("");
+  const [statusFilter, setStatus] = useState("all");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const [selected, setSelected]     = useState<Ticket | null>(null);
+  const [comments, setComments]     = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [sendingComment, setSending]= useState(false);
+
+  const [assigning, setAssigning]   = useState<Ticket | null>(null);
+  const [assignTarget, setTarget]   = useState<number | null>(null);
+  const [savingAssign, setSavingA]  = useState(false);
+
+  const [changingStatus, setChangingStatus] = useState<Ticket | null>(null);
+  const [newStatus, setNewStatus]           = useState("");
+  const [savingStatus, setSavingS]          = useState(false);
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [tRes, pRes] = await Promise.all([
+        fetch(`${API}/tickets/`,       { credentials: "include" }),
+        fetch(`${API}/ict-personnel/`, { credentials: "include" }),
+      ]);
+      if (tRes.ok) setTickets(await tRes.json());
+      if (pRes.ok) setPersonnel(await pRes.json());
+    } catch {
+      // keep mock data
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchComments = useCallback(async (ticketId: number) => {
+    try {
+      const res = await fetch(`${API}/tickets/${ticketId}/comments`, { credentials: "include" });
+      if (!res.ok) throw new Error();
+      setComments(await res.json());
+    } catch {
+      setComments(MOCK_COMMENTS);
+    }
+  }, []);
+
+  useEffect(() => {
+    const load = async () => { await fetchAll(); };
+    load();
+  }, [fetchAll]);
+
+  // ── Derived ────────────────────────────────────────────────────────────────
+  const allCategories = Array.from(new Set([
+    ...personnel.map(p => p.category),
+    ...tickets.map(t => t.category),
+  ])).sort();
+
+  const filteredTickets = tickets.filter(t => {
+    const q = search.toLowerCase();
+    const matchQ = !q
+      || t.ticket_no.toLowerCase().includes(q)
+      || t.subject.toLowerCase().includes(q)
+      || `${t.raised_by.first_name} ${t.raised_by.last_name}`.toLowerCase().includes(q);
+    const matchS = statusFilter === "all" || t.status === statusFilter;
+    return matchQ && matchS;
+  });
+
+  const ticketsByCategory  = (cat: string) => filteredTickets.filter(t => t.category === cat);
+  const personnelByCategory = (cat: string) => personnel.filter(p => p.category === cat);
+
+  const totalOpen       = tickets.filter(t => t.status === "open").length;
+  const totalInProgress = tickets.filter(t => t.status === "in_progress").length;
+  const totalResolved   = tickets.filter(t => t.status === "resolved").length;
+  const totalUnassigned = tickets.filter(t => !t.assigned_to && t.status !== "closed" && t.status !== "resolved").length;
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const toggleCollapse = (cat: string) =>
+    setCollapsed(prev => ({ ...prev, [cat]: !prev[cat] }));
+
+  const openDetail = (t: Ticket) => {
+    setSelected(t);
+    fetchComments(t.id);
+  };
+
+  const handleAssign = async () => {
+    if (!assigning || !assignTarget) return;
+    setSavingA(true);
+    try {
+      const res = await fetch(`${API}/tickets/${assigning.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ assigned_to: assignTarget }),
+      });
+      if (!res.ok) throw new Error();
+      const updated: Ticket = await res.json();
+      setTickets(prev => prev.map(t => t.id === assigning.id ? updated : t));
+    } catch {
+      const p = personnel.find(s => s.id === assignTarget);
+      setTickets(prev => prev.map(t =>
+        t.id === assigning.id
+          ? { ...t, assigned_to: p ? { id: p.id, first_name: p.first_name, last_name: p.last_name } : t.assigned_to, status: "in_progress" }
+          : t
+      ));
+    } finally {
+      setSavingA(false);
+      setAssigning(null);
+      setTarget(null);
+    }
+  };
+
+  const handleStatusChange = async () => {
+    if (!changingStatus || !newStatus) return;
+    setSavingS(true);
+    try {
+      const res = await fetch(`${API}/tickets/${changingStatus.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error();
+      const updated: Ticket = await res.json();
+      setTickets(prev => prev.map(t => t.id === changingStatus.id ? updated : t));
+      if (selected?.id === changingStatus.id) {
+        setSelected(prev => prev ? { ...prev, status: newStatus as Ticket["status"] } : null);
+      }
+    } catch {
+      setTickets(prev => prev.map(t =>
+        t.id === changingStatus.id ? { ...t, status: newStatus as Ticket["status"] } : t
+      ));
+    } finally {
+      setSavingS(false);
+      setChangingStatus(null);
+      setNewStatus("");
+    }
+  };
+
+  const handleComment = async () => {
+    if (!selected || !newComment.trim()) return;
+    setSending(true);
+    try {
+      const res = await fetch(`${API}/tickets/${selected.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ body: newComment }),
+      });
+      if (!res.ok) throw new Error();
+      const newCmt: Comment = await res.json();
+      setComments(prev => [...prev, newCmt]);
+    } catch {
+      setComments(prev => [...prev, {
+        id: Date.now(),
+        author: "Admin",
+        body: newComment,
+        created_at: new Date().toISOString(),
+        is_internal: false,
+      }]);
+    } finally {
+      setSending(false);
+      setNewComment("");
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <>
+      <style>{`
+        .tkt-root { padding: 28px 32px; min-height: 100vh; background: #F5F6FA; font-family: 'Inter', system-ui, sans-serif; }
+
+        .tkt-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .tkt-header h1 { font-size: 1.35rem; font-weight: 700; color: #1A2456; margin: 0 0 2px; }
+        .tkt-header p  { font-size: 0.82rem; color: #718096; margin: 0; }
+        .tkt-refresh-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: #fff; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 0.82rem; font-weight: 600; color: #1A2456; cursor: pointer; }
+        .tkt-refresh-btn:hover { border-color: #C8962E; color: #C8962E; }
+
+        .tkt-strip { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tkt-chip { background: #fff; border: 1.5px solid #E2E8F0; border-radius: 8px; padding: 10px 18px; display: flex; flex-direction: column; min-width: 110px; }
+        .tkt-chip-val { font-size: 1.4rem; font-weight: 800; color: #1A2456; }
+        .tkt-chip-label { font-size: 0.72rem; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+        .tkt-chip.red .tkt-chip-val  { color: #E53E3E; }
+        .tkt-chip.gold .tkt-chip-val { color: #C8962E; }
+
+        .tkt-filters { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+        .tkt-search-wrap { position: relative; flex: 1; min-width: 220px; }
+        .tkt-search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #A0AEC0; }
+        .tkt-search { width: 100%; padding: 9px 12px 9px 34px; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 0.84rem; color: #1A2456; background: #fff; outline: none; }
+        .tkt-search:focus { border-color: #C8962E; }
+        .tkt-select-wrap { position: relative; }
+        .tkt-select-wrap svg { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #A0AEC0; }
+        .tkt-select { appearance: none; padding: 9px 30px 9px 12px; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 0.84rem; color: #1A2456; background: #fff; cursor: pointer; outline: none; }
+        .tkt-select:focus { border-color: #C8962E; }
+
+        .tkt-section { background: #fff; border: 1.5px solid #E2E8F0; border-radius: 12px; margin-bottom: 20px; overflow: hidden; }
+        .tkt-section-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; cursor: pointer; user-select: none; }
+        .tkt-section-header:hover { background: #FAFBFE; }
+        .tkt-section-title-row { display: flex; align-items: center; gap: 10px; }
+        .tkt-cat-icon { width: 34px; height: 34px; border-radius: 8px; background: #EEF0F9; display: flex; align-items: center; justify-content: center; color: #1A2456; flex-shrink: 0; }
+        .tkt-cat-name { font-size: 1rem; font-weight: 700; color: #1A2456; }
+        .tkt-cat-counts { display: flex; gap: 6px; margin-top: 2px; }
+        .tkt-cat-count { font-size: 0.73rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+        .tkt-section-right { display: flex; align-items: center; gap: 12px; }
+
+        .tkt-divider { height: 1px; background: #EDF2F7; }
+
+        .tkt-tech-row { display: flex; gap: 8px; padding: 10px 20px; background: #FAFBFE; flex-wrap: wrap; align-items: center; }
+        .tkt-tech-label { font-size: 0.72rem; font-weight: 700; color: #A0AEC0; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
+        .tkt-tech-chip { display: flex; align-items: center; gap: 6px; padding: 5px 11px; background: #fff; border: 1.5px solid #E2E8F0; border-radius: 20px; }
+        .tkt-tech-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .tkt-tech-name { font-size: 0.79rem; font-weight: 600; color: #1A2456; }
+        .tkt-tech-load { font-size: 0.73rem; color: #A0AEC0; }
+        .tkt-no-tech { font-size: 0.79rem; color: #A0AEC0; font-style: italic; }
+
+        .tkt-table { width: 100%; border-collapse: collapse; }
+        .tkt-table th { padding: 10px 16px; text-align: left; font-size: 0.71rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #A0AEC0; background: #F7FAFC; border-bottom: 1px solid #EDF2F7; white-space: nowrap; }
+        .tkt-table td { padding: 12px 16px; font-size: 0.84rem; color: #2D3748; border-bottom: 1px solid #EDF2F7; vertical-align: middle; }
+        .tkt-table tr:last-child td { border-bottom: none; }
+        .tkt-table tr:hover td { background: #FAFBFE; cursor: pointer; }
+        .tkt-ticket-no { font-weight: 700; color: #1A2456; font-size: 0.78rem; }
+        .tkt-subject { font-weight: 500; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tkt-meta { font-size: 0.73rem; color: #A0AEC0; margin-top: 2px; }
+        .tkt-priority { display: flex; align-items: center; gap: 5px; font-size: 0.79rem; font-weight: 600; }
+        .tkt-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .tkt-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+        .tkt-assignee { font-size: 0.8rem; font-weight: 500; color: #2D3748; }
+        .tkt-unassigned { font-size: 0.78rem; color: #E53E3E; font-style: italic; }
+        .tkt-actions { display: flex; gap: 5px; }
+        .tkt-btn-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1.5px solid #E2E8F0; background: #fff; cursor: pointer; color: #718096; transition: all 0.15s; }
+        .tkt-btn-icon:hover { border-color: #C8962E; color: #C8962E; background: #FDF6E7; }
+
+        .tkt-empty { padding: 32px; text-align: center; color: #A0AEC0; font-size: 0.86rem; }
+        .tkt-loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 60px; color: #A0AEC0; font-size: 0.88rem; }
+
+        .tkt-overlay { position: fixed; inset: 0; background: rgba(26,36,86,0.35); z-index: 100; display: flex; justify-content: flex-end; }
+        .tkt-drawer { width: 520px; max-width: 95vw; height: 100%; background: #fff; display: flex; flex-direction: column; overflow: hidden; animation: slideIn 0.2s ease; }
+        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        .tkt-drawer-header { padding: 20px 24px; border-bottom: 1.5px solid #EDF2F7; display: flex; align-items: flex-start; justify-content: space-between; background: #1A2456; }
+        .tkt-drawer-header h2 { font-size: 0.98rem; font-weight: 700; color: #fff; margin: 0 0 4px; }
+        .tkt-drawer-header p { font-size: 0.76rem; color: rgba(255,255,255,0.6); margin: 0; }
+        .tkt-close-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.2); background: transparent; cursor: pointer; color: #fff; flex-shrink: 0; }
+        .tkt-close-btn:hover { background: rgba(255,255,255,0.1); }
+        .tkt-drawer-body { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 18px; background: #F5F6FA; }
+        .tkt-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .tkt-detail-item label { font-size: 0.71rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #C8962E; display: block; margin-bottom: 3px; }
+        .tkt-detail-item span { font-size: 0.85rem; color: #1A2456; font-weight: 600; }
+        .tkt-desc-box { background: #F7FAFC; border: 1px solid #EDF2F7; border-radius: 8px; padding: 12px; font-size: 0.84rem; color: #4A5568; line-height: 1.6; }
+        .tkt-section-lbl { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #C8962E; margin-bottom: 8px; border-left: 3px solid #C8962E; padding-left: 8px; }
+        .tkt-comment { padding: 10px 12px; background: #fff; border-radius: 8px; border: 1px solid #E2E8F0; border-left: 3px solid #1A2456; }
+        .tkt-comment-author { font-size: 0.77rem; font-weight: 700; color: #1A2456; }
+        .tkt-comment-time { font-size: 0.71rem; color: #A0AEC0; }
+        .tkt-comment-body { font-size: 0.83rem; color: #4A5568; margin-top: 4px; }
+        .tkt-comment-input-row { display: flex; gap: 8px; }
+        .tkt-comment-input { flex: 1; padding: 9px 12px; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 0.84rem; resize: none; font-family: inherit; outline: none; color: #2D3748; }
+        .tkt-comment-input:focus { border-color: #C8962E; }
+        .tkt-send-btn { padding: 9px 14px; background: #1A2456; color: #fff; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.82rem; font-weight: 600; }
+        .tkt-send-btn:hover { background: #C8962E; }
+        .tkt-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .tkt-modal-overlay { position: fixed; inset: 0; background: rgba(26,36,86,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; }
+        .tkt-modal { background: #fff; border-radius: 14px; width: 420px; max-width: 95vw; padding: 24px; animation: fadeUp 0.2s ease; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        .tkt-modal h3 { font-size: 1rem; font-weight: 700; color: #1A2456; margin: 0 0 4px; }
+        .tkt-modal p  { font-size: 0.81rem; color: #718096; margin: 0 0 16px; }
+        .tkt-staff-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 18px; max-height: 260px; overflow-y: auto; }
+        .tkt-staff-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 13px; border: 1.5px solid #E2E8F0; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
+        .tkt-staff-item:hover { border-color: #C8962E; background: #FDF6E7; }
+        .tkt-staff-item.selected { border-color: #1A2456; background: #EEF0F9; }
+        .tkt-staff-name { font-size: 0.85rem; font-weight: 600; color: #1A2456; }
+        .tkt-staff-load { font-size: 0.75rem; }
+        .tkt-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .tkt-modal-cancel { padding: 8px 18px; border: 1.5px solid #E2E8F0; background: #fff; border-radius: 8px; font-size: 0.84rem; font-weight: 600; color: #718096; cursor: pointer; }
+        .tkt-modal-confirm { padding: 8px 18px; background: #1A2456; color: #fff; border: none; border-radius: 8px; font-size: 0.84rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        .tkt-modal-confirm:hover:not(:disabled) { background: #C8962E; }
+        .tkt-modal-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+        .tkt-status-options { display: flex; flex-direction: column; gap: 7px; margin-bottom: 18px; }
+        .tkt-status-opt { display: flex; align-items: center; justify-content: space-between; padding: 10px 13px; border: 1.5px solid #E2E8F0; border-radius: 8px; cursor: pointer; }
+        .tkt-status-opt:hover { border-color: #C8962E; }
+        .tkt-status-opt.selected { border-color: #1A2456; background: #EEF0F9; }
+
+        @media (max-width: 768px) {
+          .tkt-root { padding: 16px; }
+          .tkt-strip { flex-wrap: wrap; }
+          .tkt-drawer { width: 100%; }
+        }
+      `}</style>
+
+      <div className="tkt-root">
+
+        {/* ── Header ── */}
+        <div className="tkt-header">
+          <div>
+            <h1>Tickets by Category</h1>
+            <p>Each section shows the responsible technician and their tickets</p>
+          </div>
+          <button className="tkt-refresh-btn" onClick={() => fetchAll()}>
+            <RefreshCw size={14} /> Refresh
+          </button>
+        </div>
+
+        {/* ── Summary strip ── */}
+        <div className="tkt-strip">
+          <div className="tkt-chip"><span className="tkt-chip-val">{tickets.length}</span><span className="tkt-chip-label">Total</span></div>
+          <div className="tkt-chip red"><span className="tkt-chip-val">{totalOpen}</span><span className="tkt-chip-label">Open</span></div>
+          <div className="tkt-chip gold"><span className="tkt-chip-val">{totalInProgress}</span><span className="tkt-chip-label">In Progress</span></div>
+          <div className="tkt-chip"><span className="tkt-chip-val">{totalResolved}</span><span className="tkt-chip-label">Resolved</span></div>
+          <div className="tkt-chip red"><span className="tkt-chip-val">{totalUnassigned}</span><span className="tkt-chip-label">Unassigned</span></div>
+        </div>
+
+        {/* ── Filters ── */}
+        <div className="tkt-filters">
+          <div className="tkt-search-wrap">
+            <Search size={14} />
+            <input
+              className="tkt-search"
+              placeholder="Search ticket no., subject, staff…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="tkt-select-wrap">
+            <select className="tkt-select" value={statusFilter} onChange={e => setStatus(e.target.value)}>
+              <option value="all">All Statuses</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </select>
+            <ChevronDown size={13} />
+          </div>
+        </div>
+
+        {/* ── Loading ── */}
+        {loading && (
+          <div className="tkt-loading">
+            <Loader2 size={18} /> Loading…
+          </div>
+        )}
+
+        {/* ── Category sections ── */}
+        {!loading && allCategories.map(cat => {
+          const catTickets   = ticketsByCategory(cat);
+          const catPersonnel = personnelByCategory(cat);
+          const openCount    = catTickets.filter(t => t.status === "open").length;
+          const inProgCount  = catTickets.filter(t => t.status === "in_progress").length;
+          const isCollapsed  = collapsed[cat] ?? false;
+          const CatIcon      = CATEGORY_ICONS[cat] ?? Settings;
+
+          return (
+            <div className="tkt-section" key={cat}>
+
+              {/* Section header */}
+              <div className="tkt-section-header" onClick={() => toggleCollapse(cat)}>
+                <div className="tkt-section-title-row">
+                  <div className="tkt-cat-icon"><CatIcon size={16} /></div>
+                  <div>
+                    <div className="tkt-cat-name">{cat}</div>
+                    <div className="tkt-cat-counts">
+                      {openCount > 0 && (
+                        <span className="tkt-cat-count" style={{ color: "#E53E3E", background: "#FFF5F5" }}>
+                          {openCount} open
+                        </span>
+                      )}
+                      {inProgCount > 0 && (
+                        <span className="tkt-cat-count" style={{ color: "#C8962E", background: "#FDF6E7" }}>
+                          {inProgCount} in progress
+                        </span>
+                      )}
+                      {catTickets.length === 0 && (
+                        <span className="tkt-cat-count" style={{ color: "#A0AEC0", background: "#F7FAFC" }}>
+                          No tickets
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="tkt-section-right">
+                  <span style={{ fontSize: "0.78rem", color: "#A0AEC0" }}>
+                    {catTickets.length} ticket{catTickets.length !== 1 ? "s" : ""}
+                  </span>
+                  {isCollapsed ? <ChevronDown size={16} color="#A0AEC0" /> : <ChevronUp size={16} color="#A0AEC0" />}
+                </div>
+              </div>
+
+              {!isCollapsed && (
+                <>
+                  <div className="tkt-divider" />
+
+                  {/* Technicians */}
+                  <div className="tkt-tech-row">
+                    <span className="tkt-tech-label">
+                      Technician{catPersonnel.length !== 1 ? "s" : ""}:
+                    </span>
+                    {catPersonnel.length === 0
+                      ? <span className="tkt-no-tech">No technician assigned to this category</span>
+                      : catPersonnel.map(p => {
+                          const av = AVAIL_CONFIG[p.availability_status];
+                          return (
+                            <div className="tkt-tech-chip" key={p.id}>
+                              <span className="tkt-tech-dot" style={{ background: av.dot }} />
+                              <span className="tkt-tech-name">{p.first_name} {p.last_name}</span>
+                              <span className="tkt-tech-load">· {p.open_tickets_count} open</span>
+                            </div>
+                          );
+                        })
+                    }
+                  </div>
+
+                  <div className="tkt-divider" />
+
+                  {/* Tickets table */}
+                  {catTickets.length === 0
+                    ? (
+                      <div className="tkt-empty">
+                        No tickets in this category{search || statusFilter !== "all" ? " matching your filters" : ""}.
+                      </div>
+                    )
+                    : (
+                      <table className="tkt-table">
+                        <thead>
+                          <tr>
+                            <th>Ticket</th>
+                            <th>Subject</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Raised By</th>
+                            <th>Assigned To</th>
+                            <th>Date</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {catTickets.map(t => {
+                            const sc = STATUS_CONFIG[t.status];
+                            const pc = PRIORITY_CONFIG[t.priority];
+                            const StatusIcon = sc.icon;
+                            return (
+                              <tr key={t.id} onClick={() => openDetail(t)}>
+                                <td><div className="tkt-ticket-no">{t.ticket_no}</div></td>
+                                <td>
+                                  <div className="tkt-subject">{t.subject}</div>
+                                  <div className="tkt-meta">
+                                    <MessageSquare size={10} style={{ display: "inline", marginRight: 3 }} />
+                                    {t.comments_count}
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="tkt-priority" style={{ color: pc.color }}>
+                                    <span className="tkt-dot" style={{ background: pc.dot }} />
+                                    {pc.label}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="tkt-badge" style={{ color: sc.color, background: sc.bg }}>
+                                    <StatusIcon size={11} /> {sc.label}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div style={{ fontSize: "0.82rem", fontWeight: 500 }}>
+                                    {t.raised_by.first_name} {t.raised_by.last_name}
+                                  </div>
+                                  <div className="tkt-meta">{t.raised_by.department}</div>
+                                </td>
+                                <td>
+                                  {t.assigned_to
+                                    ? <div className="tkt-assignee">{t.assigned_to.first_name} {t.assigned_to.last_name}</div>
+                                    : <div className="tkt-unassigned">Unassigned</div>
+                                  }
+                                </td>
+                                <td style={{ fontSize: "0.78rem", color: "#A0AEC0", whiteSpace: "nowrap" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                                    <Calendar size={11} /> {fmt(t.created_at)}
+                                  </div>
+                                  <div className="tkt-meta">{timeAgo(t.updated_at)}</div>
+                                </td>
+                                <td onClick={e => e.stopPropagation()}>
+                                  <div className="tkt-actions">
+                                    <button className="tkt-btn-icon" title="View"          onClick={() => openDetail(t)}><Eye size={13} /></button>
+                                    <button className="tkt-btn-icon" title="Assign"        onClick={() => { setAssigning(t); setTarget(t.assigned_to?.id ?? null); }}><UserCheck size={13} /></button>
+                                    <button className="tkt-btn-icon" title="Change Status" onClick={() => { setChangingStatus(t); setNewStatus(t.status); }}><RefreshCw size={13} /></button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )
+                  }
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Detail drawer ── */}
+      {selected && (
+        <div className="tkt-overlay" onClick={() => setSelected(null)}>
+          <div className="tkt-drawer" onClick={e => e.stopPropagation()}>
+            <div className="tkt-drawer-header">
+              <div>
+                <h2>{selected.ticket_no} — {selected.subject}</h2>
+                <p>{selected.raised_by.first_name} {selected.raised_by.last_name} · {selected.raised_by.department} · {fmt(selected.created_at)}</p>
+              </div>
+              <button className="tkt-close-btn" onClick={() => setSelected(null)}><X size={15} /></button>
+            </div>
+            <div className="tkt-drawer-body">
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                {(() => { const sc = STATUS_CONFIG[selected.status]; const I = sc.icon; return <span className="tkt-badge" style={{ color: sc.color, background: sc.bg }}><I size={11} /> {sc.label}</span>; })()}
+                {(() => { const pc = PRIORITY_CONFIG[selected.priority]; return <span className="tkt-badge" style={{ color: pc.color, background: "#F7FAFC", border: `1px solid ${pc.dot}` }}><span className="tkt-dot" style={{ background: pc.dot }} />{pc.label}</span>; })()}
+                <span className="tkt-badge" style={{ color: "#2D3748", background: "#EDF2F7" }}>{selected.category}</span>
+              </div>
+
+              <div className="tkt-detail-grid">
+                <div className="tkt-detail-item"><label>Ticket No.</label><span>{selected.ticket_no}</span></div>
+                <div className="tkt-detail-item"><label>Date Raised</label><span>{fmt(selected.created_at)}</span></div>
+                <div className="tkt-detail-item"><label>Raised By</label><span>{selected.raised_by.first_name} {selected.raised_by.last_name}</span></div>
+                <div className="tkt-detail-item"><label>Department</label><span>{selected.raised_by.department}</span></div>
+                <div className="tkt-detail-item"><label>Assigned To</label><span>{selected.assigned_to ? `${selected.assigned_to.first_name} ${selected.assigned_to.last_name}` : "—"}</span></div>
+                <div className="tkt-detail-item"><label>Last Updated</label><span>{timeAgo(selected.updated_at)}</span></div>
+                <div className="tkt-detail-item"><label>Attachments</label><span style={{ display: "flex", alignItems: "center", gap: 3 }}><Paperclip size={12} /> {selected.attachments_count}</span></div>
+                <div className="tkt-detail-item"><label>Comments</label><span style={{ display: "flex", alignItems: "center", gap: 3 }}><MessageSquare size={12} /> {selected.comments_count}</span></div>
+              </div>
+
+              <div>
+                <div className="tkt-section-lbl">Description</div>
+                <div className="tkt-desc-box">{selected.description}</div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="tkt-modal-confirm" style={{ flex: 1, justifyContent: "center" }} onClick={() => { setAssigning(selected); setTarget(selected.assigned_to?.id ?? null); }}>
+                  <UserCheck size={13} /> Assign
+                </button>
+                <button className="tkt-modal-confirm" style={{ flex: 1, justifyContent: "center", background: "#C8962E" }} onClick={() => { setChangingStatus(selected); setNewStatus(selected.status); }}>
+                  <RefreshCw size={13} /> Change Status
+                </button>
+              </div>
+
+              <div>
+                <div className="tkt-section-lbl">Comments</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 10 }}>
+                  {comments.length === 0 && (
+                    <div style={{ fontSize: "0.81rem", color: "#A0AEC0" }}>No comments yet.</div>
+                  )}
+                  {comments.map(c => (
+                    <div key={c.id} className="tkt-comment">
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span className="tkt-comment-author">{c.author}</span>
+                        <span className="tkt-comment-time">{timeAgo(c.created_at)}</span>
+                      </div>
+                      <div className="tkt-comment-body">{c.body}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="tkt-comment-input-row">
+                  <textarea
+                    className="tkt-comment-input"
+                    rows={2}
+                    placeholder="Add a comment…"
+                    value={newComment}
+                    onChange={e => setNewComment(e.target.value)}
+                  />
+                  <button className="tkt-send-btn" disabled={!newComment.trim() || sendingComment} onClick={handleComment}>
+                    {sendingComment ? <Loader2 size={13} /> : <Send size={13} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Assign modal ── */}
+      {assigning && (
+        <div className="tkt-modal-overlay" onClick={() => setAssigning(null)}>
+          <div className="tkt-modal" onClick={e => e.stopPropagation()}>
+            <h3>Assign Ticket</h3>
+            <p>{assigning.ticket_no} — {assigning.subject}</p>
+            <div className="tkt-staff-list">
+              {personnel.filter(p => p.category === assigning.category).length === 0 && (
+                <div style={{ fontSize: "0.82rem", color: "#A0AEC0", textAlign: "center", padding: "12px 0" }}>
+                  No technicians in the {assigning.category} category.
+                </div>
+              )}
+              {personnel.filter(p => p.category === assigning.category).map(p => {
+                const av = AVAIL_CONFIG[p.availability_status];
+                return (
+                  <div
+                    key={p.id}
+                    className={`tkt-staff-item${assignTarget === p.id ? " selected" : ""}`}
+                    onClick={() => setTarget(p.id)}
+                  >
+                    <div>
+                      <div className="tkt-staff-name">{p.first_name} {p.last_name}</div>
+                      <div className="tkt-staff-load" style={{ color: av.color }}>
+                        {av.label} · {p.open_tickets_count} open
+                      </div>
+                    </div>
+                    {assignTarget === p.id && <CheckCircle2 size={15} color="#1A2456" />}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="tkt-modal-actions">
+              <button className="tkt-modal-cancel" onClick={() => { setAssigning(null); setTarget(null); }}>Cancel</button>
+              <button className="tkt-modal-confirm" disabled={!assignTarget || savingAssign} onClick={handleAssign}>
+                {savingAssign ? <Loader2 size={13} /> : <UserCheck size={13} />} Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Status modal ── */}
+      {changingStatus && (
+        <div className="tkt-modal-overlay" onClick={() => setChangingStatus(null)}>
+          <div className="tkt-modal" onClick={e => e.stopPropagation()}>
+            <h3>Change Status</h3>
+            <p>{changingStatus.ticket_no} — {changingStatus.subject}</p>
+            <div className="tkt-status-options">
+              {(Object.keys(STATUS_CONFIG) as Array<keyof typeof STATUS_CONFIG>).map(s => {
+                const sc = STATUS_CONFIG[s];
+                const I  = sc.icon;
+                return (
+                  <div
+                    key={s}
+                    className={`tkt-status-opt${newStatus === s ? " selected" : ""}`}
+                    onClick={() => setNewStatus(s)}
+                  >
+                    <span className="tkt-badge" style={{ color: sc.color, background: sc.bg, margin: 0 }}>
+                      <I size={11} /> {sc.label}
+                    </span>
+                    {newStatus === s && <CheckCircle2 size={15} color="#1A2456" />}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="tkt-modal-actions">
+              <button className="tkt-modal-cancel" onClick={() => { setChangingStatus(null); setNewStatus(""); }}>Cancel</button>
+              <button className="tkt-modal-confirm" disabled={!newStatus || savingStatus} onClick={handleStatusChange}>
+                {savingStatus ? <Loader2 size={13} /> : <RefreshCw size={13} />} Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

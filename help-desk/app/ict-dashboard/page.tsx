@@ -1,21 +1,96 @@
+//ict dashboard
 "use client";
 
-import { useState } from "react";
-
+import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
+import { useState, useEffect } from "react";
 const tickets = [
-  { id: "TKT-001", employee: "John Kamau", department: "ICT Services", issue: "Laptop not connecting to WiFi network", category: "Network", priority: "High", time: "2h 15m", status: "In Progress" },
-  { id: "TKT-008", employee: "Mary Wanjiku", department: "Accounting", issue: "Desktop computer won't boot up", category: "Hardware", priority: "High", time: "45m", status: "Open" },
-  { id: "TKT-012", employee: "Peter Maina", department: "HR", issue: "Network printer offline error", category: "Network", priority: "Medium", time: "1h 30m", status: "In Progress" },
-  { id: "TKT-015", employee: "Grace Akinyi", department: "Procurement", issue: "Cannot access network shared drive", category: "Network", priority: "High", time: "30m", status: "Open" },
-  { id: "TKT-018", employee: "James Njoroge", department: "Budget & Finance", issue: "Keyboard keys not working properly", category: "Hardware", priority: "Low", time: "3h", status: "Pending Parts" },
-  { id: "TKT-020", employee: "Sarah Mutua", department: "Planning", issue: "Monitor display flickering", category: "Hardware", priority: "Medium", time: "2h 30m", status: "In Progress" },
+  {
+    id: "TKT-001",
+    employee: "John Kamau",
+    department: "ICT Services",
+    issue: "Laptop not connecting to WiFi network",
+    category: "Network",
+    priority: "High",
+    time: "2h 15m",
+    status: "In Progress",
+  },
+  {
+    id: "TKT-008",
+    employee: "Mary Wanjiku",
+    department: "Accounting",
+    issue: "Desktop computer won't boot up",
+    category: "Hardware",
+    priority: "High",
+    time: "45m",
+    status: "Open",
+  },
+  {
+    id: "TKT-012",
+    employee: "Peter Maina",
+    department: "HR",
+    issue: "Network printer offline error",
+    category: "Network",
+    priority: "Medium",
+    time: "1h 30m",
+    status: "In Progress",
+  },
+  {
+    id: "TKT-015",
+    employee: "Grace Akinyi",
+    department: "Procurement",
+    issue: "Cannot access network shared drive",
+    category: "Network",
+    priority: "High",
+    time: "30m",
+    status: "Open",
+  },
+  {
+    id: "TKT-018",
+    employee: "James Njoroge",
+    department: "Budget & Finance",
+    issue: "Keyboard keys not working properly",
+    category: "Hardware",
+    priority: "Low",
+    time: "3h",
+    status: "Pending Parts",
+  },
+  {
+    id: "TKT-020",
+    employee: "Sarah Mutua",
+    department: "Planning",
+    issue: "Monitor display flickering",
+    category: "Hardware",
+    priority: "Medium",
+    time: "2h 30m",
+    status: "In Progress",
+  },
 ];
 
 const recentActivity = [
-  { id: "TKT-005", action: "Resolved", description: "WiFi connectivity issue", time: "10 min ago" },
-  { id: "TKT-009", action: "Updated", description: "Ordered replacement keyboard", time: "25 min ago" },
-  { id: "TKT-011", action: "Resolved", description: "Printer paper jam fixed", time: "1 hour ago" },
-  { id: "TKT-014", action: "Resolved", description: "Network cable replaced", time: "2 hours ago" },
+  {
+    id: "TKT-005",
+    action: "Resolved",
+    description: "WiFi connectivity issue",
+    time: "10 min ago",
+  },
+  {
+    id: "TKT-009",
+    action: "Updated",
+    description: "Ordered replacement keyboard",
+    time: "25 min ago",
+  },
+  {
+    id: "TKT-011",
+    action: "Resolved",
+    description: "Printer paper jam fixed",
+    time: "1 hour ago",
+  },
+  {
+    id: "TKT-014",
+    action: "Resolved",
+    description: "Network cable replaced",
+    time: "2 hours ago",
+  },
 ];
 
 const specializations = [
@@ -26,8 +101,13 @@ const specializations = [
 ];
 
 const statusStyles: Record<string, string> = {
+<<<<<<< HEAD
   "In Progress": "bg-amber-100 text-amber-800",
   "Open": "bg-orange-100 text-orange-800",
+=======
+  "In Progress": "bg-blue-100 text-blue-800",
+  Open: "bg-amber-100 text-amber-800",
+>>>>>>> 826944835cf46feb0cfa3fe804dbf4e64eb36fc7
   "Pending Parts": "bg-yellow-100 text-yellow-800",
 };
 
@@ -41,6 +121,28 @@ type Filter = "All" | "Open" | "In Progress";
 
 export default function TechnicianDashboard() {
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
+  const [user, setUser] = useState<{
+    full_name: string;
+    specialization?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
+          credentials: "include",
+        });
+        if (res.ok) setUser(await res.json());
+      } catch {}
+    })();
+  }, []);
+
+  const fullName = user?.full_name ?? "Loading...";
+  const initials = fullName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2);
 
   const filtered =
     activeFilter === "All"
@@ -48,10 +150,11 @@ export default function TechnicianDashboard() {
       : tickets.filter((t) =>
           activeFilter === "In Progress"
             ? t.status === "In Progress"
-            : t.status === "Open"
+            : t.status === "Open",
         );
 
   return (
+<<<<<<< HEAD
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F5F0E8" }}>
 
       {/* ── Top utility bar above brown card ── */}
@@ -63,6 +166,18 @@ export default function TechnicianDashboard() {
         >
           <span className="w-2 h-2 rounded-full bg-green-500" />
           Available
+=======
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* ── Top Bar ── */}
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">
+            Good Morning, {fullName}
+          </h1>
+          <p className="text-sm sm:text-base text-gray-400 mt-1">
+            ✦ Network &amp; Hardware Specialist
+          </p>
+>>>>>>> 826944835cf46feb0cfa3fe804dbf4e64eb36fc7
         </div>
 
         {/* Bell */}
@@ -92,9 +207,44 @@ export default function TechnicianDashboard() {
           >
             DO
           </div>
+<<<<<<< HEAD
           <div className="hidden sm:flex flex-col leading-tight">
             <span className="text-xs font-semibold" style={{ color: "#3D1000" }}>David Ochieng</span>
             <span style={{ color: "#A07850", fontSize: "10px" }}>Technician</span>
+=======
+          <div className="relative cursor-pointer">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="26"
+              height="26"
+              viewBox="0 0 24 24"
+              fill="white"
+              stroke="black"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+>>>>>>> 826944835cf46feb0cfa3fe804dbf4e64eb36fc7
+          </div>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              background: "#7A3100",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 13,
+              fontWeight: 700,
+              border: "2px solid #C8962E",
+            }}
+          >
+            {initials}
           </div>
         </div>
       </div>
@@ -119,8 +269,12 @@ export default function TechnicianDashboard() {
 
       {/* ── Main Content ── */}
       <main className="flex-1 px-4 sm:px-6 py-5 flex flex-col gap-5">
+<<<<<<< HEAD
 
         {/* ── Stats Grid ── */}
+=======
+        {/* ── Stats Grid: 1 col mobile, 2 col sm, 4 col lg ── */}
+>>>>>>> 826944835cf46feb0cfa3fe804dbf4e64eb36fc7
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { label: "Assigned to Me", value: "8", icon: (
@@ -150,6 +304,7 @@ export default function TechnicianDashboard() {
               style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
             >
               <div className="flex items-center justify-between mb-3">
+<<<<<<< HEAD
                 <span className="text-sm text-gray-500">{s.label}</span>
                 <span
                   className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
@@ -159,14 +314,24 @@ export default function TechnicianDashboard() {
                 </span>
               </div>
               <p className="text-3xl sm:text-4xl font-bold leading-none" style={{ color: "#5C1E00" }}>{s.value}</p>
+=======
+                <span className="text-sm sm:text-base text-gray-500">
+                  {s.label}
+                </span>
+                <span className="text-gray-400 text-base">{s.icon}</span>
+              </div>
+              <p className="text-3xl sm:text-4xl font-semibold text-gray-800 leading-none">
+                {s.value}
+              </p>
+>>>>>>> 826944835cf46feb0cfa3fe804dbf4e64eb36fc7
             </div>
           ))}
         </div>
 
         {/* ── Body: Tickets + Right Panel ── */}
         <div className="flex flex-col xl:flex-row gap-4">
-
           {/* Tickets Table */}
+<<<<<<< HEAD
           <div
             className="flex-1 rounded-xl overflow-hidden min-w-0"
             style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
@@ -260,17 +425,27 @@ export default function TechnicianDashboard() {
                 </tbody>
               </table>
             </div>
+=======
+          <div className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-w-0">
+            <AssignedTicketTable />
+>>>>>>> 826944835cf46feb0cfa3fe804dbf4e64eb36fc7
           </div>
 
           {/* Right Panel */}
           <div className="xl:w-[240px] flex-shrink-0 flex flex-row xl:flex-col gap-3">
-
             {/* Recent Activity */}
+<<<<<<< HEAD
             <div
               className="flex-1 xl:flex-none rounded-xl p-4 sm:p-5"
               style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
             >
               <h3 className="font-semibold text-base mb-4" style={{ color: "#3D1000" }}>Recent Activity</h3>
+=======
+            <div className="flex-1 xl:flex-none bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
+              <h3 className="font-semibold text-base sm:text-lg text-gray-800 mb-4">
+                Recent Activity
+              </h3>
+>>>>>>> 826944835cf46feb0cfa3fe804dbf4e64eb36fc7
               <div className="flex flex-col gap-4">
                 {recentActivity.map((a) => (
                   <div key={a.id} className="flex gap-3 items-start">
@@ -284,8 +459,17 @@ export default function TechnicianDashboard() {
                       <p className="font-medium text-sm" style={{ color: "#3D1000" }}>
                         {a.action} {a.id}
                       </p>
+<<<<<<< HEAD
                       <p className="text-sm mt-0.5" style={{ color: "#7A5C45" }}>{a.description}</p>
                       <p className="text-xs mt-0.5" style={{ color: "#A07850" }}>{a.time}</p>
+=======
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        {a.description}
+                      </p>
+                      <p className="text-xs sm:text-sm text-gray-400 mt-0.5">
+                        {a.time}
+                      </p>
+>>>>>>> 826944835cf46feb0cfa3fe804dbf4e64eb36fc7
                     </div>
                   </div>
                 ))}
@@ -293,6 +477,7 @@ export default function TechnicianDashboard() {
             </div>
 
             {/* Specializations */}
+<<<<<<< HEAD
             <div
               className="flex-1 xl:flex-none rounded-xl p-4 sm:p-5"
               style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
@@ -302,12 +487,24 @@ export default function TechnicianDashboard() {
                 {specializations.map((s) => (
                   <li key={s} className="flex items-center gap-2.5 text-sm" style={{ color: "#4A2800" }}>
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#C8922A" }} />
+=======
+            <div className="flex-1 xl:flex-none bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
+              <h3 className="font-semibold text-base sm:text-lg text-gray-800 mb-4">
+                My Specializations
+              </h3>
+              <ul className="flex flex-col gap-2.5">
+                {specializations.map((s) => (
+                  <li
+                    key={s}
+                    className="flex items-center gap-2.5 text-sm sm:text-base text-gray-700"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-gray-500 flex-shrink-0" />
+>>>>>>> 826944835cf46feb0cfa3fe804dbf4e64eb36fc7
                     {s}
                   </li>
                 ))}
               </ul>
             </div>
-
           </div>
         </div>
       </main>
