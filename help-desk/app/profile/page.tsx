@@ -250,7 +250,7 @@ export default function ProfilePage() {
                 fontWeight: 700,
               }}
             >
-              AM
+              {initials}
             </div>
             <div>
               <p style={{ fontSize: 12, fontWeight: 600, color: "#1A0F08" }}>
