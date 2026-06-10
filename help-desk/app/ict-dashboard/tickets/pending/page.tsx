@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Play } from "lucide-react";
+import { Search, Eye } from "lucide-react";
 import { Inter, Playfair_Display } from "next/font/google";
+import { useRouter } from "next/navigation";
 
 const inter = Inter({ subsets: ["latin"] });
 const playfair = Playfair_Display({ subsets: ["latin"] });
@@ -13,9 +14,9 @@ const COLORS = {
   primaryDark: "#b08326",
   
   // Status colors
-  open: { bg: "#E3F2FD", color: "#1976D2" },        // Blue
-  inProgress: { bg: "#FFF8E0", color: "#C8962E" },  // Yellow/Orange
-  resolved: { bg: "#E8F5E9", color: "#2D6B0F" },    // Green
+  open: { bg: "#E3F2FD", color: "#1976D2" },
+  inProgress: { bg: "#FFF8E0", color: "#C8962E" },
+  resolved: { bg: "#E8F5E9", color: "#2D6B0F" },
 };
 
 // Stats
@@ -53,7 +54,6 @@ const tickets = [
   },
 ];
 
-// StatusBadge component (unchanged)
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string }> = {
     "Open": COLORS.open,
@@ -79,7 +79,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function EmployeeAvatar({ name }: { name: string }) {
-  const initials = name.split(' ').map(n => n).join('').toUpperCase().slice(0, 2);
+  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   
   return (
     <div style={{
@@ -102,6 +102,7 @@ function EmployeeAvatar({ name }: { name: string }) {
 
 export default function PendingTicketsPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const router = useRouter();
 
   const filteredTickets = tickets.filter(ticket => {
     const term = searchTerm.toLowerCase();
@@ -114,6 +115,10 @@ export default function PendingTicketsPage() {
   });
 
   const totalTickets = tickets.length;
+
+  const handleView = (ticketId: string) => {
+    router.push(`/ict-dashboard/tickets/${ticketId}`);
+  };
 
   return (
     <div className={inter.className} style={{
@@ -224,7 +229,7 @@ export default function PendingTicketsPage() {
           />
         </div>
 
-        {/* TABLE - Priority column removed */}
+        {/* TABLE */}
         <div style={{
           background: "#fff",
           borderRadius: "12px",
@@ -293,17 +298,15 @@ export default function PendingTicketsPage() {
                           minWidth: 0,
                         }}>
                           <EmployeeAvatar name={t.employee} />
-                          <span 
-                            style={{
-                              fontSize: "13px",
-                              fontWeight: 500,
-                              color: "#1a1a1a",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              display: "block",
-                            }}
-                          >
+                          <span style={{
+                            fontSize: "13px",
+                            fontWeight: 500,
+                            color: "#1a1a1a",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            display: "block",
+                          }}>
                             {t.employee}
                           </span>
                         </div>
@@ -318,10 +321,7 @@ export default function PendingTicketsPage() {
                       }}>
                         <span 
                           title={t.issue}
-                          style={{ 
-                            fontSize: "13px",
-                            color: "#444",
-                          }}
+                          style={{ fontSize: "13px", color: "#444" }}
                         >
                           {t.issue}
                         </span>
@@ -333,6 +333,7 @@ export default function PendingTicketsPage() {
 
                       <td style={td}>
                         <button 
+                          onClick={() => handleView(t.id)}
                           style={{
                             background: COLORS.primary,
                             color: "#fff",
@@ -353,10 +354,10 @@ export default function PendingTicketsPage() {
                           onMouseLeave={(e) => {
                             e.currentTarget.style.background = COLORS.primary;
                           }}
-                          aria-label={`Start working on ticket ${t.id}`}
+                          aria-label={`View ticket ${t.id}`}
                         >
-                          <Play size={14} fill="currentColor" />
-                          Start Work
+                          <Eye size={14} />
+                          View
                         </button>
                       </td>
                     </tr>
@@ -394,5 +395,5 @@ const th = {
 const td = {
   padding: "14px",
   fontSize: "13px",
-  verticalAlign: "middle",
+  verticalAlign: "middle" as const,
 };
