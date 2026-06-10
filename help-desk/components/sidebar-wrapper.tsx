@@ -14,6 +14,7 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
     "/auth",
     "/forgot-password",
     "/ict-dashboard",
+    "/admin",
   ];
 
   const hideSidebar =
@@ -21,7 +22,11 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
     noSidebarPrefix.some((route) => pathname.startsWith(route));
 
   if (hideSidebar) {
-    return <>{children}</>;
+    return (
+      <div style={{ width: "100%", minHeight: "100vh", display: "flex" }}>
+        {children}
+      </div>
+    );
   }
 
   return (
