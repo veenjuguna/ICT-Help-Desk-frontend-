@@ -68,7 +68,7 @@ function VerifyContent() {
           setTimeout(() => {
             if (!cancelled) {
               setStage("success");
-              localStorage.removeItem("pending_verify_email");
+              // localStorage.removeItem("pending_verify_email");
             }
           }, 400);
         } else {
@@ -110,7 +110,7 @@ function VerifyContent() {
   useEffect(() => {
     if (stage !== "success") return;
     if (countdown <= 0) {
-      router.push("/dashboard");
+      router.push("/login");
       return;
     }
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
@@ -118,15 +118,13 @@ function VerifyContent() {
   }, [stage, countdown, router]);
 
   const handleResend = async () => {
-    if (!email || resending) return;
+    if (resending) return;
     setResending(true);
     try {
       await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/resend-verification`,
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/resend-verification?email=${encodeURIComponent(email)}`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
         },
       );
     } catch {
@@ -484,7 +482,7 @@ function VerifyContent() {
                   <button
                     className="vp-btn-ghost"
                     onClick={handleResend}
-                    disabled={resending || !email}
+                    disabled={resending}
                   >
                     {resending ? "Sending..." : "Resend verification email"}
                   </button>

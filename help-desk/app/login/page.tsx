@@ -1,3 +1,4 @@
+//login
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -23,26 +24,19 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    console.log("Attempting login for:", email);
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
+        credentials: "include", // ← this sets the cookie
       });
 
       const data = await res.json();
-      console.log(" Response status:", res.status);
-      console.log(" Response data:", data);
+      if (!res.ok) throw new Error(data.detail || "Login failed");
 
-      if (!res.ok) {
-        throw new Error(data.detail || "Login failed");
-      }
-
-      // Save token
-      localStorage.setItem("token", data.access_token);
-      console.log(" Login successful! Token saved:", data.access_token);
+      // No localStorage needed — cookie is set automatically
 
       router.push("/dashboard");
     } catch (err: unknown) {
@@ -50,7 +44,6 @@ export default function LoginPage() {
         err instanceof Error
           ? err.message
           : "Something went wrong. Please try again.";
-      console.error(" Login error:", errorMessage);
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -629,7 +622,7 @@ export default function LoginPage() {
             </form>
 
             <div className="form-footer">
-              <div className="support-row">
+              {/* <div className="support-row">
                 <svg
                   width="13"
                   height="13"
@@ -644,7 +637,7 @@ export default function LoginPage() {
                 <Link href="/support" className="support-link">
                   Contact ICT Support
                 </Link>
-              </div>
+              </div> */}
             </div>
           </div>
 

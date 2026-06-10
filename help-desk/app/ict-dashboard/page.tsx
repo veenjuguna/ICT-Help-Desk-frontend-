@@ -112,7 +112,7 @@ export default function TechnicianDashboard() {
                     onClick={() => setActiveFilter(f)}
                     className={`px-3 py-1.5 rounded-md text-sm sm:text-base font-medium transition-colors ${
                       activeFilter === f
-                        ? "bg-[#5C2D0A] text-white"
+                        ? "bg-[#7A3100] text-white"
                         : "text-gray-500 hover:bg-gray-100"
                     }`}
                   >
@@ -169,7 +169,7 @@ export default function TechnicianDashboard() {
                         </span>
                       </td>
                       <td className="px-3 py-3.5">
-                        <button className="text-[#5C2D0A] font-semibold hover:underline text-sm sm:text-base">
+                        <button className="text-[#7A3100] font-semibold hover:underline text-sm sm:text-base">
                           View
                         </button>
                       </td>
