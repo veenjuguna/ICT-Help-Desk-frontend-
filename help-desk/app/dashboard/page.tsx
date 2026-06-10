@@ -1,3 +1,4 @@
+// staff dashboard
 "use client";
 
 import Link from "next/link";
@@ -12,6 +13,7 @@ import {
   Bell,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import TicketTable from "@/components/ticket-table";
 
 interface User {
   full_name: string;
@@ -573,48 +575,7 @@ export default function DashboardPage() {
           {/* TWO COLUMN */}
           <div className="two-col">
             {/* TICKETS */}
-            <div className="section-card">
-              <div className="section-header">
-                <p className="section-title">Recent Tickets</p>
-                <Link href="/tickets" className="section-link">
-                  View all <ArrowRight size={13} />
-                </Link>
-              </div>
-              <table className="ticket-table">
-                <thead>
-                  <tr>
-                    <th>Date / Time</th>
-                    <th>Ticket ID</th>
-                    <th>Issue</th>
-                    <th>Category</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tickets.map((t) => (
-                    <tr key={t.id}>
-                      <td>
-                        <p className="ticket-date">{t.date}</p>
-                        <p className="ticket-time">{t.time}</p>
-                      </td>
-                      <td>
-                        <span className="ticket-id">{t.id}</span>
-                      </td>
-                      <td style={{ maxWidth: 180 }}>{t.issue}</td>
-                      <td>{t.category}</td>
-                      <td>
-                        <PriorityDot priority={t.priority} />
-                      </td>
-                      <td>
-                        <StatusBadge status={t.status} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
+            <TicketTable />
             {/* RIGHT COLUMN */}
             <div
               style={{

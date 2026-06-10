@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertCircle, Package, Search, Play } from "lucide-react";
+import { Search, Play } from "lucide-react";
 import { Inter, Playfair_Display } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -11,22 +11,19 @@ const playfair = Playfair_Display({ subsets: ["latin"] });
 const COLORS = {
   primary: "#C8962E",
   primaryDark: "#b08326",
-  highPriority: "#BB0000",
-  mediumPriority: "#C8962E",
-  lowPriority: "#2D6B0F",
-  new: { bg: "#E3F2FD", color: "#1976D2" }, // Blue for new tickets
-  inProgress: { bg: "#FFF8E0", color: "#C8962E" }, // Yellow/Orange
-  waitingParts: { bg: "#FFF3E0", color: "#E65100" }, // Darker orange
-  escalated: { bg: "#F3E5F5", color: "#7B1FA2" }, // Purple
-  urgent: "#6B2D0F",
+  
+  // Status colors
+  open: { bg: "#E3F2FD", color: "#1976D2" },        // Blue
+  inProgress: { bg: "#FFF8E0", color: "#C8962E" },  // Yellow/Orange
+  resolved: { bg: "#E8F5E9", color: "#2D6B0F" },    // Green
 };
 
-// stats
+// Stats
 const stats = [
-  { label: "Assigned to Me", value: 8, icon: null }, // No icon
-  { label: "In Progress", value: 3, icon: null }, // No icon
-  { label: "Waiting Parts", value: 2, icon: null }, // No icon
-  { label: "Urgent", value: 1, icon: AlertCircle, color: COLORS.urgent }, // Keep urgent icon
+  { label: "Assigned to Me", value: 8 },
+  { label: "Open", value: 5 },
+  { label: "In Progress", value: 3 },
+  { label: "Resolved", value: 12 },
 ];
 
 const tickets = [
@@ -34,39 +31,34 @@ const tickets = [
     id: "TKT-021",
     employee: "Alice Nyambura",
     issue: "Monitor not powering on",
-    priority: "High",
-    status: "New", 
+    status: "Open",
   },
   {
     id: "TKT-022",
     employee: "John Otieno",
     issue: "No internet",
-    priority: "Medium",
-    status: "Waiting Parts",
+    status: "In Progress",
   },
   {
     id: "TKT-023",
     employee: "Mary Wanjiku",
     issue: "Email not syncing",
-    priority: "High",
-    status: "In Progress",
+    status: "Open",
   },
   {
     id: "TKT-024",
     employee: "Peter Kamau",
     issue: "Printer jam on floor 2",
-    priority: "Low",
-    status: "Escalated", // New status
+    status: "Resolved",
   },
 ];
 
+// StatusBadge component (unchanged)
 function StatusBadge({ status }: { status: string }) {
-  //  status mapping
   const map: Record<string, { bg: string; color: string }> = {
-    "New": COLORS.new,
+    "Open": COLORS.open,
     "In Progress": COLORS.inProgress,
-    "Waiting Parts": COLORS.waitingParts,
-    "Escalated": COLORS.escalated,
+    "Resolved": COLORS.resolved,
   };
 
   const s = map[status] ?? { bg: "#eee", color: "#333" };
@@ -82,33 +74,6 @@ function StatusBadge({ status }: { status: string }) {
       display: "inline-block",
     }}>
       {status}
-    </span>
-  );
-}
-
-function PriorityDot({ priority }: { priority: string }) {
-  const colors: Record<string, string> = {
-    High: COLORS.highPriority,
-    Medium: COLORS.mediumPriority,
-    Low: COLORS.lowPriority,
-  };
-
-  return (
-    <span style={{ 
-      display: "flex", 
-      alignItems: "center", 
-      gap: 6,
-      fontSize: "12px",
-      fontWeight: 500,
-    }}>
-      <span style={{
-        width: 8,
-        height: 8,
-        borderRadius: "50%",
-        background: colors[priority] ?? "#999",
-        display: "inline-block",
-      }} />
-      {priority}
     </span>
   );
 }
@@ -144,7 +109,6 @@ export default function PendingTicketsPage() {
       ticket.id.toLowerCase().includes(term) ||
       ticket.employee.toLowerCase().includes(term) ||
       ticket.issue.toLowerCase().includes(term) ||
-      ticket.priority.toLowerCase().includes(term) ||
       ticket.status.toLowerCase().includes(term)
     );
   });
@@ -180,61 +144,55 @@ export default function PendingTicketsPage() {
           </p>
         </div>
 
+        {/* STATS ROW */}
         <div style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
           gap: "16px",
           marginBottom: "24px",
         }}>
-          {stats.map((s) => {
-            const Icon = s.icon;
-            return (
-              <div 
-                key={s.label} 
-                style={{
-                  background: "#fff",
-                  padding: "20px",
-                  borderRadius: "12px",
-                  border: "1px solid #eee",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-3px)";
-                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
-                }}
-                role="button"
-                tabIndex={0}
-                aria-label={`${s.label}: ${s.value} tickets`}
-              >
-                <div>
-                  <p style={{ fontSize: "13px", color: "#666", marginBottom: "8px" }}>
-                    {s.label}
-                  </p>
-                  <h2 style={{ 
-                    fontSize: "28px", 
-                    fontWeight: 700, 
-                    margin: 0,
-                    color: "#1a1a1a",
-                  }}>
-                    {s.value}
-                  </h2>
-                </div>
-          
-                {Icon && (
-                  <Icon size={24} color={s.color} />
-                )}
+          {stats.map((s) => (
+            <div 
+              key={s.label} 
+              style={{
+                background: "#fff",
+                padding: "20px",
+                borderRadius: "12px",
+                border: "1px solid #eee",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-3px)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`${s.label}: ${s.value} tickets`}
+            >
+              <div>
+                <p style={{ fontSize: "13px", color: "#666", marginBottom: "8px" }}>
+                  {s.label}
+                </p>
+                <h2 style={{ 
+                  fontSize: "28px", 
+                  fontWeight: 700, 
+                  margin: 0,
+                  color: "#1a1a1a",
+                }}>
+                  {s.value}
+                </h2>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
         {/* SEARCH */}
@@ -266,7 +224,7 @@ export default function PendingTicketsPage() {
           />
         </div>
 
-        {/* TABLE */}
+        {/* TABLE - Priority column removed */}
         <div style={{
           background: "#fff",
           borderRadius: "12px",
@@ -281,7 +239,7 @@ export default function PendingTicketsPage() {
               textAlign: "center",
               color: "#666",
             }}>
-              <Package size={48} color="#ccc" style={{ marginBottom: "16px" }} />
+              <div style={{ fontSize: "48px", marginBottom: "16px" }}>📭</div>
               <h3 style={{ margin: "0 0 8px 0", fontSize: "18px", fontWeight: 600 }}>
                 No tickets found
               </h3>
@@ -291,13 +249,12 @@ export default function PendingTicketsPage() {
             </div>
           ) : (
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "800px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "700px" }}>
                 <thead>
                   <tr style={{ background: "#faf6f0" }}>
                     <th style={th}>Ticket</th>
                     <th style={th}>Employee</th>
                     <th style={th}>Issue</th>
-                    <th style={th}>Priority</th>
                     <th style={th}>Status</th>
                     <th style={th}>Action</th>
                   </tr>
@@ -354,7 +311,7 @@ export default function PendingTicketsPage() {
                       
                       <td style={{ 
                         ...td, 
-                        maxWidth: "250px",
+                        maxWidth: "300px",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
@@ -368,10 +325,6 @@ export default function PendingTicketsPage() {
                         >
                           {t.issue}
                         </span>
-                      </td>
-                      
-                      <td style={td}>
-                        <PriorityDot priority={t.priority} />
                       </td>
                       
                       <td style={td}>
