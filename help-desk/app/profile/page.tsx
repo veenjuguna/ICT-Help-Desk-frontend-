@@ -26,8 +26,9 @@ export default function ProfilePage() {
   useEffect(() => {
     (async () => {
       try {
+        const token = localStorage.getItem("token");
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
-          credentials: "include",
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
           const data = await res.json();
@@ -58,10 +59,10 @@ export default function ProfilePage() {
   // REPLACE the entire handleSave
   const handleSave = async () => {
     if (editing && user) {
+      const token = localStorage.getItem("token");
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/${user.id}`, {
         method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           ...(editName && { full_name: editName }),
           ...(editPhone && { phone_number: editPhone }),

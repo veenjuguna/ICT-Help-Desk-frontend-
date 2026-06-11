@@ -102,15 +102,15 @@ export default function DashboardPage() {
   useEffect(() => {
     (async () => {
       try {
+        const token = localStorage.getItem("token");
+        const headers = { Authorization: `Bearer ${token}` };
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
-          credentials: "include",
+          headers,
         });
         if (res.ok) setUser(await res.json());
         const ticketRes = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/tickets/`,
-          {
-            credentials: "include",
-          },
+          { headers },
         );
         if (ticketRes.ok) setTickets(await ticketRes.json());
       } catch {}
