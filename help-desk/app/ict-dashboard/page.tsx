@@ -1,55 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-const tickets = [
-  { id: "TKT-001", employee: "John Kamau", department: "ICT Services", issue: "Laptop not connecting to WiFi network", category: "Network", priority: "High", time: "2h 15m", status: "In Progress" },
-  { id: "TKT-008", employee: "Mary Wanjiku", department: "Accounting", issue: "Desktop computer won't boot up", category: "Hardware", priority: "High", time: "45m", status: "Open" },
-  { id: "TKT-012", employee: "Peter Maina", department: "HR", issue: "Network printer offline error", category: "Network", priority: "Medium", time: "1h 30m", status: "In Progress" },
-  { id: "TKT-015", employee: "Grace Akinyi", department: "Procurement", issue: "Cannot access network shared drive", category: "Network", priority: "High", time: "30m", status: "Open" },
-  { id: "TKT-018", employee: "James Njoroge", department: "Budget & Finance", issue: "Keyboard keys not working properly", category: "Hardware", priority: "Low", time: "3h", status: "Pending Parts" },
-  { id: "TKT-020", employee: "Sarah Mutua", department: "Planning", issue: "Monitor display flickering", category: "Hardware", priority: "Medium", time: "2h 30m", status: "In Progress" },
-];
+interface Ticket {
+  id: number;
+  title: string;
+  description: string;
+  category: string;
+  status: string;
+  created_at: string;
+  assigned_to_id: number | null;
+  staff_id: string;
+}
 
-const recentActivity = [
-  { id: "TKT-005", action: "Resolved", description: "WiFi connectivity issue", time: "10 min ago" },
-  { id: "TKT-009", action: "Updated", description: "Ordered replacement keyboard", time: "25 min ago" },
-  { id: "TKT-011", action: "Resolved", description: "Printer paper jam fixed", time: "1 hour ago" },
-  { id: "TKT-014", action: "Resolved", description: "Network cable replaced", time: "2 hours ago" },
-];
-
-const specializations = [
-  "Network Infrastructure",
-  "Hardware Repair",
-  "WiFi & Connectivity",
-  "Printer Setup",
-];
+interface IctUser {
+  full_name: string;
+  specialization?: string[];
+}
 
 const statusStyles: Record<string, string> = {
-  "In Progress": "bg-amber-100 text-amber-800",
-  "Open": "bg-orange-100 text-orange-800",
-  "Pending Parts": "bg-yellow-100 text-yellow-800",
+  IN_PROGRESS: "bg-amber-100 text-amber-800",
+  OPEN: "bg-orange-100 text-orange-800",
+  RESOLVED: "bg-green-100 text-green-800",
+  CLOSED: "bg-gray-100 text-gray-600",
 };
 
-const priorityStyles: Record<string, string> = {
-  High: "text-red-700 font-medium",
-  Medium: "text-amber-700 font-medium",
-  Low: "text-green-700 font-medium",
-};
-
-type Filter = "All" | "Open" | "In Progress";
+type Filter = "All" | "OPEN" | "IN_PROGRESS";
 
 export default function TechnicianDashboard() {
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [user, setUser] = useState<IctUser | null>(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
+  });
 
-  const filtered =
-    activeFilter === "All"
-      ? tickets
-      : tickets.filter((t) =>
-          activeFilter === "In Progress"
-            ? t.status === "In Progress"
-            : t.status === "Open"
-        );
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    (async () => {
+      try {
+        const [meRes, ticketsRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, { headers, credentials: "include" }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/`, { headers, credentials: "include" }),
+        ]);
+        if (meRes.ok) {
+          const me = await meRes.json();
+          setUser(me);
+        }
+        if (ticketsRes.ok) {
+          const data = await ticketsRes.json();
+          setTickets(Array.isArray(data) ? data : data.tickets ?? []);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const fullName = user?.full_name ?? "ICT Personnel";
+  const initials = fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+  const specializations = user?.specialization ?? [];
+
+  const filtered = activeFilter === "All" ? tickets : tickets.filter((t) => t.status === activeFilter);
+
+  const stats = [
+    { label: "Assigned to Me", value: tickets.length },
+    { label: "Open", value: tickets.filter((t) => t.status === "OPEN").length },
+    { label: "In Progress", value: tickets.filter((t) => t.status === "IN_PROGRESS").length },
+    { label: "Resolved", value: tickets.filter((t) => t.status === "RESOLVED").length },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F5F0E8" }}>
@@ -90,10 +112,10 @@ export default function TechnicianDashboard() {
               boxShadow: "0 1px 4px rgba(90,30,0,0.18)",
             }}
           >
-            DO
+            {initials}
           </div>
           <div className="hidden sm:flex flex-col leading-tight">
-            <span className="text-xs font-semibold" style={{ color: "#3D1000" }}>David Ochieng</span>
+            <span className="text-xs font-semibold" style={{ color: "#3D1000" }}>{fullName}</span>
             <span style={{ color: "#A07850", fontSize: "10px" }}>Technician</span>
           </div>
         </div>
@@ -110,7 +132,7 @@ export default function TechnicianDashboard() {
           <p className="text-xs sm:text-sm font-semibold tracking-widest uppercase mb-1" style={{ color: "#C8922A" }}>
             GOOD MORNING
           </p>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">David Ochieng</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">{fullName}</h1>
           <p className="text-sm sm:text-base mt-1" style={{ color: "#D4A96A" }}>
             Network &amp; Hardware Specialist
           </p>
@@ -122,42 +144,13 @@ export default function TechnicianDashboard() {
 
         {/* ── Stats Grid ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            { label: "Assigned to Me", value: "8", icon: (
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C8922A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-              </svg>
-            )},
-            { label: "Completed Today", value: "5", icon: (
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C8922A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-              </svg>
-            )},
-            { label: "Pending Review", value: "3", icon: (
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C8922A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-            )},
-            { label: "Avg Response Time", value: "15 min", icon: (
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C8922A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
-              </svg>
-            )},
-          ].map((s) => (
+          {stats.map((s) => (
             <div
               key={s.label}
               className="rounded-xl px-5 py-4"
               style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
             >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm text-gray-500">{s.label}</span>
-                <span
-                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: "#FDF3E3" }}
-                >
-                  {s.icon}
-                </span>
-              </div>
+              <p className="text-sm text-gray-500 mb-3">{s.label}</p>
               <p className="text-3xl sm:text-4xl font-bold leading-none" style={{ color: "#5C1E00" }}>{s.value}</p>
             </div>
           ))}
@@ -177,7 +170,7 @@ export default function TechnicianDashboard() {
             >
               <span className="font-semibold text-base sm:text-lg" style={{ color: "#3D1000" }}>My Assigned Tickets</span>
               <div className="flex gap-1">
-                {(["All", "Open", "In Progress"] as Filter[]).map((f) => (
+                {(["All", "OPEN", "IN_PROGRESS"] as Filter[]).map((f) => (
                   <button
                     key={f}
                     onClick={() => setActiveFilter(f)}
@@ -207,7 +200,7 @@ export default function TechnicianDashboard() {
                 </colgroup>
                 <thead>
                   <tr style={{ borderBottom: "1px solid #EDE5D8" }}>
-                    {["Ticket ID", "Employee", "Issue", "Priority", "Time", "Status", "Action"].map((h) => (
+                    {["Ticket ID", "Issue", "Date", "Status", "Action"].map((h) => (
                       <th
                         key={h}
                         className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wide"
@@ -219,7 +212,9 @@ export default function TechnicianDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((t) => (
+                  {filtered.length === 0 ? (
+                    <tr><td colSpan={6} className="px-3 py-8 text-center text-sm" style={{ color: "#A07850" }}>No tickets found.</td></tr>
+                  ) : filtered.map((t) => (
                     <tr
                       key={t.id}
                       className="transition-colors"
@@ -227,33 +222,21 @@ export default function TechnicianDashboard() {
                       onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#FDF8F2")}
                       onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
                     >
-                      <td className="px-3 py-3.5 font-medium text-sm" style={{ color: "#7A3100" }}>{t.id}</td>
+                      <td className="px-3 py-3.5 font-medium text-sm" style={{ color: "#7A3100" }}>TKT-{t.id}</td>
                       <td className="px-3 py-3.5">
-                        <p className="font-medium text-sm" style={{ color: "#3D1000" }}>{t.employee}</p>
-                        <p className="text-xs mt-0.5" style={{ color: "#A07850" }}>{t.department}</p>
-                      </td>
-                      <td className="px-3 py-3.5">
-                        <p className="text-sm" style={{ color: "#4A2800" }}>{t.issue}</p>
+                        <p className="text-sm" style={{ color: "#4A2800" }}>{t.title}</p>
                         <p className="text-xs mt-0.5" style={{ color: "#A07850" }}>{t.category}</p>
                       </td>
-                      <td className={`px-3 py-3.5 text-sm ${priorityStyles[t.priority]}`}>{t.priority}</td>
-                      <td className="px-3 py-3.5 text-sm" style={{ color: "#7A5C45" }}>{t.time}</td>
+                      <td className="px-3 py-3.5 text-xs" style={{ color: "#7A5C45" }}>
+                        {new Date(t.created_at).toLocaleDateString()}
+                      </td>
                       <td className="px-3 py-3.5">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                            statusStyles[t.status] ?? "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {t.status}
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${statusStyles[t.status] ?? "bg-gray-100 text-gray-600"}`}>
+                          {t.status.replace("_", " ")}
                         </span>
                       </td>
                       <td className="px-3 py-3.5">
-                        <button
-                          className="text-sm font-semibold hover:underline"
-                          style={{ color: "#7A3100" }}
-                        >
-                          View
-                        </button>
+                        <button className="text-sm font-semibold hover:underline" style={{ color: "#7A3100" }}>View</button>
                       </td>
                     </tr>
                   ))}
@@ -272,20 +255,15 @@ export default function TechnicianDashboard() {
             >
               <h3 className="font-semibold text-base mb-4" style={{ color: "#3D1000" }}>Recent Activity</h3>
               <div className="flex flex-col gap-4">
-                {recentActivity.map((a) => (
-                  <div key={a.id} className="flex gap-3 items-start">
-                    <div
-                      className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ border: "2px solid #C8922A" }}
-                    >
+                {tickets.slice(0, 4).map((t) => (
+                  <div key={t.id} className="flex gap-3 items-start">
+                    <div className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: "2px solid #C8922A" }}>
                       <span className="w-2 h-2 rounded-full block" style={{ backgroundColor: "#C8922A" }} />
                     </div>
                     <div>
-                      <p className="font-medium text-sm" style={{ color: "#3D1000" }}>
-                        {a.action} {a.id}
-                      </p>
-                      <p className="text-sm mt-0.5" style={{ color: "#7A5C45" }}>{a.description}</p>
-                      <p className="text-xs mt-0.5" style={{ color: "#A07850" }}>{a.time}</p>
+                      <p className="font-medium text-sm" style={{ color: "#3D1000" }}>TKT-{t.id}</p>
+                      <p className="text-sm mt-0.5" style={{ color: "#7A5C45" }}>{t.title}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "#A07850" }}>{new Date(t.created_at).toLocaleDateString()}</p>
                     </div>
                   </div>
                 ))}
@@ -298,14 +276,18 @@ export default function TechnicianDashboard() {
               style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
             >
               <h3 className="font-semibold text-base mb-4" style={{ color: "#3D1000" }}>My Specializations</h3>
-              <ul className="flex flex-col gap-2.5">
-                {specializations.map((s) => (
-                  <li key={s} className="flex items-center gap-2.5 text-sm" style={{ color: "#4A2800" }}>
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#C8922A" }} />
-                    {s}
-                  </li>
-                ))}
-              </ul>
+              {specializations.length > 0 ? (
+                <ul className="flex flex-col gap-2.5">
+                  {specializations.map((s) => (
+                    <li key={s} className="flex items-center gap-2.5 text-sm" style={{ color: "#4A2800" }}>
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#C8922A" }} />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm" style={{ color: "#A07850" }}>No specializations listed.</p>
+              )}
             </div>
 
           </div>
