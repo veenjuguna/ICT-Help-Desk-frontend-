@@ -204,7 +204,7 @@ export default function SignupPage() {
         const detail = data?.detail;
         setError(
           Array.isArray(detail)
-            ? detail.map((e: { msg: string }) => e.msg).join(", ")
+            ? detail.map((e: { msg: string }) => e.msg).join(".")
             : detail ?? "Registration failed. Please try again."
         );
         return;
