@@ -25,9 +25,8 @@ export default function RequestPage() {
   useEffect(() => {
     (async () => {
       try {
-        const token = localStorage.getItem("token");
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         });
         if (res.ok) {
           const data = await res.json();
@@ -73,10 +72,10 @@ export default function RequestPage() {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           staff_id: staffId,
           title: formData.title,
