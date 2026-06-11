@@ -50,7 +50,14 @@ export default function LoginPage() {
         role: authUser.role ?? authUser.user_role ?? "",
       }));
 
-      router.push("/dashboard");
+      const role = (authUser.role ?? authUser.user_role ?? "").toLowerCase();
+      if (role === "admin") {
+        router.push("/admin-dashboard");
+      } else if (role === "ict_personnel" || role === "ict-personnel") {
+        router.push("/ict-dashboard");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error
