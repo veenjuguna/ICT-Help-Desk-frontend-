@@ -50,7 +50,12 @@ export default function TechnicianDashboard() {
         ]);
         if (meRes.ok) {
           const me = await meRes.json();
-          setUser(me);
+          const updated = {
+            ...me,
+            full_name: me.full_name || [me.first_name, me.last_name].filter(Boolean).join(" ") || user?.full_name || "ICT Personnel",
+          };
+          setUser(updated);
+          localStorage.setItem("user", JSON.stringify({ ...JSON.parse(localStorage.getItem("user") ?? "{}"), full_name: updated.full_name }));
         }
         if (ticketsRes.ok) {
           const data = await ticketsRes.json();

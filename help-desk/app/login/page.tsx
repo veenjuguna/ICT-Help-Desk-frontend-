@@ -38,9 +38,11 @@ export default function LoginPage() {
 
       const authUser = data.user ?? data.data?.user ?? data;
       const fullName =
+        authUser.full_name ||
         [authUser.first_name ?? authUser.firstName, authUser.last_name ?? authUser.lastName]
           .filter(Boolean).join(" ").trim() ||
-        authUser.full_name || authUser.name || email;
+        authUser.name ||
+        "ICT Personnel";
 
       localStorage.setItem("token", data.access_token ?? "");
       localStorage.setItem("user", JSON.stringify({
