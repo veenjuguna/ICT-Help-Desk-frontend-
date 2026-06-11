@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -24,7 +24,12 @@ function ResetPasswordContent() {
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [stage, setStage] = useState<Stage>(token ? "idle" : "invalid");
+  const [stage, setStage] = useState<Stage>("idle");
+
+useEffect(() => {
+  if (!token) setStage("invalid");
+}, [token]);
+
   const [errorMsg, setErrorMsg] = useState("");
 
   const checks = {
@@ -69,7 +74,7 @@ function ResetPasswordContent() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token, password }),
+          body: JSON.stringify({ token, new_password: password, confirm_new_password: confirm }),
         },
       );
       if (res.ok) {
