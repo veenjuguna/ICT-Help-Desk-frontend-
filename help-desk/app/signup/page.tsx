@@ -207,7 +207,7 @@ export default function SignupPage() {
         return;
       }
     
-      router.push("/auth/verify?email = ${encodeURIComponent(form.email)}"); // ← updated
+     router.push(`/auth/verify?email=${encodeURIComponent(form.email)}`); // ← updated
     } catch {
       setError("Network error. Please check your connection and try again.");
     } finally {
