@@ -206,8 +206,8 @@ export default function SignupPage() {
         setError(data?.detail ?? "Registration failed. Please try again.");
         return;
       }
-      localStorage.setItem("pending_verify_email", form.email);
-      router.push("/auth/verify"); // ← updated
+    
+     router.push(`/auth/verify?email=${encodeURIComponent(form.email)}`); // ← updated
     } catch {
       setError("Network error. Please check your connection and try again.");
     } finally {
