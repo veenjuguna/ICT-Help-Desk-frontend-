@@ -1,4 +1,4 @@
-//dashboard
+// staff dashboard
 "use client";
 
 import Link from "next/link";
@@ -13,66 +13,13 @@ import {
   Bell,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import TicketTable from "@/components/ticket-table";
 
 interface User {
   full_name: string;
   email: string;
   department?: { name: string };
 }
-const stats = [
-  { label: "Total Raised", value: 12, icon: AlertCircle, color: "#C8962E" },
-  { label: "Open", value: 3, icon: Clock, color: "#E8B84B" },
-  { label: "In Progress", value: 2, icon: Loader, color: "#6B2D0F" },
-  { label: "Resolved", value: 7, icon: CheckCircle, color: "#2D6B0F" },
-];
-
-const tickets = [
-  {
-    id: "TKT-0012",
-    date: "27 May 2026",
-    time: "09:14",
-    issue: "Laptop not connecting to VPN",
-    category: "Network",
-    priority: "High",
-    status: "Open",
-  },
-  {
-    id: "TKT-0011",
-    date: "26 May 2026",
-    time: "14:32",
-    issue: "Cannot access HRMIS portal",
-    category: "Software",
-    priority: "High",
-    status: "In Progress",
-  },
-  {
-    id: "TKT-0010",
-    date: "25 May 2026",
-    time: "11:05",
-    issue: "Printer offline - 3rd floor",
-    category: "Hardware",
-    priority: "Medium",
-    status: "Resolved",
-  },
-  {
-    id: "TKT-0009",
-    date: "23 May 2026",
-    time: "08:50",
-    issue: "Password reset request",
-    category: "Access",
-    priority: "Low",
-    status: "Resolved",
-  },
-  {
-    id: "TKT-0008",
-    date: "20 May 2026",
-    time: "16:20",
-    issue: "Email not syncing on phone",
-    category: "Software",
-    priority: "Medium",
-    status: "Resolved",
-  },
-];
 
 const notices = [
   {
@@ -150,6 +97,7 @@ export default function DashboardPage() {
     email: string;
     department?: { name: string };
   } | null>(null);
+  const [tickets, setTickets] = useState<{ status: string }[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -158,6 +106,13 @@ export default function DashboardPage() {
           credentials: "include",
         });
         if (res.ok) setUser(await res.json());
+        const ticketRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/tickets/`,
+          {
+            credentials: "include",
+          },
+        );
+        if (ticketRes.ok) setTickets(await ticketRes.json());
       } catch {}
     })();
   }, []);
@@ -169,6 +124,32 @@ export default function DashboardPage() {
     .map((n) => n[0])
     .join("")
     .slice(0, 2);
+  const stats = [
+    {
+      label: "Total Raised",
+      value: tickets.length,
+      icon: AlertCircle,
+      color: "#C8962E",
+    },
+    {
+      label: "Open",
+      value: tickets.filter((t) => t.status === "OPEN").length,
+      icon: Clock,
+      color: "#E8B84B",
+    },
+    {
+      label: "In Progress",
+      value: tickets.filter((t) => t.status === "IN_PROGRESS").length,
+      icon: Loader,
+      color: "#6B2D0F",
+    },
+    {
+      label: "Resolved",
+      value: tickets.filter((t) => t.status === "RESOLVED").length,
+      icon: CheckCircle,
+      color: "#2D6B0F",
+    },
+  ];
   return (
     <>
       <style>{`
@@ -574,48 +555,7 @@ export default function DashboardPage() {
           {/* TWO COLUMN */}
           <div className="two-col">
             {/* TICKETS */}
-            <div className="section-card">
-              <div className="section-header">
-                <p className="section-title">Recent Tickets</p>
-                <Link href="/tickets" className="section-link">
-                  View all <ArrowRight size={13} />
-                </Link>
-              </div>
-              <table className="ticket-table">
-                <thead>
-                  <tr>
-                    <th>Date / Time</th>
-                    <th>Ticket ID</th>
-                    <th>Issue</th>
-                    <th>Category</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tickets.map((t) => (
-                    <tr key={t.id}>
-                      <td>
-                        <p className="ticket-date">{t.date}</p>
-                        <p className="ticket-time">{t.time}</p>
-                      </td>
-                      <td>
-                        <span className="ticket-id">{t.id}</span>
-                      </td>
-                      <td style={{ maxWidth: 180 }}>{t.issue}</td>
-                      <td>{t.category}</td>
-                      <td>
-                        <PriorityDot priority={t.priority} />
-                      </td>
-                      <td>
-                        <StatusBadge status={t.status} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
+            <TicketTable />
             {/* RIGHT COLUMN */}
             <div
               style={{

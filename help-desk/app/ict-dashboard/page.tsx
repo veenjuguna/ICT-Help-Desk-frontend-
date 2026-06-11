@@ -26,8 +26,8 @@ const specializations = [
 ];
 
 const statusStyles: Record<string, string> = {
-  "In Progress": "bg-blue-100 text-blue-800",
-  "Open": "bg-amber-100 text-amber-800",
+  "In Progress": "bg-amber-100 text-amber-800",
+  "Open": "bg-orange-100 text-orange-800",
   "Pending Parts": "bg-yellow-100 text-yellow-800",
 };
 
@@ -52,48 +52,113 @@ export default function TechnicianDashboard() {
         );
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F5F0E8" }}>
 
-      {/* ── Top Bar ── */}
-      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Good Morning, David Ochieng</h1>
-          <p className="text-sm sm:text-base text-gray-400 mt-1">✦ Network &amp; Hardware Specialist</p>
+      {/* ── Top utility bar above brown card ── */}
+      <div className="px-4 sm:px-6 pt-4 flex justify-end items-center gap-3">
+        {/* Available badge */}
+        <div
+          className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
+          style={{ backgroundColor: "#fff", color: "#4A2800", border: "1px solid #E8DDD0", boxShadow: "0 1px 3px rgba(90,30,0,0.08)", fontSize: "11px" }}
+        >
+          <span className="w-2 h-2 rounded-full bg-green-500" />
+          Available
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-2 text-sm sm:text-base text-gray-700">
-            <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
-            Available
+
+        {/* Bell */}
+        <div
+          className="relative cursor-pointer w-10 h-10 flex items-center justify-center rounded-full"
+          style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 3px rgba(90,30,0,0.08)" }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7A3100" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-400" />
+        </div>
+
+        {/* Divider */}
+        <div style={{ width: "1px", height: "32px", backgroundColor: "#E8DDD0" }} />
+
+        {/* Avatar + Name */}
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+            style={{
+              background: "linear-gradient(135deg, #7A3100 0%, #C8922A 100%)",
+              color: "#fff",
+              boxShadow: "0 1px 4px rgba(90,30,0,0.18)",
+            }}
+          >
+            DO
           </div>
-          <div className="relative cursor-pointer">
-            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="white" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
+          <div className="hidden sm:flex flex-col leading-tight">
+            <span className="text-xs font-semibold" style={{ color: "#3D1000" }}>David Ochieng</span>
+            <span style={{ color: "#A07850", fontSize: "10px" }}>Technician</span>
           </div>
+        </div>
+      </div>
+
+      {/* ── Brown Hero Card ── */}
+      <div className="px-4 sm:px-6 pt-3">
+        <div
+          className="px-6 sm:px-10 py-8 sm:py-10 rounded-2xl"
+          style={{
+            background: "linear-gradient(135deg, #5C1E00 0%, #7A3100 50%, #8B4513 100%)",
+          }}
+        >
+          <p className="text-xs sm:text-sm font-semibold tracking-widest uppercase mb-1" style={{ color: "#C8922A" }}>
+            GOOD MORNING
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">David Ochieng</h1>
+          <p className="text-sm sm:text-base mt-1" style={{ color: "#D4A96A" }}>
+            Network &amp; Hardware Specialist
+          </p>
         </div>
       </div>
 
       {/* ── Main Content ── */}
       <main className="flex-1 px-4 sm:px-6 py-5 flex flex-col gap-5">
 
-        {/* ── Stats Grid: 1 col mobile, 2 col sm, 4 col lg ── */}
+        {/* ── Stats Grid ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: "Assigned to Me", value: "8", icon: "" },
-            { label: "Completed Today", value: "5", icon: "" },
-            { label: "Pending Review", value: "3", icon: "" },
-            { label: "Avg Response Time", value: "15 min", icon: "↑" },
+            { label: "Assigned to Me", value: "8", icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C8922A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            )},
+            { label: "Completed Today", value: "5", icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C8922A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+            )},
+            { label: "Pending Review", value: "3", icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C8922A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            )},
+            { label: "Avg Response Time", value: "15 min", icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C8922A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+              </svg>
+            )},
           ].map((s) => (
             <div
               key={s.label}
-              className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4"
+              className="rounded-xl px-5 py-4"
+              style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm sm:text-base text-gray-500">{s.label}</span>
-                <span className="text-gray-400 text-base">{s.icon}</span>
+                <span className="text-sm text-gray-500">{s.label}</span>
+                <span
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: "#FDF3E3" }}
+                >
+                  {s.icon}
+                </span>
               </div>
-              <p className="text-3xl sm:text-4xl font-semibold text-gray-800 leading-none">{s.value}</p>
+              <p className="text-3xl sm:text-4xl font-bold leading-none" style={{ color: "#5C1E00" }}>{s.value}</p>
             </div>
           ))}
         </div>
@@ -102,19 +167,26 @@ export default function TechnicianDashboard() {
         <div className="flex flex-col xl:flex-row gap-4">
 
           {/* Tickets Table */}
-          <div className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-w-0">
-            <div className="flex flex-wrap items-center justify-between px-5 py-4 border-b border-gray-100 gap-2">
-              <span className="font-semibold text-base sm:text-lg text-gray-800">My Assigned Tickets</span>
+          <div
+            className="flex-1 rounded-xl overflow-hidden min-w-0"
+            style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
+          >
+            <div
+              className="flex flex-wrap items-center justify-between px-5 py-4 gap-2"
+              style={{ borderBottom: "1px solid #EDE5D8" }}
+            >
+              <span className="font-semibold text-base sm:text-lg" style={{ color: "#3D1000" }}>My Assigned Tickets</span>
               <div className="flex gap-1">
                 {(["All", "Open", "In Progress"] as Filter[]).map((f) => (
                   <button
                     key={f}
                     onClick={() => setActiveFilter(f)}
-                    className={`px-3 py-1.5 rounded-md text-sm sm:text-base font-medium transition-colors ${
+                    className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+                    style={
                       activeFilter === f
-                        ? "bg-[#7A3100] text-white"
-                        : "text-gray-500 hover:bg-gray-100"
-                    }`}
+                        ? { backgroundColor: "#7A3100", color: "#fff" }
+                        : { color: "#7A5C45", backgroundColor: "transparent" }
+                    }
                   >
                     {f}
                   </button>
@@ -134,11 +206,12 @@ export default function TechnicianDashboard() {
                   <col style={{ width: "58px" }} />
                 </colgroup>
                 <thead>
-                  <tr className="border-b border-gray-100">
+                  <tr style={{ borderBottom: "1px solid #EDE5D8" }}>
                     {["Ticket ID", "Employee", "Issue", "Priority", "Time", "Status", "Action"].map((h) => (
                       <th
                         key={h}
-                        className="text-left px-3 py-3 text-xs sm:text-sm font-medium text-gray-400 uppercase tracking-wide"
+                        className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: "#A07850" }}
                       >
                         {h}
                       </th>
@@ -147,21 +220,27 @@ export default function TechnicianDashboard() {
                 </thead>
                 <tbody>
                   {filtered.map((t) => (
-                    <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="px-3 py-3.5 font-medium text-gray-700 text-sm sm:text-base">{t.id}</td>
+                    <tr
+                      key={t.id}
+                      className="transition-colors"
+                      style={{ borderBottom: "1px solid #F5EEE4" }}
+                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#FDF8F2")}
+                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
+                    >
+                      <td className="px-3 py-3.5 font-medium text-sm" style={{ color: "#7A3100" }}>{t.id}</td>
                       <td className="px-3 py-3.5">
-                        <p className="font-medium text-gray-800 text-sm sm:text-base">{t.employee}</p>
-                        <p className="text-gray-400 text-xs sm:text-sm mt-0.5">{t.department}</p>
+                        <p className="font-medium text-sm" style={{ color: "#3D1000" }}>{t.employee}</p>
+                        <p className="text-xs mt-0.5" style={{ color: "#A07850" }}>{t.department}</p>
                       </td>
                       <td className="px-3 py-3.5">
-                        <p className="text-gray-700 text-sm sm:text-base">{t.issue}</p>
-                        <p className="text-gray-400 text-xs sm:text-sm mt-0.5">{t.category}</p>
+                        <p className="text-sm" style={{ color: "#4A2800" }}>{t.issue}</p>
+                        <p className="text-xs mt-0.5" style={{ color: "#A07850" }}>{t.category}</p>
                       </td>
-                      <td className={`px-3 py-3.5 text-sm sm:text-base ${priorityStyles[t.priority]}`}>{t.priority}</td>
-                      <td className="px-3 py-3.5 text-gray-500 text-sm sm:text-base">{t.time}</td>
+                      <td className={`px-3 py-3.5 text-sm ${priorityStyles[t.priority]}`}>{t.priority}</td>
+                      <td className="px-3 py-3.5 text-sm" style={{ color: "#7A5C45" }}>{t.time}</td>
                       <td className="px-3 py-3.5">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap ${
+                          className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                             statusStyles[t.status] ?? "bg-gray-100 text-gray-600"
                           }`}
                         >
@@ -169,7 +248,10 @@ export default function TechnicianDashboard() {
                         </span>
                       </td>
                       <td className="px-3 py-3.5">
-                        <button className="text-[#7A3100] font-semibold hover:underline text-sm sm:text-base">
+                        <button
+                          className="text-sm font-semibold hover:underline"
+                          style={{ color: "#7A3100" }}
+                        >
                           View
                         </button>
                       </td>
@@ -184,20 +266,26 @@ export default function TechnicianDashboard() {
           <div className="xl:w-[240px] flex-shrink-0 flex flex-row xl:flex-col gap-3">
 
             {/* Recent Activity */}
-            <div className="flex-1 xl:flex-none bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
-              <h3 className="font-semibold text-base sm:text-lg text-gray-800 mb-4">Recent Activity</h3>
+            <div
+              className="flex-1 xl:flex-none rounded-xl p-4 sm:p-5"
+              style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
+            >
+              <h3 className="font-semibold text-base mb-4" style={{ color: "#3D1000" }}>Recent Activity</h3>
               <div className="flex flex-col gap-4">
                 {recentActivity.map((a) => (
                   <div key={a.id} className="flex gap-3 items-start">
-                    <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center flex-shrink-0">
-                      <span className="w-2 h-2 rounded-full bg-gray-300 block" />
+                    <div
+                      className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ border: "2px solid #C8922A" }}
+                    >
+                      <span className="w-2 h-2 rounded-full block" style={{ backgroundColor: "#C8922A" }} />
                     </div>
                     <div>
-                      <p className="font-medium text-sm sm:text-base text-gray-700">
+                      <p className="font-medium text-sm" style={{ color: "#3D1000" }}>
                         {a.action} {a.id}
                       </p>
-                      <p className="text-sm text-gray-500 mt-0.5">{a.description}</p>
-                      <p className="text-xs sm:text-sm text-gray-400 mt-0.5">{a.time}</p>
+                      <p className="text-sm mt-0.5" style={{ color: "#7A5C45" }}>{a.description}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "#A07850" }}>{a.time}</p>
                     </div>
                   </div>
                 ))}
@@ -205,12 +293,15 @@ export default function TechnicianDashboard() {
             </div>
 
             {/* Specializations */}
-            <div className="flex-1 xl:flex-none bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
-              <h3 className="font-semibold text-base sm:text-lg text-gray-800 mb-4">My Specializations</h3>
+            <div
+              className="flex-1 xl:flex-none rounded-xl p-4 sm:p-5"
+              style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
+            >
+              <h3 className="font-semibold text-base mb-4" style={{ color: "#3D1000" }}>My Specializations</h3>
               <ul className="flex flex-col gap-2.5">
                 {specializations.map((s) => (
-                  <li key={s} className="flex items-center gap-2.5 text-sm sm:text-base text-gray-700">
-                    <span className="w-2 h-2 rounded-full bg-gray-500 flex-shrink-0" />
+                  <li key={s} className="flex items-center gap-2.5 text-sm" style={{ color: "#4A2800" }}>
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#C8922A" }} />
                     {s}
                   </li>
                 ))}

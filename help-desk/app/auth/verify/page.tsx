@@ -1,3 +1,4 @@
+//veify email page
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
