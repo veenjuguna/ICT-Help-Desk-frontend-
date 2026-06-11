@@ -190,9 +190,7 @@ export default function SignupPage() {
           email: form.email,
           phone_number: form.phone,
           directorate_id: Number(form.directorateId),
-          department_id: form.departmentId
-            ? Number(form.departmentId)
-            : undefined,
+          department_id: form.departmentId ? Number(form.departmentId) : null,
           office_number: form.officeNumber,
           office_location: form.officeLocation,
           role: "STAFF",
@@ -203,7 +201,12 @@ export default function SignupPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.detail ?? "Registration failed. Please try again.");
+        const detail = data?.detail;
+        setError(
+          Array.isArray(detail)
+            ? detail.map((e: { msg: string }) => e.msg).join(", ")
+            : detail ?? "Registration failed. Please try again."
+        );
         return;
       }
     
