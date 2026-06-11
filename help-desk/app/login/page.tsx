@@ -36,7 +36,19 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Login failed");
 
-      // No localStorage needed — cookie is set automatically
+      const authUser = data.user ?? data.data?.user ?? data;
+      const fullName =
+        [authUser.first_name ?? authUser.firstName, authUser.last_name ?? authUser.lastName]
+          .filter(Boolean).join(" ").trim() ||
+        authUser.full_name || authUser.name || email;
+
+      localStorage.setItem("token", data.access_token ?? "");
+      localStorage.setItem("user", JSON.stringify({
+        full_name: fullName,
+        email: authUser.email ?? email,
+        department: authUser.department ?? null,
+        role: authUser.role ?? authUser.user_role ?? "",
+      }));
 
       router.push("/dashboard");
     } catch (err: unknown) {

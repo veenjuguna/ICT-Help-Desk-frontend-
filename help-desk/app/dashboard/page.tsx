@@ -96,7 +96,12 @@ export default function DashboardPage() {
     full_name: string;
     email: string;
     department?: { name: string };
-  } | null>(null);
+  } | null>(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
+  });
   const [tickets, setTickets] = useState<{ status: string }[]>([]);
 
   useEffect(() => {
