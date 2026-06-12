@@ -3,14 +3,13 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Users, Ticket, Package, Monitor,
-  TrendingUp, TrendingDown, AlertCircle, Wifi, WifiOff,
+  AlertCircle, Wifi, WifiOff,
 } from "lucide-react";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────
+
 interface AdminUser {
   full_name?: string;
-  first_name?: string;
-  last_name?: string;
   email?: string;
   role?: string;
   department?: { name: string };
@@ -18,9 +17,16 @@ interface AdminUser {
 
 interface IctPersonnel {
   id: number;
+  staff_id: string;
   availability: string;
-  specialization: string;
-  staff?: { full_name: string };
+  specialization: string | null;
+  is_active: boolean;
+}
+
+interface StaffItem {
+  id: string;
+  full_name: string;
+  email: string;
 }
 
 interface TicketItem {
@@ -29,25 +35,25 @@ interface TicketItem {
   description: string;
   category: string;
   status: string;
-  staff?: { full_name: string; department?: { name: string } };
+  staff_id: string;
+  assigned_to_id: number | null;
+  comment: string | null;
+  created_at: string;
+  closed_at: string | null;
 }
 
 interface TicketSummary {
-  open?: number;
-  in_progress?: number;
-  closed?: number;
-  unresolved?: number;
-  queued?: number;
+  OPEN?: number;
+  IN_PROGRESS?: number;
+  CLOSED?: number;
 }
 
 interface AssetItem {
   id: number;
   asset_tag: string;
-  serial_number: string;
   device_type: string;
   brand: string;
   model: string;
-  classification: string;
   condition: string;
 }
 
@@ -57,10 +63,10 @@ interface SessionItem {
   ip_address?: string;
   login_at: string;
   is_active: boolean;
-  staff?: { full_name: string; email: string };
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────
+
 function getGreeting() {
   const h = new Date().getHours();
   if (h < 12) return "Good Morning";
@@ -74,19 +80,26 @@ function formatTime(iso: string) {
   });
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, comment }: { status: string; comment?: string | null }) {
+  // RESOLVED and UNRESOLVED are transient — never stored in DB
+  // CLOSED with a comment = was marked unresolved by ICT
+  const isUnresolved = status === "CLOSED" && !!comment;
+
   const map: Record<string, { bg: string; color: string }> = {
     "OPEN":        { bg: "#FFF3E0", color: "#C8962E" },
     "IN_PROGRESS": { bg: "#FFF8E0", color: "#6B2D0F" },
-    "RESOLVED":    { bg: "#E8F5E9", color: "#2D6B0F" },
     "CLOSED":      { bg: "#F3F3F3", color: "#555"    },
-    "UNRESOLVED":  { bg: "#FFEBEE", color: "#BB0000"  },
   };
+
   const s = map[status] ?? { bg: "#eee", color: "#333" };
-  const label = status.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  const label = isUnresolved
+    ? "Closed — Unresolved"
+    : status.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
   return (
     <span style={{
-      background: s.bg, color: s.color,
+      background: isUnresolved ? "#FFEBEE" : s.bg,
+      color: isUnresolved ? "#BB0000" : s.color,
       padding: "3px 10px", borderRadius: "20px",
       fontSize: "11.5px", fontWeight: 600, whiteSpace: "nowrap",
     }}>
@@ -95,77 +108,131 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function PriorityDot({ priority }: { priority: string }) {
-  const colors: Record<string, string> = {
-    High: "#BB0000", Medium: "#C8962E", Low: "#2D6B0F",
-  };
-  return (
-    <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
-      <span style={{
-        width: 7, height: 7, borderRadius: "50%",
-        background: colors[priority] ?? "#aaa",
-        flexShrink: 0, display: "inline-block",
-      }} />
-      {priority}
-    </span>
-  );
-}
+const specializationLabel: Record<string, string> = {
+  HARDWARE:             "Hardware",
+  NETWORKING:           "Networking",
+  SOFTWARE_AND_SYSTEMS: "Software & Systems",
+  SECURITY:             "Security",
+  OTHER:                "Other",
+};
 
-// ── Component ─────────────────────────────────────────────────────────────────
+const categoryLabel: Record<string, string> = {
+  hardware:            "Hardware",
+  software:            "Software",
+  network:             "Network",
+  access_permissions:  "Access & Permissions",
+  security_incidents:  "Security",
+  other:               "Other",
+};
+
+// ── Component ─────────────────────────────────────────────────
+
 export default function AdminDashboardPage() {
-  const [user, setUser] = useState<AdminUser | null>(null);
-  const [summary, setSummary] = useState<TicketSummary>({});
-  const [personnel, setPersonnel] = useState<IctPersonnel[]>([]);
+  const [user, setUser]               = useState<AdminUser | null>(null);
+  const [summary, setSummary]         = useState<TicketSummary>({});
+  const [personnel, setPersonnel]     = useState<IctPersonnel[]>([]);
+  const [staffMap, setStaffMap]       = useState<Record<string, StaffItem>>({});
   const [recentTickets, setRecentTickets] = useState<TicketItem[]>([]);
-  const [assets, setAssets] = useState<AssetItem[]>([]);
-  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [queuedCount, setQueuedCount] = useState(0);
+  const [totalStaff, setTotalStaff]   = useState(0);
+  const [assets, setAssets]           = useState<AssetItem[]>([]);
+  const [sessions, setSessions]       = useState<SessionItem[]>([]);
+  const [loading, setLoading]         = useState(true);
+
+  const API = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     (async () => {
       try {
-        const [meRes, summaryRes, personnelRes, ticketsRes, assetsRes, sessionsRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, { credentials: "include" }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/admin/summary`, { credentials: "include" }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/ict-personnel/`, { credentials: "include" }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/?limit=5`, { credentials: "include" }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/assets/`, { credentials: "include" }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/sessions?active_only=true&limit=10`, { credentials: "include" }),
+        const [
+          meRes, summaryRes, personnelRes,
+          ticketsRes, queuedRes, assetsRes,
+          sessionsRes, staffRes,
+        ] = await Promise.all([
+          fetch(`${API}/staff/me`,                              { credentials: "include" }),
+          fetch(`${API}/tickets/admin/summary`,                 { credentials: "include" }),
+          fetch(`${API}/ict-personnel/`,                        { credentials: "include" }),
+          fetch(`${API}/tickets/?limit=5`,                      { credentials: "include" }),
+          fetch(`${API}/tickets/admin/queued`,                  { credentials: "include" }),
+          fetch(`${API}/assets/`,                               { credentials: "include" }),
+          fetch(`${API}/auth/sessions?active_only=true&limit=10`, { credentials: "include" }),
+          fetch(`${API}/staff/?limit=200`,                      { credentials: "include" }),
         ]);
-        if (meRes.ok) setUser(await meRes.json());
-        if (summaryRes.ok) setSummary(await summaryRes.json());
-        if (personnelRes.ok) setPersonnel(await personnelRes.json());
-        if (ticketsRes.ok) setRecentTickets(await ticketsRes.json());
-        if (assetsRes.ok) setAssets(await assetsRes.json());
-        if (sessionsRes.ok) setSessions(await sessionsRes.json());
-      } catch {}
-    })();
-  }, []);
 
-  const fullName =
-    user?.full_name ??
-    (user?.first_name || user?.last_name
-      ? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim()
-      : "Loading...");
+        if (meRes.ok)       setUser(await meRes.json());
+        if (summaryRes.ok)  setSummary(await summaryRes.json());
+        if (assetsRes.ok)   setAssets(await assetsRes.json());
+        if (sessionsRes.ok) setSessions(await sessionsRes.json());
+
+        if (personnelRes.ok) setPersonnel(await personnelRes.json());
+
+        if (ticketsRes.ok)  setRecentTickets(await ticketsRes.json());
+
+        if (queuedRes.ok) {
+          const queued: TicketItem[] = await queuedRes.json();
+          setQueuedCount(queued.length);
+        }
+
+        // Build staff lookup map for resolving names from IDs
+        if (staffRes.ok) {
+          const allStaff: StaffItem[] = await staffRes.json();
+          setTotalStaff(allStaff.length);
+          const map: Record<string, StaffItem> = {};
+          allStaff.forEach(s => { map[s.id] = s; });
+          setStaffMap(map);
+        }
+      } catch (e) {
+        console.error("Dashboard fetch error:", e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [API]);
+
+  const fullName   = user?.full_name ?? "Loading...";
   const department = user?.department?.name ?? "National Treasury";
-  const email = user?.email ?? "";
+  const email      = user?.email ?? "";
+
+  const availableCount = personnel.filter(
+    p => p.availability === "AVAILABLE" && p.is_active
+  ).length;
 
   const today = new Date().toLocaleDateString("en-KE", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
 
-  const availableCount = personnel.filter(p => p.availability === "AVAILABLE").length;
-  const queuedCount = summary.queued ?? 0;
-
   const STATS = [
-    { label: "Total Staff",   value: personnel.length,  icon: Users,   trend: "", up: true, color: "#C8962E" },
-    { label: "Open Tickets",  value: summary.open ?? 0, icon: Ticket,  trend: "", up: true, color: "#6B2D0F" },
-    { label: "Total Assets",  value: assets.length,     icon: Package, trend: "", up: true, color: "#C8962E" },
-    { label: "ICT Available", value: availableCount,    icon: Monitor, trend: "", up: true, color: "#2D6B0F" },
+    {
+      label: "Total Staff",
+      value: loading ? "—" : String(totalStaff),
+      icon: Users,
+      color: "#C8962E",
+    },
+    {
+      label: "Open Tickets",
+      value: loading ? "—" : String(summary.OPEN ?? 0),
+      icon: Ticket,
+      color: "#6B2D0F",
+    },
+    {
+      label: "Total Assets",
+      value: loading ? "—" : String(assets.length),
+      icon: Package,
+      color: "#C8962E",
+    },
+    {
+      label: "ICT Available",
+      value: loading ? "—" : String(availableCount),
+      icon: Monitor,
+      color: "#2D6B0F",
+    },
   ];
 
-  // Group assets by device_type for the breakdown chart
+  // Asset breakdown by device type
   const assetGroups = assets.reduce<Record<string, number>>((acc, a) => {
-    const key = a.device_type.replace(/_/g, " ").toLowerCase()
+    const key = a.device_type
+      .replace(/_/g, " ")
+      .toLowerCase()
       .replace(/\b\w/g, c => c.toUpperCase());
     acc[key] = (acc[key] ?? 0) + 1;
     return acc;
@@ -201,7 +268,6 @@ export default function AdminDashboardPage() {
           width: 100%; min-width: 0; box-sizing: border-box;
         }
 
-        /* GREETING */
         .greeting-card {
           background: var(--brown); border-radius: 16px;
           padding: 1.75rem 2rem;
@@ -237,7 +303,8 @@ export default function AdminDashboardPage() {
           background: var(--gold); color: var(--brown-dark);
           padding: 0.6rem 1.2rem; border-radius: 8px;
           font-size: 13px; font-weight: 700; text-decoration: none;
-          transition: background 0.15s; border: none; cursor: pointer; font-family: inherit;
+          transition: background 0.15s; border: none; cursor: pointer;
+          font-family: inherit;
         }
         .btn-primary:hover { background: var(--gold-light); }
         .btn-ghost {
@@ -250,7 +317,6 @@ export default function AdminDashboardPage() {
         }
         .btn-ghost:hover { background: rgba(255,255,255,0.18); }
 
-        /* ALERT */
         .adm-alert {
           background: #FFF8F3; border: 1px solid #F5C8A8;
           border-left: 4px solid var(--gold); border-radius: 10px;
@@ -259,10 +325,11 @@ export default function AdminDashboardPage() {
         }
         .adm-alert svg { color: var(--gold); flex-shrink: 0; }
         .adm-alert strong { color: var(--text); }
-        .adm-alert a { color: var(--gold); font-weight: 600; text-decoration: none; }
+        .adm-alert a {
+          color: var(--gold); font-weight: 600; text-decoration: none;
+        }
         .adm-alert a:hover { text-decoration: underline; }
 
-        /* STATS */
         .stats-row {
           display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 1rem; width: 100%; min-width: 0;
@@ -274,22 +341,16 @@ export default function AdminDashboardPage() {
         }
         .stat-icon {
           width: 44px; height: 44px; border-radius: 10px;
-          display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
         }
         .stat-value {
           font-family: 'Playfair Display', serif;
-          font-size: 1.75rem; font-weight: 700; color: var(--text); line-height: 1;
+          font-size: 1.75rem; font-weight: 700; color: var(--text);
+          line-height: 1;
         }
         .stat-label { font-size: 12px; color: var(--text-sub); margin-top: 3px; }
-        .stat-trend {
-          display: flex; align-items: center; gap: 3px;
-          font-size: 11px; font-weight: 600;
-          padding: 2px 7px; border-radius: 20px; margin-top: 4px; width: fit-content;
-        }
-        .stat-trend.up   { background: #E8F5E9; color: #2D6B0F; }
-        .stat-trend.down { background: #FFEBEE; color: #BB0000; }
 
-        /* LAYOUT */
         .two-col {
           display: grid; grid-template-columns: minmax(0, 1fr) 300px;
           gap: 1.5rem; align-items: start; width: 100%; min-width: 0;
@@ -304,12 +365,17 @@ export default function AdminDashboardPage() {
           display: flex; align-items: center; justify-content: space-between;
         }
         .section-title { font-size: 14px; font-weight: 700; color: var(--text); }
-        .section-link { font-size: 12px; color: var(--brown); text-decoration: none; font-weight: 600; }
+        .section-link {
+          font-size: 12px; color: var(--brown);
+          text-decoration: none; font-weight: 600;
+        }
         .section-link:hover { text-decoration: underline; }
 
-        /* TICKETS TABLE */
         .ticket-table-wrap { overflow-x: auto; width: 100%; }
-        .ticket-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
+        .ticket-table {
+          width: 100%; border-collapse: collapse;
+          font-size: 13px; min-width: 500px;
+        }
         .ticket-table th {
           padding: 0.75rem 1.5rem; text-align: left;
           font-size: 11px; font-weight: 700; color: var(--text-sub);
@@ -322,37 +388,68 @@ export default function AdminDashboardPage() {
         }
         .ticket-table tr:last-child td { border-bottom: none; }
         .ticket-table tr:hover td { background: #FDFAF6; }
-        .ticket-id { font-weight: 600; color: var(--brown); font-size: 12.5px; font-family: monospace; }
-        .ticket-sub-text { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+        .ticket-id {
+          font-weight: 600; color: var(--brown);
+          font-size: 12.5px; font-family: monospace;
+        }
+        .ticket-sub-text {
+          font-size: 12px; color: var(--text-sub); margin-top: 2px;
+        }
+        .queued-badge {
+          font-size: 11px; font-weight: 600;
+          background: #FFF3E0; color: #C8962E;
+          padding: 2px 8px; border-radius: 10px;
+        }
 
-        /* ICT STAFF */
         .staff-list { padding: 4px 0; }
         .staff-row {
           display: flex; align-items: center;
-          padding: 11px 1.5rem; gap: 12px; border-bottom: 1px solid #F5EDE0;
+          padding: 11px 1.5rem; gap: 12px;
+          border-bottom: 1px solid #F5EDE0;
         }
         .staff-row:last-child { border-bottom: none; }
-        .staff-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-        .staff-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--text); }
+        .staff-dot {
+          width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+        }
+        .staff-name {
+          flex: 1; font-size: 13px; font-weight: 500; color: var(--text);
+        }
+        .staff-spec {
+          font-size: 11.5px; color: var(--text-sub);
+          background: var(--cream); border: 1px solid var(--border);
+          padding: 2px 8px; border-radius: 10px;
+        }
         .staff-badge {
           font-size: 11.5px; color: var(--text-sub);
           background: var(--cream); border: 1px solid var(--border);
           padding: 2px 8px; border-radius: 10px;
         }
+        .setup-badge {
+          font-size: 11px; font-weight: 600;
+          background: #FFEBEE; color: #BB0000;
+          padding: 2px 8px; border-radius: 10px;
+        }
 
-        /* ASSETS */
-        .asset-list { padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 14px; }
-        .asset-meta { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12.5px; }
+        .asset-list {
+          padding: 1rem 1.5rem;
+          display: flex; flex-direction: column; gap: 14px;
+        }
+        .asset-meta {
+          display: flex; justify-content: space-between;
+          margin-bottom: 6px; font-size: 12.5px;
+        }
         .asset-name { font-weight: 500; color: var(--text); }
         .asset-count { color: var(--text-sub); }
-        .bar-track { height: 6px; background: var(--border); border-radius: 4px; overflow: hidden; }
+        .bar-track {
+          height: 6px; background: var(--border);
+          border-radius: 4px; overflow: hidden;
+        }
         .bar-fill {
           height: 100%; border-radius: 4px;
           background: linear-gradient(90deg, var(--brown), var(--gold));
           transition: width 0.6s ease;
         }
 
-        /* SESSIONS */
         .sessions-list { padding: 4px 0; }
         .session-row {
           display: flex; align-items: center;
@@ -360,7 +457,9 @@ export default function AdminDashboardPage() {
           border-bottom: 1px solid #F5EDE0; font-size: 12.5px;
         }
         .session-row:last-child { border-bottom: none; }
-        .session-user { flex: 1; color: var(--text); font-weight: 500; }
+        .session-user {
+          flex: 1; color: var(--text); font-weight: 500;
+        }
         .session-time { color: var(--text-sub); font-size: 12px; }
         .session-live {
           display: flex; align-items: center; gap: 4px;
@@ -368,8 +467,8 @@ export default function AdminDashboardPage() {
         }
         .session-ended { color: var(--text-sub); font-size: 11.5px; }
         .live-dot {
-          width: 7px; height: 7px; border-radius: 50%; background: #2D6B0F;
-          animation: pulse 1.6s infinite;
+          width: 7px; height: 7px; border-radius: 50%;
+          background: #2D6B0F; animation: pulse 1.6s infinite;
         }
         @keyframes pulse {
           0%, 100% { opacity: 1; transform: scale(1); }
@@ -381,7 +480,6 @@ export default function AdminDashboardPage() {
           text-align: center; padding: 1rem 0;
         }
 
-        /* RESPONSIVE */
         @media (max-width: 1100px) { .two-col { grid-template-columns: 1fr; } }
         @media (max-width: 768px) {
           .stats-row { grid-template-columns: repeat(2, 1fr); }
@@ -399,7 +497,9 @@ export default function AdminDashboardPage() {
             <div className="greeting-left">
               <p className="greeting-tag">{getGreeting()}</p>
               <h1 className="greeting-name">{fullName}</h1>
-              <p className="greeting-sub">{department}&nbsp;·&nbsp;{email || today}</p>
+              <p className="greeting-sub">
+                {department}&nbsp;·&nbsp;{email || today}
+              </p>
             </div>
             <div className="greeting-actions">
               <Link href="/admin/tickets" className="btn-primary">
@@ -411,14 +511,19 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* ALERT */}
-          <div className="adm-alert">
-            <AlertCircle size={17} />
-            <span>
-              <strong>{queuedCount} unassigned ticket{queuedCount !== 1 ? "s" : ""}</strong> are awaiting ICT personnel assignment.{" "}
-              <Link href="/admin/tickets">Assign now →</Link>
-            </span>
-          </div>
+          {/* QUEUED TICKETS ALERT — only show when there are queued tickets */}
+          {queuedCount > 0 && (
+            <div className="adm-alert">
+              <AlertCircle size={17} />
+              <span>
+                <strong>
+                  {queuedCount} unassigned ticket{queuedCount !== 1 ? "s" : ""}
+                </strong>{" "}
+                awaiting ICT specialist assignment.{" "}
+                <Link href="/admin/tickets?view=queued">Assign now →</Link>
+              </span>
+            </div>
+          )}
 
           {/* STATS */}
           <div className="stats-row">
@@ -426,18 +531,15 @@ export default function AdminDashboardPage() {
               const Icon = s.icon;
               return (
                 <div className="stat-card" key={s.label}>
-                  <div className="stat-icon" style={{ background: `${s.color}18` }}>
+                  <div
+                    className="stat-icon"
+                    style={{ background: `${s.color}18` }}
+                  >
                     <Icon size={20} color={s.color} />
                   </div>
                   <div>
                     <p className="stat-value">{s.value}</p>
                     <p className="stat-label">{s.label}</p>
-                    {s.trend && (
-                      <p className={`stat-trend ${s.up ? "up" : "down"}`}>
-                        {s.up ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                        {s.trend}
-                      </p>
-                    )}
                   </div>
                 </div>
               );
@@ -451,40 +553,84 @@ export default function AdminDashboardPage() {
             <div className="section-card">
               <div className="section-header">
                 <p className="section-title">Recent Tickets</p>
-                <Link href="/admin/tickets" className="section-link">View all</Link>
+                <Link href="/admin/tickets" className="section-link">
+                  View all
+                </Link>
               </div>
               <div className="ticket-table-wrap">
                 <table className="ticket-table">
                   <thead>
                     <tr>
                       <th>Ticket ID</th>
-                      <th>Subject</th>
-                      <th>Department</th>
-                      <th>Priority</th>
+                      <th>Title</th>
+                      <th>Category</th>
+                      <th>Assigned To</th>
                       <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recentTickets.length === 0 ? (
                       <tr>
-                        <td colSpan={5} style={{ textAlign: "center", color: "var(--text-sub)", padding: "1.5rem" }}>
+                        <td
+                          colSpan={5}
+                          style={{
+                            textAlign: "center",
+                            color: "var(--text-sub)",
+                            padding: "1.5rem",
+                          }}
+                        >
                           No tickets yet.
                         </td>
                       </tr>
-                    ) : recentTickets.map((t) => (
-                      <tr key={t.id}>
-                        <td><span className="ticket-id">TKT-{String(t.id).padStart(4, "0")}</span></td>
-                        <td>
-                          <div>{t.title}</div>
-                          <div className="ticket-sub-text">{t.staff?.full_name ?? ""}</div>
-                        </td>
-                        <td style={{ color: "var(--text-sub)", fontSize: 12.5 }}>
-                          {t.staff?.department?.name ?? t.category}
-                        </td>
-                        <td><PriorityDot priority="Medium" /></td>
-                        <td><StatusBadge status={t.status} /></td>
-                      </tr>
-                    ))}
+                    ) : recentTickets.map((t) => {
+                      const assignedStaff = t.assigned_to_id
+                        ? Object.values(staffMap).find(
+                            s => s.id === String(t.assigned_to_id)
+                          )
+                        : null;
+                      const raisedBy = staffMap[t.staff_id];
+
+                      return (
+                        <tr key={t.id}>
+                          <td>
+                            <span className="ticket-id">
+                              TKT-{String(t.id).padStart(4, "0")}
+                            </span>
+                          </td>
+                          <td>
+                            <div>{t.title}</div>
+                            <div className="ticket-sub-text">
+                              {raisedBy?.full_name ?? "—"}
+                            </div>
+                          </td>
+                          <td style={{ color: "var(--text-sub)", fontSize: 12.5 }}>
+                            {categoryLabel[t.category] ?? t.category}
+                          </td>
+                          <td style={{ fontSize: 12.5 }}>
+                            {t.assigned_to_id === null ? (
+                              <span className="queued-badge">Unassigned</span>
+                            ) : assignedStaff ? (
+                              assignedStaff.full_name
+                                .split(" ")
+                                .map((n, i, arr) =>
+                                  i === arr.length - 1
+                                    ? n[0] + "."
+                                    : n
+                                )
+                                .join(" ")
+                            ) : (
+                              `Tech #${t.assigned_to_id}`
+                            )}
+                          </td>
+                          <td>
+                            <StatusBadge
+                              status={t.status}
+                              comment={t.comment}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -497,23 +643,42 @@ export default function AdminDashboardPage() {
               <div className="section-card">
                 <div className="section-header">
                   <p className="section-title">ICT Personnel</p>
-                  <Link href="/admin/staff" className="section-link">Manage</Link>
+                  <Link href="/admin/ict-personnel" className="section-link">
+                    Manage
+                  </Link>
                 </div>
                 <div className="staff-list">
                   {personnel.length === 0 ? (
                     <p className="empty-state">No ICT personnel yet.</p>
-                  ) : personnel.slice(0, 5).map((p) => (
-                    <div key={p.id} className="staff-row">
-                      <span
-                        className="staff-dot"
-                        style={{ background: p.availability === "AVAILABLE" ? "#2D6B0F" : "#B0906A" }}
-                      />
-                      <span className="staff-name">{p.staff?.full_name ?? "Unknown"}</span>
-                      <span className="staff-badge">
-                        {p.availability.toLowerCase().replace(/_/g, " ")}
-                      </span>
-                    </div>
-                  ))}
+                  ) : personnel.slice(0, 6).map((p) => {
+                    const s = staffMap[p.staff_id];
+                    const name = s?.full_name ?? `Staff ${p.staff_id.slice(0, 6)}`;
+                    const availDot =
+                      p.availability === "AVAILABLE" && p.is_active ? "#2D6B0F" :
+                      p.availability === "BUSY"                      ? "#C8962E" :
+                      "#B0906A";
+
+                    return (
+                      <div key={p.id} className="staff-row">
+                        <span
+                          className="staff-dot"
+                          style={{ background: availDot }}
+                        />
+                        <span className="staff-name">{name}</span>
+                        {!p.is_active && !p.specialization ? (
+                          <span className="setup-badge">Setup pending</span>
+                        ) : p.specialization ? (
+                          <span className="staff-spec">
+                            {specializationLabel[p.specialization] ?? p.specialization}
+                          </span>
+                        ) : (
+                          <span className="staff-badge">
+                            {p.availability.toLowerCase().replace(/_/g, " ")}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -521,25 +686,34 @@ export default function AdminDashboardPage() {
               <div className="section-card">
                 <div className="section-header">
                   <p className="section-title">Asset Breakdown</p>
-                  <Link href="/admin/assets" className="section-link">View all</Link>
+                  <Link href="/admin/assets" className="section-link">
+                    View all
+                  </Link>
                 </div>
                 <div className="asset-list">
                   {assets.length === 0 ? (
                     <p className="empty-state">No assets recorded yet.</p>
-                  ) : Object.entries(assetGroups).slice(0, 5).map(([type, count]) => {
-                    const pct = assets.length > 0 ? Math.round((count / assets.length) * 100) : 0;
-                    return (
-                      <div key={type}>
-                        <div className="asset-meta">
-                          <span className="asset-name">{type}</span>
-                          <span className="asset-count">{count} of {assets.length}</span>
+                  ) : (
+                    Object.entries(assetGroups).slice(0, 5).map(([type, count]) => {
+                      const pct = Math.round((count / assets.length) * 100);
+                      return (
+                        <div key={type}>
+                          <div className="asset-meta">
+                            <span className="asset-name">{type}</span>
+                            <span className="asset-count">
+                              {count} of {assets.length}
+                            </span>
+                          </div>
+                          <div className="bar-track">
+                            <div
+                              className="bar-fill"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="bar-track">
-                          <div className="bar-fill" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -554,22 +728,30 @@ export default function AdminDashboardPage() {
             <div className="sessions-list">
               {sessions.length === 0 ? (
                 <p className="empty-state">No active sessions.</p>
-              ) : sessions.slice(0, 10).map((s) => (
-                <div key={s.id} className="session-row">
-                  {s.is_active
-                    ? <Wifi size={14} color="#2D6B0F" />
-                    : <WifiOff size={14} color="var(--text-sub)" />
-                  }
-                  <span className="session-user">
-                    {s.staff?.full_name ?? s.staff?.email ?? s.ip_address ?? s.staff_id}
-                  </span>
-                  <span className="session-time">Started {formatTime(s.login_at)}</span>
-                  {s.is_active
-                    ? <span className="session-live"><span className="live-dot" /> Live</span>
-                    : <span className="session-ended">Ended</span>
-                  }
-                </div>
-              ))}
+              ) : sessions.slice(0, 10).map((s) => {
+                const staffMember = staffMap[s.staff_id];
+                return (
+                  <div key={s.id} className="session-row">
+                    {s.is_active
+                      ? <Wifi size={14} color="#2D6B0F" />
+                      : <WifiOff size={14} color="var(--text-sub)" />
+                    }
+                    <span className="session-user">
+                      {staffMember?.full_name ?? staffMember?.email ?? s.ip_address ?? s.staff_id}
+                    </span>
+                    <span className="session-time">
+                      Started {formatTime(s.login_at)}
+                    </span>
+                    {s.is_active ? (
+                      <span className="session-live">
+                        <span className="live-dot" /> Live
+                      </span>
+                    ) : (
+                      <span className="session-ended">Ended</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
