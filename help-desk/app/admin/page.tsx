@@ -54,11 +54,10 @@ interface AssetItem {
 interface SessionItem {
   id: number;
   staff_id: string;
-  token: string;
   ip_address?: string;
   login_at: string;
-  expires_at: string;
   is_active: boolean;
+  staff?: { full_name: string; email: string };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -562,7 +561,7 @@ export default function AdminDashboardPage() {
                     : <WifiOff size={14} color="var(--text-sub)" />
                   }
                   <span className="session-user">
-                    {s.ip_address ?? s.staff_id}
+                    {s.staff?.full_name ?? s.staff?.email ?? s.ip_address ?? s.staff_id}
                   </span>
                   <span className="session-time">Started {formatTime(s.login_at)}</span>
                   {s.is_active
