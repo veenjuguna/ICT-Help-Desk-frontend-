@@ -1,8 +1,8 @@
-"use client"; // This is required in Next.js to allow interactivity like onClick
+"use client"; 
 
 import React, { useState } from 'react';
-import Link from 'next/link'; // 1. Added the Next.js Link import here
-import { CheckCircle2, Calendar, Search } from 'lucide-react';
+import Link from 'next/link'; 
+import { Clock, AlertCircle, Search, Timer } from 'lucide-react';
 
 // 1. Data Models
 type FilterOption = 'Today' | 'Yesterday' | 'All';
@@ -13,75 +13,62 @@ interface Ticket {
   department: string;
   issueTitle: string;
   issueCategory: string;
-  priority: 'High' | 'Medium' | 'Low';
-  resolutionTime: string;
-  resolvedAgo: string;
-  rating: string;
-  dayGroup: FilterOption; // We added this to help us filter easily
+  status: 'Open' | 'In Progress'; 
+  submittedAgo: string;           
+  dayGroup: FilterOption; 
 }
 
-// 2. Mock Data (Updated with tickets from your new screenshots)
+// 2. Mock Data
 const mockTickets: Ticket[] = [
   {
-    id: 'TKT-005',
+    id: 'TKT-011',
     employeeName: 'Ann Wanjiru',
     department: 'Planning',
-    issueTitle: 'WiFi connectivity issue resolved',
+    issueTitle: 'Cannot connect to departmental shared drive',
     issueCategory: 'Network',
-    priority: 'High',
-    resolutionTime: '45 min',
-    resolvedAgo: '10 min ago',
-    rating: '5/5',
+    status: 'Open',
+    submittedAgo: '10 min ago',
     dayGroup: 'Today',
   },
   {
-    id: 'TKT-009',
+    id: 'TKT-012',
     employeeName: 'Kevin Mutua',
     department: 'Procurement',
-    issueTitle: 'Ordered replacement keyboard',
+    issueTitle: 'Request for secondary monitor',
     issueCategory: 'Hardware',
-    priority: 'Low',
-    resolutionTime: '15 min',
-    resolvedAgo: '25 min ago',
-    rating: '5/5',
+    status: 'In Progress',
+    submittedAgo: '2 hours ago',
     dayGroup: 'Today',
   },
   {
-    id: 'TKT-002',
+    id: 'TKT-014',
     employeeName: 'Jane Kimani',
     department: 'ICT',
-    issueTitle: 'MS Office activation completed',
+    issueTitle: 'Email sync failing on mobile device',
     issueCategory: 'Software',
-    priority: 'Medium',
-    resolutionTime: '1.5 hours',
-    resolvedAgo: 'Yesterday 16:30',
-    rating: '5/5',
+    status: 'Open',
+    submittedAgo: 'Yesterday 16:30',
     dayGroup: 'Yesterday',
   },
   {
-    id: 'TKT-004',
+    id: 'TKT-015',
     employeeName: 'Paul Wekesa',
     department: 'Economic Affairs',
-    issueTitle: 'Printer color printing restored',
+    issueTitle: 'Printer paper jam in Sector B',
     issueCategory: 'Hardware',
-    priority: 'Low',
-    resolutionTime: '40 min',
-    resolvedAgo: 'Yesterday 14:20',
-    rating: '4/5',
+    status: 'In Progress',
+    submittedAgo: 'Yesterday 14:20',
     dayGroup: 'Yesterday',
   },
 ];
 
-// An array of our filter options to keep our code DRY
 const filterOptions: FilterOption[] = ['Today', 'Yesterday', 'All'];
 
-export default function MyCompletedPage() {
+export default function PendingTicketsPage() {
   // 3. State Management
-  // activeFilter holds the current value, setActiveFilter is the function to change it
   const [activeFilter, setActiveFilter] = useState<FilterOption>('All');
 
   // 4. Data Derivation (Filtering)
-  // This runs every time the state changes. Time complexity: O(n)
   const displayedTickets = mockTickets.filter((ticket) => {
     if (activeFilter === 'All') return true;
     return ticket.dayGroup === activeFilter;
@@ -92,39 +79,39 @@ export default function MyCompletedPage() {
       
       {/* HEADER */}
       <header className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Completed Tickets</h1>
-        <p className="text-gray-500 text-sm mt-1">View your resolved support tickets</p>
+        <h1 className="text-2xl font-bold text-gray-900">Pending Tickets</h1>
+        <p className="text-gray-500 text-sm mt-1">Manage and track unresolved support requests</p>
       </header>
 
       {/* STATS CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          {/* Changed text-gray-600 to text-[#7a4f31] */}
-          <div className="p-3 bg-gray-50 rounded-full text-[#7a4f31]">
-            <CheckCircle2 size={24} />
+          <div className="p-3 bg-amber-50 rounded-full text-amber-600">
+            <Clock size={24} />
           </div>
           <div>
-            <p className="text-2xl font-bold text-gray-900">5</p>
-            <p className="text-sm text-gray-500">Completed Today</p>
+            <p className="text-2xl font-bold text-gray-900">12</p>
+            <p className="text-sm text-gray-500">Total Pending</p>
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          {/* Changed text-gray-600 to text-[#7a4f31] */}
-          <div className="p-3 bg-gray-50 rounded-full text-[#7a4f31]">
-            <Calendar size={24} />
+          <div className="p-3 bg-red-50 rounded-full text-red-600">
+            <AlertCircle size={24} />
           </div>
           <div>
-            <p className="text-2xl font-bold text-gray-900">45</p>
-            <p className="text-sm text-gray-500">This Month</p>
+            <p className="text-2xl font-bold text-gray-900">3</p>
+            <p className="text-sm text-gray-500">Urgent Issues</p>
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="p-3 bg-blue-50 rounded-full text-blue-600">
+            <Timer size={24} />
+          </div>
           <div>
-            <p className="text-2xl font-bold text-gray-900">96%</p>
-            <p className="text-sm text-gray-500 font-medium">Satisfaction Rate</p>
-            <p className="text-xs text-gray-400 mt-1">Average rating</p>
+            <p className="text-2xl font-bold text-gray-900">2.4h</p>
+            <p className="text-sm text-gray-500 font-medium">Avg Wait Time</p>
           </div>
         </div>
       </div>
@@ -135,12 +122,11 @@ export default function MyCompletedPage() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
           <input 
             type="text" 
-            placeholder="Search completed tickets..." 
+            placeholder="Search pending tickets..." 
             className="w-full pl-10 pr-4 py-2 bg-transparent outline-none text-sm"
           />
         </div>
         
-        {/* Dynamic Buttons */}
         <div className="flex gap-2 mr-2">
           {filterOptions.map((option) => (
             <button
@@ -148,8 +134,8 @@ export default function MyCompletedPage() {
               onClick={() => setActiveFilter(option)}
               className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
                 activeFilter === option
-                  ? 'bg-[#7a4f31] text-white' // Updated Active style to brand brown
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' // Inactive style
+                  ? 'bg-[#7a4f31] text-white' 
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' 
               }`}
             >
               {option}
@@ -161,7 +147,7 @@ export default function MyCompletedPage() {
       {/* DATA TABLE */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">Resolved Tickets</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Active Requests</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -170,10 +156,8 @@ export default function MyCompletedPage() {
                 <th className="px-6 py-4">Ticket ID</th>
                 <th className="px-6 py-4">Employee</th>
                 <th className="px-6 py-4">Issue</th>
-                <th className="px-6 py-4">Priority</th>
-                <th className="px-6 py-4">Resolution Time</th>
-                <th className="px-6 py-4">Resolved</th>
-                <th className="px-6 py-4">Rating</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Submitted</th>
                 <th className="px-6 py-4">Action</th>
               </tr>
             </thead>
@@ -182,8 +166,7 @@ export default function MyCompletedPage() {
                 displayedTickets.map((ticket) => (
                   <tr key={ticket.id} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-4 flex items-center gap-2">
-                      <CheckCircle2 size={16} className="text-gray-400" />
-                      <span className="font-medium">{ticket.id}</span>
+                      <span className="font-medium text-gray-900">{ticket.id}</span>
                     </td>
                     <td className="px-6 py-4">
                       <p className="font-medium text-gray-900">{ticket.employeeName}</p>
@@ -194,34 +177,29 @@ export default function MyCompletedPage() {
                       <p className="text-gray-500 text-xs">{ticket.issueCategory}</p>
                     </td>
                     <td className="px-6 py-4">
-                      {/* Updated Priority Colors */}
-                      <span className={`text-xs font-medium ${
-                        ticket.priority === 'High' ? 'text-[#b91c1c]' : 
-                        ticket.priority === 'Medium' ? 'text-[#c2410c]' : 'text-gray-500'
+                      {/* Status Badge */}
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${
+                        ticket.status === 'Open' ? 'border-amber-200 bg-amber-50 text-amber-700' : 
+                        'border-blue-200 bg-blue-50 text-blue-700'
                       }`}>
-                        {ticket.priority}
+                        {ticket.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">{ticket.resolutionTime}</td>
-                    <td className="px-6 py-4 text-gray-600">{ticket.resolvedAgo}</td>
-                    <td className="px-6 py-4 font-medium text-gray-900">{ticket.rating}</td>
+                    <td className="px-6 py-4 text-gray-600">{ticket.submittedAgo}</td>
                     <td className="px-6 py-4">
-                      
-                      {/* 2. Updated View button to a Dynamic Link */}
                       <Link 
                         href={`/tickets/${ticket.id}`} 
                         className="text-[#7a4f31] font-bold hover:underline"
                       >
-                        View
+                        Review
                       </Link>
-
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                    No tickets found for this period.
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    No pending tickets found for this period.
                   </td>
                 </tr>
               )}
