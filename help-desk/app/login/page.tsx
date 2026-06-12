@@ -38,7 +38,14 @@ export default function LoginPage() {
 
       // No localStorage needed — cookie is set automatically
 
-      router.push("/dashboard");
+      const role = data.role;
+      if (role === "ADMIN") {
+        router.push("/admin");
+      } else if (role === "ICT_PERSONNEL") {
+        router.push("/ict-dashboard");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error

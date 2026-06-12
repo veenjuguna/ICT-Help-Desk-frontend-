@@ -190,9 +190,7 @@ export default function SignupPage() {
           email: form.email,
           phone_number: form.phone,
           directorate_id: Number(form.directorateId),
-          department_id: form.departmentId
-            ? Number(form.departmentId)
-            : undefined,
+          department_id: form.departmentId ? Number(form.departmentId) : null,
           office_number: form.officeNumber,
           office_location: form.officeLocation,
           role: "STAFF",
@@ -203,11 +201,16 @@ export default function SignupPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.detail ?? "Registration failed. Please try again.");
+        const detail = data?.detail;
+        setError(
+          Array.isArray(detail)
+            ? detail.map((e: { msg: string }) => e.msg).join(".")
+            : detail ?? "Registration failed. Please try again."
+        );
         return;
       }
-      localStorage.setItem("pending_verify_email", form.email);
-      router.push("/auth/verify"); // ← updated
+    
+     router.push(`/auth/verify?email=${encodeURIComponent(form.email)}`); // ← updated
     } catch {
       setError("Network error. Please check your connection and try again.");
     } finally {
