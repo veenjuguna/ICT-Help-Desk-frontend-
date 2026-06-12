@@ -102,8 +102,8 @@ function ResetPasswordContent() {
       setStage("error");
       return;
     }
-    if (strength < 2) {
-      setErrorMsg("Please choose a stronger password.");
+    if (!checks.length || !checks.upper || !checks.number || !checks.special) {
+      setErrorMsg("Password must have 8+ characters, an uppercase letter, a number, and a symbol.");
       setStage("error");
       return;
     }
