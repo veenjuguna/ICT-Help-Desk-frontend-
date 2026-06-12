@@ -10,6 +10,7 @@ import {
   X,
   MessageSquare,
 } from "lucide-react";
+import TicketTable from "@/components/ticket-table";
 
 type TicketStatus = "open" | "in_progress" | "resolved" | "escalated";
 type TicketPriority = "High" | "Medium" | "Low";
@@ -66,7 +67,8 @@ const INITIAL_TICKETS: Ticket[] = [
       {
         id: "n1",
         author: "Brian Mutuku",
-        content: "Checked device manager — USB controller showing error code 43. Running driver update.",
+        content:
+          "Checked device manager — USB controller showing error code 43. Running driver update.",
         timestamp: "Today, 10:00 AM",
       },
     ],
@@ -97,7 +99,8 @@ const INITIAL_TICKETS: Ticket[] = [
       {
         id: "n2",
         author: "Brian Mutuku",
-        content: "Escalated to CIRT — possible VPN policy issue affecting entire Finance subnet.",
+        content:
+          "Escalated to CIRT — possible VPN policy issue affecting entire Finance subnet.",
         timestamp: "Yesterday, 05:10 PM",
       },
     ],
@@ -123,30 +126,45 @@ const INITIAL_TICKETS: Ticket[] = [
   },
 ];
 
-const STATUS_CONFIG: Record<TicketStatus, { label: string; bg: string; color: string }> = {
-  open:        { label: "Open",        bg: "#FEF2F2", color: "#BB0000" },
+const STATUS_CONFIG: Record<
+  TicketStatus,
+  { label: string; bg: string; color: string }
+> = {
+  open: { label: "Open", bg: "#FEF2F2", color: "#BB0000" },
   in_progress: { label: "In Progress", bg: "#FFF8E0", color: "#C8962E" },
-  resolved:    { label: "Resolved",    bg: "#F0FFF4", color: "#1E6B33" },
-  escalated:   { label: "Escalated",   bg: "#F5F0FF", color: "#6B35B5" },
+  resolved: { label: "Resolved", bg: "#F0FFF4", color: "#1E6B33" },
+  escalated: { label: "Escalated", bg: "#F5F0FF", color: "#6B35B5" },
 };
 
 const PRIORITY_COLORS: Record<TicketPriority, { bg: string; color: string }> = {
-  High:   { bg: "#FFF0F0", color: "#BB0000" },
+  High: { bg: "#FFF0F0", color: "#BB0000" },
   Medium: { bg: "#FFF8E0", color: "#C8962E" },
-  Low:    { bg: "#F0FFF4", color: "#1E6B33" },
+  Low: { bg: "#F0FFF4", color: "#1E6B33" },
 };
 
-const CATEGORIES = ["All Categories", "Hardware", "Software", "Network", "Access", "Security"];
-
-const STATUS_FILTERS = [
-  { value: "all",         label: "All Statuses" },
-  { value: "open",        label: "Open"         },
-  { value: "in_progress", label: "In Progress"  },
-  { value: "resolved",    label: "Resolved"     },
-  { value: "escalated",   label: "Escalated"    },
+const CATEGORIES = [
+  "All Categories",
+  "Hardware",
+  "Software",
+  "Network",
+  "Access",
+  "Security",
 ];
 
-const STATUS_OPTIONS: TicketStatus[] = ["open", "in_progress", "resolved", "escalated"];
+const STATUS_FILTERS = [
+  { value: "all", label: "All Statuses" },
+  { value: "open", label: "Open" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "resolved", label: "Resolved" },
+  { value: "escalated", label: "Escalated" },
+];
+
+const STATUS_OPTIONS: TicketStatus[] = [
+  "open",
+  "in_progress",
+  "resolved",
+  "escalated",
+];
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -202,9 +220,9 @@ function TicketDetail({
   onStatusChange: (id: string, status: TicketStatus) => void;
   onAddNote: (id: string, note: string) => void;
 }) {
-  const [noteText, setNoteText]         = useState("");
+  const [noteText, setNoteText] = useState("");
   const [statusDropdown, setStatusDropdown] = useState(false);
-  const [saving, setSaving]             = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleStatusChange = (newStatus: TicketStatus) => {
     setStatusDropdown(false);
@@ -260,12 +278,22 @@ function TicketDetail({
           }}
         >
           <div>
-            <p style={{ fontSize: 12, color: "#7A5C44", marginBottom: 4 }}>Ticket Details</p>
-            <p style={{ fontWeight: 700, fontSize: 16, color: "#1A0F08" }}>{ticket.id}</p>
+            <p style={{ fontSize: 12, color: "#7A5C44", marginBottom: 4 }}>
+              Ticket Details
+            </p>
+            <p style={{ fontWeight: 700, fontSize: 16, color: "#1A0F08" }}>
+              {ticket.id}
+            </p>
           </div>
           <button
             onClick={onClose}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#7A5C44", padding: 4 }}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#7A5C44",
+              padding: 4,
+            }}
           >
             <X size={20} />
           </button>
@@ -283,10 +311,21 @@ function TicketDetail({
         >
           {/* Issue */}
           <div>
-            <p style={{ fontSize: 11, color: "#7A5C44", marginBottom: 6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            <p
+              style={{
+                fontSize: 11,
+                color: "#7A5C44",
+                marginBottom: 6,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
               Issue
             </p>
-            <p style={{ fontSize: 14, color: "#1A0F08", lineHeight: 1.6 }}>{ticket.issue}</p>
+            <p style={{ fontSize: 14, color: "#1A0F08", lineHeight: 1.6 }}>
+              {ticket.issue}
+            </p>
           </div>
 
           {/* Info grid */}
@@ -298,18 +337,32 @@ function TicketDetail({
               border: "1px solid #EDE0D0",
             }}
           >
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "0.75rem",
+              }}
+            >
               {(
                 [
-                  ["Employee",   ticket.employee],
+                  ["Employee", ticket.employee],
                   ["Department", ticket.dept],
-                  ["Category",   ticket.category],
-                  ["Created",    ticket.created],
+                  ["Category", ticket.category],
+                  ["Created", ticket.created],
                 ] as [string, string][]
               ).map(([label, value]) => (
                 <div key={label}>
-                  <p style={{ fontSize: 11, color: "#7A5C44", marginBottom: 2 }}>{label}</p>
-                  <p style={{ fontSize: 13, color: "#1A0F08", fontWeight: 600 }}>{value}</p>
+                  <p
+                    style={{ fontSize: 11, color: "#7A5C44", marginBottom: 2 }}
+                  >
+                    {label}
+                  </p>
+                  <p
+                    style={{ fontSize: 13, color: "#1A0F08", fontWeight: 600 }}
+                  >
+                    {value}
+                  </p>
                 </div>
               ))}
             </div>
@@ -318,11 +371,15 @@ function TicketDetail({
           {/* Priority + Status */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
             <div>
-              <p style={{ fontSize: 11, color: "#7A5C44", marginBottom: 6 }}>Priority</p>
+              <p style={{ fontSize: 11, color: "#7A5C44", marginBottom: 6 }}>
+                Priority
+              </p>
               <PriorityBadge priority={ticket.priority} />
             </div>
             <div>
-              <p style={{ fontSize: 11, color: "#7A5C44", marginBottom: 6 }}>Status</p>
+              <p style={{ fontSize: 11, color: "#7A5C44", marginBottom: 6 }}>
+                Status
+              </p>
               <div style={{ position: "relative" }}>
                 <button
                   onClick={() => setStatusDropdown((v) => !v)}
@@ -368,7 +425,8 @@ function TicketDetail({
                           gap: 8,
                           width: "100%",
                           padding: "10px 14px",
-                          background: s === ticket.status ? "#FDF8F2" : "transparent",
+                          background:
+                            s === ticket.status ? "#FDF8F2" : "transparent",
                           border: "none",
                           cursor: "pointer",
                           fontSize: 13,
@@ -397,8 +455,13 @@ function TicketDetail({
               gap: 8,
             }}
           >
-            <AlertTriangle size={13} style={{ color: "#6B35B5", flexShrink: 0 }} />
-            <p style={{ fontSize: 12, color: "#4A1E8A" }}>{ticket.assignedReason}</p>
+            <AlertTriangle
+              size={13}
+              style={{ color: "#6B35B5", flexShrink: 0 }}
+            />
+            <p style={{ fontSize: 12, color: "#4A1E8A" }}>
+              {ticket.assignedReason}
+            </p>
           </div>
 
           {/* Mark as resolved shortcut */}
@@ -447,7 +510,15 @@ function TicketDetail({
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {ticket.notes.length === 0 && (
-                <p style={{ fontSize: 13, color: "#C0A882", fontStyle: "italic" }}>No notes yet.</p>
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: "#C0A882",
+                    fontStyle: "italic",
+                  }}
+                >
+                  No notes yet.
+                </p>
               )}
               {ticket.notes.map((note) => (
                 <div
@@ -459,11 +530,31 @@ function TicketDetail({
                     padding: "0.8rem 1rem",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: "#6B2D0F" }}>{note.author}</p>
-                    <p style={{ fontSize: 11, color: "#7A5C44" }}>{note.timestamp}</p>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#6B2D0F",
+                      }}
+                    >
+                      {note.author}
+                    </p>
+                    <p style={{ fontSize: 11, color: "#7A5C44" }}>
+                      {note.timestamp}
+                    </p>
                   </div>
-                  <p style={{ fontSize: 13, color: "#1A0F08", lineHeight: 1.6 }}>{note.content}</p>
+                  <p
+                    style={{ fontSize: 13, color: "#1A0F08", lineHeight: 1.6 }}
+                  >
+                    {note.content}
+                  </p>
                 </div>
               ))}
             </div>
@@ -496,13 +587,15 @@ function TicketDetail({
                   marginTop: 8,
                   height: 36,
                   padding: "0 1.25rem",
-                  background: saving || !noteText.trim() ? "#C0A882" : "#6B2D0F",
+                  background:
+                    saving || !noteText.trim() ? "#C0A882" : "#6B2D0F",
                   color: "#fff",
                   border: "none",
                   borderRadius: 8,
                   fontSize: 13,
                   fontWeight: 600,
-                  cursor: saving || !noteText.trim() ? "not-allowed" : "pointer",
+                  cursor:
+                    saving || !noteText.trim() ? "not-allowed" : "pointer",
                   fontFamily: "inherit",
                   display: "flex",
                   alignItems: "center",
@@ -522,18 +615,18 @@ function TicketDetail({
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function AllTicketsPage() {
-  const [tickets, setTickets]           = useState<Ticket[]>(INITIAL_TICKETS);
-  const [search, setSearch]             = useState("");
+  const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS);
+  const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All Categories");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
   const handleStatusChange = (id: string, newStatus: TicketStatus) => {
     setTickets((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t))
+      prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)),
     );
     setSelectedTicket((prev) =>
-      prev?.id === id ? { ...prev, status: newStatus } : prev
+      prev?.id === id ? { ...prev, status: newStatus } : prev,
     );
   };
 
@@ -545,10 +638,12 @@ export default function AllTicketsPage() {
       timestamp: "Just now",
     };
     setTickets((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, notes: [...t.notes, newNote] } : t))
+      prev.map((t) =>
+        t.id === id ? { ...t, notes: [...t.notes, newNote] } : t,
+      ),
     );
     setSelectedTicket((prev) =>
-      prev?.id === id ? { ...prev, notes: [...prev.notes, newNote] } : prev
+      prev?.id === id ? { ...prev, notes: [...prev.notes, newNote] } : prev,
     );
   };
 
@@ -565,10 +660,10 @@ export default function AllTicketsPage() {
   });
 
   const counts = {
-    open:        tickets.filter((t) => t.status === "open").length,
+    open: tickets.filter((t) => t.status === "open").length,
     in_progress: tickets.filter((t) => t.status === "in_progress").length,
-    resolved:    tickets.filter((t) => t.status === "resolved").length,
-    escalated:   tickets.filter((t) => t.status === "escalated").length,
+    resolved: tickets.filter((t) => t.status === "resolved").length,
+    escalated: tickets.filter((t) => t.status === "escalated").length,
   };
 
   const techInitials = MOCK_TECHNICIAN.name
@@ -651,17 +746,27 @@ export default function AllTicketsPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div
               style={{
-                width: 32, height: 32, borderRadius: "50%",
-                background: "#6B2D0F", color: "#fff",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 12, fontWeight: 700,
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: "#6B2D0F",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 12,
+                fontWeight: 700,
               }}
             >
               {techInitials}
             </div>
             <div>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#1A0F08" }}>{MOCK_TECHNICIAN.name}</p>
-              <p style={{ fontSize: 10, color: "#7A5C44" }}>{MOCK_TECHNICIAN.specialization.join(", ")}</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#1A0F08" }}>
+                {MOCK_TECHNICIAN.name}
+              </p>
+              <p style={{ fontSize: 10, color: "#7A5C44" }}>
+                {MOCK_TECHNICIAN.specialization.join(", ")}
+              </p>
             </div>
           </div>
         </div>
@@ -680,21 +785,33 @@ export default function AllTicketsPage() {
         <div className="page-content">
           {/* Stat strip */}
           <div className="stat-strip">
-            {(
-              [
-                { key: "open"        as const, label: "Open",        color: "#BB0000" },
-                { key: "in_progress" as const, label: "In Progress", color: "#C8962E" },
-                { key: "resolved"    as const, label: "Resolved",    color: "#1E6B33" },
-                { key: "escalated"   as const, label: "Escalated",   color: "#6B35B5" },
-              ]
-            ).map((s) => (
+            {[
+              { key: "open" as const, label: "Open", color: "#BB0000" },
+              {
+                key: "in_progress" as const,
+                label: "In Progress",
+                color: "#C8962E",
+              },
+              { key: "resolved" as const, label: "Resolved", color: "#1E6B33" },
+              {
+                key: "escalated" as const,
+                label: "Escalated",
+                color: "#6B35B5",
+              },
+            ].map((s) => (
               <div
                 key={s.key}
                 className={`stat-card${statusFilter === s.key ? " active" : ""}`}
-                onClick={() => setStatusFilter(statusFilter === s.key ? "all" : s.key)}
+                onClick={() =>
+                  setStatusFilter(statusFilter === s.key ? "all" : s.key)
+                }
               >
-                <p className="stat-label" style={{ color: s.color }}>{s.label}</p>
-                <p className="stat-number" style={{ color: s.color }}>{counts[s.key]}</p>
+                <p className="stat-label" style={{ color: s.color }}>
+                  {s.label}
+                </p>
+                <p className="stat-number" style={{ color: s.color }}>
+                  {counts[s.key]}
+                </p>
               </div>
             ))}
           </div>
@@ -702,7 +819,9 @@ export default function AllTicketsPage() {
           {/* Filter bar */}
           <div className="filter-bar">
             <div className="search-wrap">
-              <span className="search-icon"><Search size={15} /></span>
+              <span className="search-icon">
+                <Search size={15} />
+              </span>
               <input
                 type="text"
                 className="search-input"
@@ -716,7 +835,9 @@ export default function AllTicketsPage() {
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
-              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+              {CATEGORIES.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
             </select>
             <select
               className="filter-select"
@@ -724,7 +845,9 @@ export default function AllTicketsPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               {STATUS_FILTERS.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
               ))}
             </select>
           </div>
@@ -740,70 +863,24 @@ export default function AllTicketsPage() {
                 justifyContent: "space-between",
               }}
             >
-              <p style={{ fontWeight: 700, fontSize: 14, color: "#1A0F08" }}>Assigned Tickets</p>
+              <p style={{ fontWeight: 700, fontSize: 14, color: "#1A0F08" }}>
+                Assigned Tickets
+              </p>
               <span
                 style={{
-                  fontSize: 12, color: "#7A5C44",
-                  background: "#FDF8F2", padding: "3px 10px",
-                  borderRadius: 20, border: "1px solid #EDE0D0",
+                  fontSize: 12,
+                  color: "#7A5C44",
+                  background: "#FDF8F2",
+                  padding: "3px 10px",
+                  borderRadius: 20,
+                  border: "1px solid #EDE0D0",
                 }}
               >
                 {filtered.length} ticket{filtered.length !== 1 ? "s" : ""}
               </span>
             </div>
             <div className="table-wrap">
-              <table className="ticket-table">
-                <thead>
-                  <tr>
-                    <th>Ticket ID</th>
-                    <th>Employee</th>
-                    <th>Issue</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                    <th>Notes</th>
-                    <th>Created</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="empty-cell">No tickets match your filters.</td>
-                    </tr>
-                  ) : (
-                    filtered.map((t) => (
-                      <tr key={t.id} className="ticket-row" onClick={() => setSelectedTicket(t)}>
-                        <td><span className="ticket-id">{t.id}</span></td>
-                        <td>
-                          <p className="employee-name">{t.employee}</p>
-                          <p className="employee-dept">{t.dept}</p>
-                        </td>
-                        <td>
-                          <p className="issue-text">{t.issue}</p>
-                          <p className="issue-cat">{t.category}</p>
-                        </td>
-                        <td><PriorityBadge priority={t.priority} /></td>
-                        <td><StatusBadge status={t.status} /></td>
-                        <td>
-                          {t.notes.length > 0 ? (
-                            <span className="notes-pill">
-                              <MessageSquare size={10} />
-                              {t.notes.length}
-                            </span>
-                          ) : (
-                            <span style={{ fontSize: 12, color: "#C0A882" }}>—</span>
-                          )}
-                        </td>
-                        <td>
-                          <div className="time-cell">
-                            <Clock size={12} />
-                            {t.created}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+              <TicketTable />
             </div>
           </div>
         </div>
