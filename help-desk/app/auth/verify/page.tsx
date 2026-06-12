@@ -1,4 +1,3 @@
-//veify email page
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
@@ -20,22 +19,18 @@ function VerifyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const email = searchParams.get("email")?? "";
 
   const [stage, setStage] = useState<Stage>(token ? "verifying" : "waiting");
   const [progress, setProgress] = useState(0);
-  const [email, setEmail] = useState("");
+
   const [errorMsg, setErrorMsg] = useState("");
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
   const [countdown, setCountdown] = useState(5);
 
   // Read pending email from localStorage — all inside async IIFE
-  useEffect(() => {
-    (async () => {
-      const pending = localStorage.getItem("pending_verify_email");
-      if (pending) setEmail(pending);
-    })();
-  }, []);
+  
 
   // Verify token if present — all setState inside async IIFE
   useEffect(() => {

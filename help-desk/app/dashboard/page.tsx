@@ -96,7 +96,12 @@ export default function DashboardPage() {
     full_name: string;
     email: string;
     department?: { name: string };
-  } | null>(null);
+  } | null>(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
+  });
   const [tickets, setTickets] = useState<{ status: string }[]>([]);
 
   useEffect(() => {
@@ -108,9 +113,7 @@ export default function DashboardPage() {
         if (res.ok) setUser(await res.json());
         const ticketRes = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/tickets/`,
-          {
-            credentials: "include",
-          },
+          { credentials: "include" },
         );
         if (ticketRes.ok) setTickets(await ticketRes.json());
       } catch {}
