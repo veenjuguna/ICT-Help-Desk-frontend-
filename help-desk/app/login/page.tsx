@@ -36,26 +36,12 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Login failed");
 
-      const authUser = data.user ?? data.data?.user ?? data;
-      const fullName =
-        authUser.full_name ||
-        [authUser.first_name ?? authUser.firstName, authUser.last_name ?? authUser.lastName]
-          .filter(Boolean).join(" ").trim() ||
-        authUser.name ||
-        "ICT Personnel";
+      // No localStorage needed — cookie is set automatically
 
-      localStorage.setItem("token", data.access_token ?? "");
-      localStorage.setItem("user", JSON.stringify({
-        full_name: fullName,
-        email: authUser.email ?? email,
-        department: authUser.department ?? null,
-        role: authUser.role ?? authUser.user_role ?? "",
-      }));
-
-      const role = (authUser.role ?? authUser.user_role ?? "").toLowerCase();
-      if (role === "admin") {
-        router.push("/admin-dashboard");
-      } else if (role === "ict_personnel" || role === "ict-personnel") {
+      const role = data.role;
+      if (role === "ADMIN") {
+        router.push("/admin");
+      } else if (role === "ICT_PERSONNEL") {
         router.push("/ict-dashboard");
       } else {
         router.push("/dashboard");
