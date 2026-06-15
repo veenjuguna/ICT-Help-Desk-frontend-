@@ -6,7 +6,7 @@ import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
 
 // ── Types ─────────────────────────────────────────────────────
 
-type TicketStatus = "OPEN" | "IN_PROGRESS" | "CLOSED";
+type TicketStatus = "open" | "in_progress" | "closed";
 
 interface Ticket {
   id: number;
@@ -57,14 +57,14 @@ function timeAgo(dateStr: string): string {
 }
 
 const specializationLabel: Record<string, string> = {
-  HARDWARE:             "Hardware",
-  NETWORKING:           "Networking",
-  SOFTWARE_AND_SYSTEMS: "Software & Systems",
-  SECURITY:             "Security",
-  OTHER:                "Other",
+  hardware:             "Hardware",
+  networking:           "Networking",
+  software_and_systems: "Software & Systems",
+  security:             "Security",
+  other:                "Other",
 };
 
-type Filter = "All" | "OPEN" | "IN_PROGRESS";
+type Filter = "All" | "open" | "in_progress";
 
 // ── Setup / Edit Modal ────────────────────────────────────────
 
@@ -85,11 +85,11 @@ function SetupModal({
   const API = process.env.NEXT_PUBLIC_API_URL;
 
   const SPECIALIZATIONS = [
-    { value: "HARDWARE",             label: "Hardware" },
-    { value: "NETWORKING",           label: "Networking" },
-    { value: "SOFTWARE_AND_SYSTEMS", label: "Software & Systems" },
-    { value: "SECURITY",             label: "Security" },
-    { value: "OTHER",                label: "Other" },
+    { value: "hardware",             label: "Hardware" },
+    { value: "networking",           label: "Networking" },
+    { value: "software_and_systems", label: "Software & Systems" },
+    { value: "security",             label: "Security" },
+    { value: "other",                label: "Other" },
   ];
 
   async function handleSubmit() {
@@ -283,14 +283,14 @@ export default function TechnicianDashboard() {
 
   const assignedCount   = tickets.length;
   const completedToday  = tickets.filter((t) => {
-    if (t.status !== "CLOSED" || !t.closed_at) return false;
+    if (t.status !== "closed" || !t.closed_at) return false;
     return new Date(t.closed_at).toDateString() === new Date().toDateString();
   }).length;
-  const openCount       = tickets.filter((t) => t.status === "OPEN").length;
-  const inProgressCount = tickets.filter((t) => t.status === "IN_PROGRESS").length;
+  const openCount       = tickets.filter((t) => t.status === "open").length;
+  const inProgressCount = tickets.filter((t) => t.status === "in_progress").length;
 
   const fifoTicket = tickets
-    .filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS")
+    .filter((t) => t.status === "open" || t.status === "in_progress")
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
 
   const filtered =
@@ -367,12 +367,12 @@ export default function TechnicianDashboard() {
                 className="mt-3 inline-block px-3 py-1 rounded-full text-xs font-semibold"
                 style={{
                   backgroundColor:
-                    ictProfile.availability === "AVAILABLE" ? "rgba(34,197,94,0.2)"  :
-                    ictProfile.availability === "BUSY"      ? "rgba(249,115,22,0.2)" :
+                    ictProfile.availability === "available" ? "rgba(34,197,94,0.2)"  :
+                    ictProfile.availability === "busy"      ? "rgba(249,115,22,0.2)" :
                     "rgba(107,114,128,0.2)",
                   color:
-                    ictProfile.availability === "AVAILABLE" ? "#86efac" :
-                    ictProfile.availability === "BUSY"      ? "#fdba74" :
+                    ictProfile.availability === "available" ? "#86efac" :
+                    ictProfile.availability === "busy"      ? "#fdba74" :
                     "#d1d5db",
                 }}
               >
@@ -424,7 +424,7 @@ export default function TechnicianDashboard() {
             {/* Tickets Table */}
             <div className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-w-0">
               <div className="flex gap-2 px-4 pt-4 pb-2 border-b border-gray-100">
-                {(["All", "OPEN", "IN_PROGRESS"] as Filter[]).map((f) => (
+                {(["All", "open", "in_progress"] as Filter[]).map((f) => (
                   <button
                     key={f}
                     onClick={() => setActiveFilter(f)}
@@ -435,7 +435,7 @@ export default function TechnicianDashboard() {
                     }`}
                     style={activeFilter === f ? { backgroundColor: "#7A3100" } : {}}
                   >
-                    {f === "All" ? "All" : f === "OPEN" ? "Open" : "In Progress"}
+                    {f === "All" ? "All" : f === "open" ? "Open" : "In Progress"}
                   </button>
                 ))}
               </div>
@@ -449,7 +449,7 @@ export default function TechnicianDashboard() {
               ) : filtered.length === 0 ? (
                 <div className="p-8 text-center text-gray-400 text-sm">No tickets found.</div>
               ) : (
-                <AssignedTicketTable tickets={filtered} fifoTicketId={fifoTicket?.id} />
+                <AssignedTicketTable/>
               )}
             </div>
 
