@@ -4,25 +4,23 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { CheckCircle2, Calendar, Search, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
 
-// ─── Types (matching exact API shape from /tickets/) ──────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type FilterOption = "Today" | "Yesterday" | "All";
 
 type Ticket = {
   id: number;
-  description: string;       // the issue text
-  category: string;          // e.g. "HARDWARE", "SOFTWARE", "NETWORK"
-  priority?: string;         // e.g. "HIGH", "MEDIUM", "LOW" — may be absent
-  status: string;            // e.g. "RESOLVED", "COMPLETED", "CLOSED"
-  created_at: string;        // ISO timestamp
+  description: string;
+  category: string;
+  priority?: string;
+  status: string;
+  created_at: string;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Format ticket id as TKT-005 */
 const fmtId = (id: number) => `TKT-${String(id).padStart(3, "0")}`;
 
-/** Human-readable relative time */
 function formatRelative(dateStr: string): string {
   const date = new Date(dateStr);
   const diffMs = Date.now() - date.getTime();
@@ -38,7 +36,6 @@ function formatRelative(dateStr: string): string {
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-/** Which filter bucket does this ticket fall into */
 function dayGroup(created_at: string): FilterOption {
   const date = new Date(created_at);
   const now = new Date();
@@ -49,13 +46,11 @@ function dayGroup(created_at: string): FilterOption {
   return "All";
 }
 
-/** Only show resolved / completed / closed tickets */
 function isResolved(status: string): boolean {
   const s = status.toUpperCase();
   return s === "RESOLVED" || s === "COMPLETED" || s === "CLOSED";
 }
 
-/** Capitalise first letter, lowercase the rest — e.g. "HARDWARE" → "Hardware" */
 const titleCase = (s: string) =>
   s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
@@ -70,8 +65,6 @@ export default function MyCompletedPage() {
   const [activeFilter, setActiveFilter] = useState<FilterOption>("All");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
-
   const fetchTickets = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -81,7 +74,6 @@ export default function MyCompletedPage() {
       });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data: Ticket[] = await res.json();
-      // Keep only resolved/completed/closed tickets
       setTickets(data.filter((t) => isResolved(t.status)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load tickets.");
@@ -94,8 +86,6 @@ export default function MyCompletedPage() {
     fetchTickets();
   }, [fetchTickets]);
 
-  // ── Derived stats ──────────────────────────────────────────────────────────
-
   const now = new Date();
   const completedToday = tickets.filter(
     (t) => new Date(t.created_at).toDateString() === now.toDateString()
@@ -105,12 +95,9 @@ export default function MyCompletedPage() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
 
-  // ── Filtered + searched list ───────────────────────────────────────────────
-
   const displayed = tickets.filter((ticket) => {
     const matchesFilter =
       activeFilter === "All" || dayGroup(ticket.created_at) === activeFilter;
-
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       !q ||
@@ -118,11 +105,8 @@ export default function MyCompletedPage() {
       ticket.description.toLowerCase().includes(q) ||
       ticket.category.toLowerCase().includes(q) ||
       (ticket.priority ?? "").toLowerCase().includes(q);
-
     return matchesFilter && matchesSearch;
   });
-
-  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen font-sans text-gray-800">
@@ -201,7 +185,6 @@ export default function MyCompletedPage() {
           <h2 className="text-lg font-semibold text-gray-900">Resolved Tickets</h2>
         </div>
 
-        {/* Loading */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-400">
             <Loader2 size={32} className="animate-spin text-[#7a4f31]" />
@@ -209,7 +192,6 @@ export default function MyCompletedPage() {
           </div>
         )}
 
-        {/* Error */}
         {!loading && error && (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-red-500">
             <AlertCircle size={32} />
@@ -223,14 +205,12 @@ export default function MyCompletedPage() {
           </div>
         )}
 
-        {/* Empty */}
         {!loading && !error && displayed.length === 0 && (
           <div className="py-16 text-center text-gray-400 text-sm">
             No resolved tickets found for this period.
           </div>
         )}
 
-        {/* Data */}
         {!loading && !error && displayed.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -248,7 +228,7 @@ export default function MyCompletedPage() {
               <tbody className="divide-y divide-gray-100">
                 {displayed.map((ticket) => (
                   <tr key={ticket.id} className="hover:bg-gray-50 transition">
-                    {/* ID */}
+
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 size={15} className="text-green-500 shrink-0" />
@@ -256,19 +236,16 @@ export default function MyCompletedPage() {
                       </div>
                     </td>
 
-                    {/* Description */}
                     <td className="px-6 py-4 max-w-xs">
                       <p className="font-medium text-gray-900 truncate">{ticket.description}</p>
                     </td>
 
-                    {/* Category */}
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
                         {titleCase(ticket.category)}
                       </span>
                     </td>
 
-                    {/* Priority */}
                     <td className="px-6 py-4">
                       {ticket.priority ? (
                         <span
@@ -287,15 +264,11 @@ export default function MyCompletedPage() {
                       )}
                     </td>
 
-                    {/* Resolved at */}
                     <td className="px-6 py-4 text-gray-600 text-xs whitespace-nowrap">
                       <div>{new Date(ticket.created_at).toLocaleDateString()}</div>
-                      <div className="text-gray-400">
-                        {formatRelative(ticket.created_at)}
-                      </div>
+                      <div className="text-gray-400">{formatRelative(ticket.created_at)}</div>
                     </td>
 
-                    {/* Status badge */}
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
                         <CheckCircle2 size={11} />
@@ -303,7 +276,6 @@ export default function MyCompletedPage() {
                       </span>
                     </td>
 
-                    {/* Action */}
                     <td className="px-6 py-4">
                       <Link
                         href={`/tickets/${ticket.id}`}
@@ -312,6 +284,7 @@ export default function MyCompletedPage() {
                         View
                       </Link>
                     </td>
+
                   </tr>
                 ))}
               </tbody>
@@ -320,7 +293,6 @@ export default function MyCompletedPage() {
         )}
       </div>
 
-      {/* Result count */}
       {!loading && !error && (
         <p className="text-xs text-gray-400 mt-4 text-right">
           Showing {displayed.length} of {tickets.length} resolved tickets
@@ -332,15 +304,7 @@ export default function MyCompletedPage() {
 
 // ─── StatCard ─────────────────────────────────────────────────────────────────
 
-function StatCard({
-  icon,
-  value,
-  label,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  label: string;
-}) {
+function StatCard({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
       <div className="p-3 bg-gray-50 rounded-full text-[#7a4f31]">{icon}</div>
