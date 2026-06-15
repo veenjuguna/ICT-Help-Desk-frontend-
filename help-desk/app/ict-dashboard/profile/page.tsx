@@ -22,6 +22,12 @@ export default function ProfilePage() {
   const [editPhone, setEditPhone] = useState("");
   const [editLocation, setEditLocation] = useState("");
   const [editNumber, setEditNumber] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -55,6 +61,18 @@ export default function ProfilePage() {
       .join("")
       .slice(0, 2) || "—";
 
+  function validatePassword(password: string): string | null {
+    if (!/[A-Z]/.test(password))
+      return "Password must contain at least one uppercase letter.";
+    if (!/[a-z]/.test(password))
+      return "Password must contain at least one lowercase letter.";
+    if (!/[0-9]/.test(password))
+      return "Password must contain at least one number.";
+    if (!/[^A-Za-z0-9]/.test(password))
+      return "Password must contain at least one special character.";
+    return null;
+  }
+
   // REPLACE the entire handleSave
   const handleSave = async () => {
     if (editing && user) {
@@ -82,6 +100,63 @@ export default function ProfilePage() {
       );
     }
     setEditing((v) => !v);
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError("Please fill in all password fields.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+    const strengthError = validatePassword(newPassword);
+    if (strengthError) {
+      setPasswordError(strengthError);
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/staff/${user?.id}/change-password`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword,
+            confirm_new_password: confirmPassword,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        const message =
+          typeof data.detail === "string"
+            ? data.detail
+            : Array.isArray(data.detail)
+              ? data.detail.map((d: any) => d.msg).join(", ")
+              : "Failed to change password.";
+        throw new Error(message);
+      }
+
+      setPasswordSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e: any) {
+      setPasswordError(
+        typeof e === "string" ? e : (e?.message ?? "Something went wrong."),
+      );
+    } finally {
+      setPasswordLoading(false);
+    }
   };
   return (
     <>
@@ -315,10 +390,11 @@ export default function ProfilePage() {
               />
               <ProfileInput
                 label="Phone Number"
-                value={phone}
+                value={editPhone}
                 onChange={setEditPhone}
                 disabled={!editing}
               />
+
               <ProfileInput
                 label="Department"
                 value={dept}
@@ -326,13 +402,13 @@ export default function ProfilePage() {
               />
               <ProfileInput
                 label="Office Location"
-                value={officeLocation}
+                value={editLocation}
                 onChange={setEditLocation}
                 disabled={!editing}
               />
               <ProfileInput
                 label="Office Number"
-                value={officeNumber}
+                value={editNumber}
                 onChange={setEditNumber}
                 disabled={!editing}
               />
@@ -376,21 +452,63 @@ export default function ProfilePage() {
                   label="Current Password"
                   placeholder="Enter current password"
                   type="password"
+                  value={currentPassword}
+                  onChange={setCurrentPassword}
                 />
                 <ProfileInput
                   label="New Password"
                   placeholder="Enter new password"
                   type="password"
+                  value={newPassword}
+                  onChange={setNewPassword}
                 />
+                {newPassword && validatePassword(newPassword) && (
+                  <p style={{ fontSize: 11, color: "#C8962E", marginTop: -8 }}>
+                    ⚠ {validatePassword(newPassword)}
+                  </p>
+                )}
                 <ProfileInput
                   label="Confirm New Password"
                   placeholder="Confirm new password"
                   type="password"
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
                 />
+                {confirmPassword && (
+                  <p
+                    style={{
+                      fontSize: 11,
+                      marginTop: -8,
+                      color:
+                        newPassword === confirmPassword ? "#1E6B33" : "#BB0000",
+                    }}
+                  >
+                    {newPassword === confirmPassword
+                      ? "✓ Passwords match"
+                      : "✗ Passwords do not match"}
+                  </p>
+                )}
               </div>
-              <button className="reset-btn" style={{ marginTop: "1rem" }}>
+
+              {passwordError && (
+                <p style={{ fontSize: 12, color: "#BB0000", marginTop: 8 }}>
+                  {passwordError}
+                </p>
+              )}
+              {passwordSuccess && (
+                <p style={{ fontSize: 12, color: "#1E6B33", marginTop: 8 }}>
+                  Password changed successfully.
+                </p>
+              )}
+
+              <button
+                className="reset-btn"
+                style={{ marginTop: "1rem" }}
+                onClick={handleChangePassword}
+                disabled={passwordLoading}
+              >
                 <KeyRound size={14} />
-                Reset Password
+                {passwordLoading ? "Saving..." : "Change Password"}
               </button>
             </div>
           </div>
