@@ -41,7 +41,7 @@ export default function LoginPage() {
       const role = data.role;
       if (role === "admin") {
         router.push("/admin");
-      } else if (role === "ict-personnel") {
+      } else if (role === "ict_personnel") {
         router.push("/ict-dashboard");
       } else {
         router.push("/dashboard");
