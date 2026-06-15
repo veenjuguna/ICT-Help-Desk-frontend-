@@ -39,6 +39,7 @@ interface IctProfile {
   id: number;
   staff_id: string;
   specialization: string | null;
+  phone_extension: string | null;
   availability: string;
   is_active: boolean;
 }
@@ -65,13 +66,21 @@ const specializationLabel: Record<string, string> = {
 
 type Filter = "All" | "OPEN" | "IN_PROGRESS";
 
-// ── Setup Modal ───────────────────────────────────────────────
+// ── Setup / Edit Modal ────────────────────────────────────────
 
-function SetupModal({ onComplete }: { onComplete: (profile: IctProfile) => void }) {
-  const [specialization, setSpecialization] = useState("");
-  const [phoneExtension, setPhoneExtension] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+function SetupModal({
+  onComplete,
+  existing,
+}: {
+  onComplete: (profile: IctProfile) => void;
+  existing: IctProfile | null;
+}) {
+  const isEdit = !!existing?.specialization;
+
+  const [specialization, setSpecialization] = useState(existing?.specialization ?? "");
+  const [phoneExtension, setPhoneExtension] = useState(existing?.phone_extension ?? "");
+  const [submitting, setSubmitting]         = useState(false);
+  const [error, setError]                   = useState<string | null>(null);
 
   const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -91,18 +100,23 @@ function SetupModal({ onComplete }: { onComplete: (profile: IctProfile) => void 
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/ict-personnel/me/setup`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          specialization,
-          phone_extension: phoneExtension || null,
-        }),
-      });
+      const res = await fetch(
+        isEdit
+          ? `${API}/ict-personnel/me`
+          : `${API}/ict-personnel/me/setup`,
+        {
+          method: isEdit ? "PATCH" : "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            specialization,
+            phone_extension: phoneExtension || null,
+          }),
+        }
+      );
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.detail ?? "Setup failed.");
+        throw new Error(data.detail ?? (isEdit ? "Update failed." : "Setup failed."));
       }
       const profile: IctProfile = await res.json();
       onComplete(profile);
@@ -116,7 +130,8 @@ function SetupModal({ onComplete }: { onComplete: (profile: IctProfile) => void 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-8">
-        {/* Header */}
+
+        {/* Header icon */}
         <div
           className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
           style={{ background: "linear-gradient(135deg, #7A3100, #C8922A)" }}
@@ -124,15 +139,18 @@ function SetupModal({ onComplete }: { onComplete: (profile: IctProfile) => void 
           <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
                viewBox="0 0 24 24" fill="none" stroke="white"
                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
           </svg>
         </div>
 
         <h2 className="text-xl font-bold text-gray-800 mb-1">
-          Complete Your Profile
+          {isEdit ? "Edit Your Profile" : "Complete Your Profile"}
         </h2>
         <p className="text-sm text-gray-500 mb-6">
-          Select your specialization so the system can assign you the right tickets.
+          {isEdit
+            ? "Update your specialization or phone extension."
+            : "Select your specialization so the system can assign you the right tickets."}
         </p>
 
         {/* Specialization */}
@@ -179,15 +197,26 @@ function SetupModal({ onComplete }: { onComplete: (profile: IctProfile) => void 
           <p className="text-sm text-red-600 mb-4">{error}</p>
         )}
 
-        <button
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="w-full py-3 rounded-lg text-white font-semibold text-sm
-                     transition-opacity disabled:opacity-60"
-          style={{ backgroundColor: "#7A3100" }}
-        >
-          {submitting ? "Saving..." : "Complete Setup"}
-        </button>
+        {/* Actions */}
+        <div className="flex gap-3">
+          {isEdit && (
+            <button
+              onClick={() => onComplete(existing!)}
+              className="flex-1 py-3 rounded-lg text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="flex-1 py-3 rounded-lg text-white font-semibold text-sm
+                       transition-opacity disabled:opacity-60"
+            style={{ backgroundColor: "#7A3100" }}
+          >
+            {submitting ? "Saving..." : isEdit ? "Save Changes" : "Complete Setup"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -199,46 +228,33 @@ export default function TechnicianDashboard() {
   const router = useRouter();
 
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
-  const [staff, setStaff]         = useState<StaffProfile | null>(null);
-  const [ictProfile, setIctProfile] = useState<IctProfile | null>(null);
-  const [tickets, setTickets]     = useState<Ticket[]>([]);
-  const [audit, setAudit]         = useState<AuditLog[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [showSetup, setShowSetup] = useState(false);
+  const [staff, setStaff]               = useState<StaffProfile | null>(null);
+  const [ictProfile, setIctProfile]     = useState<IctProfile | null>(null);
+  const [tickets, setTickets]           = useState<Ticket[]>([]);
+  const [audit, setAudit]               = useState<AuditLog[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [showSetup, setShowSetup]       = useState(false);
 
   const API = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     (async () => {
       try {
-        const [staffRes, ticketRes, auditRes, ictListRes] = await Promise.all([
-          fetch(`${API}/staff/me`,          { credentials: "include" }),
-          fetch(`${API}/tickets`,           { credentials: "include" }),
-          fetch(`${API}/audit?limit=5`,     { credentials: "include" }),
-          fetch(`${API}/ict-personnel`,     { credentials: "include" }),
+        const [staffRes, ticketRes, auditRes, ictRes] = await Promise.all([
+          fetch(`${API}/staff/me`,         { credentials: "include" }),
+          fetch(`${API}/tickets`,          { credentials: "include" }),
+          fetch(`${API}/audit?limit=5`,    { credentials: "include" }),
+          fetch(`${API}/ict-personnel/me`, { credentials: "include" }),
         ]);
 
-        let staffData: StaffProfile | null = null;
-        if (staffRes.ok) {
-          staffData = await staffRes.json();
-          setStaff(staffData);
-        }
-
+        if (staffRes.ok)  setStaff(await staffRes.json());
         if (ticketRes.ok) setTickets(await ticketRes.json());
         if (auditRes.ok)  setAudit(await auditRes.json());
 
-        // Find this technician's ICT profile from the list
-        if (ictListRes.ok && staffData) {
-          const allPersonnel: IctProfile[] = await ictListRes.json();
-          const myProfile = allPersonnel.find(
-            (p) => p.staff_id === staffData!.id
-          ) ?? null;
+        if (ictRes.ok) {
+          const myProfile: IctProfile = await ictRes.json();
           setIctProfile(myProfile);
-
-          // Show setup modal if profile exists but specialization not yet set
-          if (myProfile && !myProfile.is_active && !myProfile.specialization) {
-            setShowSetup(true);
-          }
+          if (!myProfile.specialization) setShowSetup(true);
         }
       } catch (e) {
         console.error("Dashboard fetch error:", e);
@@ -265,7 +281,6 @@ export default function TechnicianDashboard() {
     ? specializationLabel[ictProfile.specialization] ?? ictProfile.specialization
     : null;
 
-  // Stats
   const assignedCount   = tickets.length;
   const completedToday  = tickets.filter((t) => {
     if (t.status !== "CLOSED" || !t.closed_at) return false;
@@ -274,7 +289,6 @@ export default function TechnicianDashboard() {
   const openCount       = tickets.filter((t) => t.status === "OPEN").length;
   const inProgressCount = tickets.filter((t) => t.status === "IN_PROGRESS").length;
 
-  // FIFO: oldest open/in_progress ticket must be addressed first
   const fifoTicket = tickets
     .filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS")
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
@@ -286,8 +300,9 @@ export default function TechnicianDashboard() {
 
   return (
     <>
-      {/* Setup modal — blocks dashboard until specialization is set */}
-      {showSetup && <SetupModal onComplete={handleSetupComplete} />}
+      {showSetup && (
+        <SetupModal onComplete={handleSetupComplete} existing={ictProfile} />
+      )}
 
       <div className={`min-h-screen bg-gray-100 flex flex-col ${showSetup ? "pointer-events-none select-none" : ""}`}>
 
@@ -302,25 +317,21 @@ export default function TechnicianDashboard() {
             </p>
           </div>
 
-          {/* Bell */}
-          <div
-            className="relative cursor-pointer w-10 h-10 flex items-center justify-center rounded-full"
-            style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 3px rgba(90,30,0,0.08)" }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                 viewBox="0 0 24 24" fill="none" stroke="#7A3100"
-                 strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-400" />
-          </div>
+          {/* Bell + Avatar */}
+          <div className="flex items-center gap-2.5 ml-auto">
+            <div
+              className="relative cursor-pointer w-10 h-10 flex items-center justify-center rounded-full"
+              style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 3px rgba(90,30,0,0.08)" }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                   viewBox="0 0 24 24" fill="none" stroke="#7A3100"
+                   strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-400" />
+            </div>
 
-          {/* Divider */}
-          <div style={{ width: "1px", height: "32px", backgroundColor: "#E8DDD0" }} />
-
-          {/* Avatar */}
-          <div className="flex items-center gap-2.5">
             <div
               style={{
                 width: 36, height: 36, borderRadius: "50%",
@@ -356,7 +367,7 @@ export default function TechnicianDashboard() {
                 className="mt-3 inline-block px-3 py-1 rounded-full text-xs font-semibold"
                 style={{
                   backgroundColor:
-                    ictProfile.availability === "AVAILABLE" ? "rgba(34,197,94,0.2)" :
+                    ictProfile.availability === "AVAILABLE" ? "rgba(34,197,94,0.2)"  :
                     ictProfile.availability === "BUSY"      ? "rgba(249,115,22,0.2)" :
                     "rgba(107,114,128,0.2)",
                   color:
@@ -389,64 +400,17 @@ export default function TechnicianDashboard() {
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              {
-                label: "Assigned to Me",
-                value: loading ? "—" : String(assignedCount),
-                icon: (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
-                       viewBox="0 0 24 24" fill="none" stroke="#C8922A"
-                       strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                  </svg>
-                ),
-              },
-              {
-                label: "Completed Today",
-                value: loading ? "—" : String(completedToday),
-                icon: (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
-                       viewBox="0 0 24 24" fill="none" stroke="#C8922A"
-                       strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                    <polyline points="22 4 12 14.01 9 11.01"/>
-                  </svg>
-                ),
-              },
-              {
-                label: "Open",
-                value: loading ? "—" : String(openCount),
-                icon: (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
-                       viewBox="0 0 24 24" fill="none" stroke="#C8922A"
-                       strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
-                  </svg>
-                ),
-              },
-              {
-                label: "In Progress",
-                value: loading ? "—" : String(inProgressCount),
-                icon: (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
-                       viewBox="0 0 24 24" fill="none" stroke="#C8922A"
-                       strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
-                    <polyline points="17 6 23 6 23 12"/>
-                  </svg>
-                ),
-              },
+              { label: "Assigned to Me",  value: loading ? "—" : String(assignedCount)   },
+              { label: "Completed Today", value: loading ? "—" : String(completedToday)  },
+              { label: "Open",            value: loading ? "—" : String(openCount)        },
+              { label: "In Progress",     value: loading ? "—" : String(inProgressCount) },
             ].map((s) => (
               <div
                 key={s.label}
                 className="rounded-xl px-5 py-4"
                 style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm sm:text-base text-gray-500">{s.label}</span>
-                  <span>{s.icon}</span>
-                </div>
+                <p className="text-sm sm:text-base text-gray-500">{s.label}</p>
                 <p className="text-3xl sm:text-4xl font-semibold text-gray-800 leading-none">
                   {s.value}
                 </p>
@@ -543,6 +507,13 @@ export default function TechnicianDashboard() {
                     <p className="text-xs text-gray-400 mt-3">
                       You only receive tickets matching your specialization.
                     </p>
+                    <button
+                      onClick={() => setShowSetup(true)}
+                      className="text-xs font-medium underline mt-2 block"
+                      style={{ color: "#7A3100" }}
+                    >
+                      Edit
+                    </button>
                   </>
                 ) : (
                   <>
