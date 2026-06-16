@@ -575,9 +575,22 @@ export default function AdminTicketsPage() {
             </div>
             <div className="tkt-drawer-body">
               <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-                {(() => { const sc = STATUS_CONFIG[selected.status]; const I = sc.icon; return <span className="tkt-badge" style={{ color: sc.color, background: sc.bg }}><I size={11} /> {sc.label}</span>; })()}
-                {(() => { const pc = PRIORITY_CONFIG[selected.priority]; return <span className="tkt-badge" style={{ color: pc.color, background: "#FDF8F2", border: `1px solid ${pc.dot}` }}><span className="tkt-dot" style={{ background: pc.dot }} />{pc.label}</span>; })()}
-                <span className="tkt-badge" style={{ color: "#6B2D0F", background: "#F5EDE3" }}>{selected.category}</span>
+                {(() => {
+                  const sc = STATUS_CONFIG[selected.status] ?? STATUS_CONFIG[selected.status?.toLowerCase() as keyof typeof STATUS_CONFIG] ?? { label: selected.status, color: "#7A5C44", bg: "#FDF8F2", icon: AlertCircle };
+                  const I = sc.icon;
+                  const pc = PRIORITY_CONFIG[selected.priority] ?? PRIORITY_CONFIG[selected.priority?.toLowerCase() as keyof typeof PRIORITY_CONFIG] ?? { label: selected.priority, color: "#7A5C44", dot: "#C4A882" };
+                  return (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 999, background: sc.bg, color: sc.color, fontSize: "0.82rem", fontWeight: 500 }}>
+                        <I size={12} /> {sc.label}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 999, border: `1px solid ${pc.dot}`, color: pc.color, fontSize: "0.82rem", fontWeight: 500 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: pc.dot }} />
+                        {pc.label}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="tkt-detail-card">
@@ -646,7 +659,7 @@ export default function AdminTicketsPage() {
                 </div>
               )}
               {personnel.filter(p => p.category === assigning.category).map(p => {
-                const av = AVAIL_CONFIG[p.availability_status];
+                const av = AVAIL_CONFIG[p.availability_status] ?? AVAIL_CONFIG[p.availability_status?.toLowerCase() as keyof typeof AVAIL_CONFIG] ?? { label: p.availability_status, color: "#7A5C44", dot: "#C4A882" };
                 return (
                   <div key={p.id} className={`tkt-staff-item${assignTarget === p.id ? " selected" : ""}`} onClick={() => setTarget(p.id)}>
                     <div>
