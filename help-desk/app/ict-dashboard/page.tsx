@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
 
-// ── Types ─────────────────────────────────────────────────────
-
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "CLOSED";
 
 interface Ticket {
@@ -44,8 +42,6 @@ interface IctProfile {
   is_active: boolean;
 }
 
-// ── Helpers ───────────────────────────────────────────────────
-
 function timeAgo(dateStr: string): string {
   const diff = Math.floor(
     (Date.now() - new Date(dateStr).getTime()) / 1000
@@ -57,16 +53,14 @@ function timeAgo(dateStr: string): string {
 }
 
 const specializationLabel: Record<string, string> = {
-  HARDWARE:             "Hardware",
-  NETWORKING:           "Networking",
-  SOFTWARE_AND_SYSTEMS: "Software & Systems",
-  SECURITY:             "Security",
-  OTHER:                "Other",
+  hardware:             "Hardware",
+  networking:           "Networking",
+  software_and_systems: "Software & Systems",
+  security:             "Security",
+  other:                "Other",
 };
 
 type Filter = "All" | "OPEN" | "IN_PROGRESS";
-
-// ── Setup / Edit Modal ────────────────────────────────────────
 
 function SetupModal({
   onComplete,
@@ -85,11 +79,11 @@ function SetupModal({
   const API = process.env.NEXT_PUBLIC_API_URL;
 
   const SPECIALIZATIONS = [
-    { value: "HARDWARE",             label: "Hardware" },
-    { value: "NETWORKING",           label: "Networking" },
-    { value: "SOFTWARE_AND_SYSTEMS", label: "Software & Systems" },
-    { value: "SECURITY",             label: "Security" },
-    { value: "OTHER",                label: "Other" },
+    { value: "hardware",             label: "Hardware" },
+    { value: "networking",           label: "Networking" },
+    { value: "software_and_systems", label: "Software & Systems" },
+    { value: "security",             label: "Security" },
+    { value: "other",                label: "Other" },
   ];
 
   async function handleSubmit() {
@@ -131,7 +125,6 @@ function SetupModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-8">
 
-        {/* Header icon */}
         <div
           className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
           style={{ background: "linear-gradient(135deg, #7A3100, #C8922A)" }}
@@ -153,7 +146,6 @@ function SetupModal({
             : "Select your specialization so the system can assign you the right tickets."}
         </p>
 
-        {/* Specialization */}
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Specialization <span className="text-red-500">*</span>
         </label>
@@ -178,7 +170,6 @@ function SetupModal({
           ))}
         </div>
 
-        {/* Phone extension */}
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Phone Extension <span className="text-gray-400">(optional)</span>
         </label>
@@ -197,7 +188,6 @@ function SetupModal({
           <p className="text-sm text-red-600 mb-4">{error}</p>
         )}
 
-        {/* Actions */}
         <div className="flex gap-3">
           {isEdit && (
             <button
@@ -221,8 +211,6 @@ function SetupModal({
     </div>
   );
 }
-
-// ── Main Component ────────────────────────────────────────────
 
 export default function TechnicianDashboard() {
   const router = useRouter();
@@ -308,14 +296,6 @@ export default function TechnicianDashboard() {
 
         {/* ── Top Bar ── */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">
-              Good Morning, {fullName}
-            </h1>
-            <p className="text-sm sm:text-base text-gray-400 mt-1">
-              ✦ {specialization ?? "Setting up profile..."}
-            </p>
-          </div>
 
           {/* Bell + Avatar */}
           <div className="flex items-center gap-2.5 ml-auto">
@@ -361,18 +341,17 @@ export default function TechnicianDashboard() {
               {specialization ?? "Complete your profile to get started"}
             </p>
 
-            {/* Availability badge */}
             {ictProfile?.availability && (
               <span
                 className="mt-3 inline-block px-3 py-1 rounded-full text-xs font-semibold"
                 style={{
                   backgroundColor:
-                    ictProfile.availability === "AVAILABLE" ? "rgba(34,197,94,0.2)"  :
-                    ictProfile.availability === "BUSY"      ? "rgba(249,115,22,0.2)" :
+                    ictProfile.availability === "available" ? "rgba(34,197,94,0.2)"  :
+                    ictProfile.availability === "busy"      ? "rgba(249,115,22,0.2)" :
                     "rgba(107,114,128,0.2)",
                   color:
-                    ictProfile.availability === "AVAILABLE" ? "#86efac" :
-                    ictProfile.availability === "BUSY"      ? "#fdba74" :
+                    ictProfile.availability === "available" ? "#86efac" :
+                    ictProfile.availability === "busy"      ? "#fdba74" :
                     "#d1d5db",
                 }}
               >
@@ -380,7 +359,6 @@ export default function TechnicianDashboard() {
               </span>
             )}
 
-            {/* FIFO nudge */}
             {fifoTicket && (
               <div
                 className="mt-4 px-4 py-2 rounded-lg inline-flex items-center gap-2"
@@ -449,7 +427,7 @@ export default function TechnicianDashboard() {
               ) : filtered.length === 0 ? (
                 <div className="p-8 text-center text-gray-400 text-sm">No tickets found.</div>
               ) : (
-                <AssignedTicketTable tickets={filtered} fifoTicketId={fifoTicket?.id} />
+                <AssignedTicketTable/>
               )}
             </div>
 
