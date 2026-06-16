@@ -80,7 +80,7 @@ export default function RequestPage() {
           staff_id: staffId,
           title: formData.title,
           description: formData.description,
-          category: formData.category.toUpperCase(),
+          category: formData.category,
         }),
       });
       const data = await res.json();
@@ -107,25 +107,25 @@ export default function RequestPage() {
   // Data for the Category Grid
   const categories = [
     {
-      id: "Hardware",
+      id: "hardware",
       label: "Hardware",
       icon: Monitor,
       desc: "Monitors, Printers, etc.",
     },
     {
-      id: "Software",
+      id: "software",
       label: "Software",
       icon: Wrench,
       desc: "Apps, Installations",
     },
     {
-      id: "Network",
+      id: "network",
       label: "Network",
       icon: Network,
       desc: "WiFi, Internet, VPN",
     },
     {
-      id: "Access",
+      id: "access_permissions",
       label: "Access",
       icon: AlertCircle,
       desc: "Logins, Permissions",
