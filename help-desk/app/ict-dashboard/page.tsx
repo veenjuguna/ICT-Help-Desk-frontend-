@@ -1,303 +1,515 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
+
+type TicketStatus = "OPEN" | "IN_PROGRESS" | "CLOSED";
 
 interface Ticket {
   id: number;
   title: string;
   description: string;
   category: string;
-  status: string;
+  status: TicketStatus;
   created_at: string;
-  assigned_to_id: number | null;
+  closed_at: string | null;
+  comment: string | null;
   staff_id: string;
+  assigned_to_id: number;
 }
 
-interface IctUser {
+interface AuditLog {
+  id: number;
+  action: string;
+  table_name: string;
+  record_id: string | null;
+  created_at: string;
+}
+
+interface StaffProfile {
+  id: string;
   full_name: string;
-  specialization?: string[];
+  role: string;
 }
 
-const statusStyles: Record<string, string> = {
-  IN_PROGRESS: "bg-amber-100 text-amber-800",
-  OPEN: "bg-orange-100 text-orange-800",
-  RESOLVED: "bg-green-100 text-green-800",
-  CLOSED: "bg-gray-100 text-gray-600",
+interface IctProfile {
+  id: number;
+  staff_id: string;
+  specialization: string | null;
+  phone_extension: string | null;
+  availability: string;
+  is_active: boolean;
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Math.floor(
+    (Date.now() - new Date(dateStr).getTime()) / 1000
+  );
+  if (diff < 60)    return `${diff}s ago`;
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+const specializationLabel: Record<string, string> = {
+  hardware:             "Hardware",
+  networking:           "Networking",
+  software_and_systems: "Software & Systems",
+  security:             "Security",
+  other:                "Other",
 };
 
 type Filter = "All" | "OPEN" | "IN_PROGRESS";
 
-export default function TechnicianDashboard() {
-  const [activeFilter, setActiveFilter] = useState<Filter>("All");
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [user, setUser] = useState<IctUser | null>(() => {
-    try {
-      const stored = localStorage.getItem("user");
-      return stored ? JSON.parse(stored) : null;
-    } catch { return null; }
-  });
+function SetupModal({
+  onComplete,
+  existing,
+}: {
+  onComplete: (profile: IctProfile) => void;
+  existing: IctProfile | null;
+}) {
+  const isEdit = !!existing?.id;
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+  const [specialization, setSpecialization] = useState(existing?.specialization ?? "");
+  const [phoneExtension, setPhoneExtension] = useState(existing?.phone_extension ?? "");
+  const [submitting, setSubmitting]         = useState(false);
+  const [error, setError]                   = useState<string | null>(null);
 
-    (async () => {
-      try {
-        const [meRes, ticketsRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, { headers, credentials: "include" }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/`, { headers, credentials: "include" }),
-        ]);
-        if (meRes.ok) {
-          const me = await meRes.json();
-          const updated = {
-            ...me,
-            full_name: me.full_name || [me.first_name, me.last_name].filter(Boolean).join(" ") || user?.full_name || "ICT Personnel",
-          };
-          setUser(updated);
-          localStorage.setItem("user", JSON.stringify({ ...JSON.parse(localStorage.getItem("user") ?? "{}"), full_name: updated.full_name }));
-        }
-        if (ticketsRes.ok) {
-          const data = await ticketsRes.json();
-          setTickets(Array.isArray(data) ? data : data.tickets ?? []);
-        }
-      } catch {}
-    })();
-  }, []);
+  const API = process.env.NEXT_PUBLIC_API_URL;
 
-  const fullName = user?.full_name ?? "ICT Personnel";
-  const initials = fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
-  const specializations = user?.specialization ?? [];
-
-  const filtered = activeFilter === "All" ? tickets : tickets.filter((t) => t.status === activeFilter);
-
-  const stats = [
-    { label: "Assigned to Me", value: tickets.length },
-    { label: "Open", value: tickets.filter((t) => t.status === "OPEN").length },
-    { label: "In Progress", value: tickets.filter((t) => t.status === "IN_PROGRESS").length },
-    { label: "Resolved", value: tickets.filter((t) => t.status === "RESOLVED").length },
+  const SPECIALIZATIONS = [
+    { value: "hardware",             label: "Hardware" },
+    { value: "networking",           label: "Networking" },
+    { value: "software_and_systems", label: "Software & Systems" },
+    { value: "security",             label: "Security" },
+    { value: "other",                label: "Other" },
   ];
 
+  async function handleSubmit() {
+    if (!specialization) {
+      setError("Please select a specialization.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        isEdit
+          ? `${API}/ict-personnel/me`
+          : `${API}/ict-personnel/me/setup`,
+        {
+          method: isEdit ? "PATCH" : "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            specialization,
+            phone_extension: phoneExtension || null,
+          }),
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail ?? (isEdit ? "Update failed." : "Setup failed."));
+      }
+      const profile: IctProfile = await res.json();
+      onComplete(profile);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F5F0E8" }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-8">
 
-      {/* ── Top utility bar above brown card ── */}
-      <div className="px-4 sm:px-6 pt-4 flex justify-end items-center gap-3">
-        {/* Available badge */}
         <div
-          className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
-          style={{ backgroundColor: "#fff", color: "#4A2800", border: "1px solid #E8DDD0", boxShadow: "0 1px 3px rgba(90,30,0,0.08)", fontSize: "11px" }}
+          className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
+          style={{ background: "linear-gradient(135deg, #7A3100, #C8922A)" }}
         >
-          <span className="w-2 h-2 rounded-full bg-green-500" />
-          Available
-        </div>
-
-        {/* Bell */}
-        <div
-          className="relative cursor-pointer w-10 h-10 flex items-center justify-center rounded-full"
-          style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 3px rgba(90,30,0,0.08)" }}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7A3100" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
+               viewBox="0 0 24 24" fill="none" stroke="white"
+               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
           </svg>
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-400" />
         </div>
 
-        {/* Divider */}
-        <div style={{ width: "1px", height: "32px", backgroundColor: "#E8DDD0" }} />
+        <h2 className="text-xl font-bold text-gray-800 mb-1">
+          {isEdit ? "Edit Your Profile" : "Complete Your Profile"}
+        </h2>
+        <p className="text-sm text-gray-500 mb-6">
+          {isEdit
+            ? "Update your specialization or phone extension."
+            : "Select your specialization so the system can assign you the right tickets."}
+        </p>
 
-        {/* Avatar + Name */}
-        <div className="flex items-center gap-2.5">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
-            style={{
-              background: "linear-gradient(135deg, #7A3100 0%, #C8922A 100%)",
-              color: "#fff",
-              boxShadow: "0 1px 4px rgba(90,30,0,0.18)",
-            }}
-          >
-            {initials}
-          </div>
-          <div className="hidden sm:flex flex-col leading-tight">
-            <span className="text-xs font-semibold" style={{ color: "#3D1000" }}>{fullName}</span>
-            <span style={{ color: "#A07850", fontSize: "10px" }}>Technician</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Brown Hero Card ── */}
-      <div className="px-4 sm:px-6 pt-3">
-        <div
-          className="px-6 sm:px-10 py-8 sm:py-10 rounded-2xl"
-          style={{
-            background: "linear-gradient(135deg, #5C1E00 0%, #7A3100 50%, #8B4513 100%)",
-          }}
-        >
-          <p className="text-xs sm:text-sm font-semibold tracking-widest uppercase mb-1" style={{ color: "#C8922A" }}>
-            Good Morning
-          </p>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">{fullName}</h1>
-          <p className="text-sm sm:text-base mt-1" style={{ color: "#D4A96A" }}>
-            Network &amp; Hardware Specialist
-          </p>
-        </div>
-      </div>
-
-      {/* ── Main Content ── */}
-      <main className="flex-1 px-4 sm:px-6 py-5 flex flex-col gap-5">
-
-        {/* ── Stats Grid ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {stats.map((s) => (
-            <div
-              key={s.label}
-              className="rounded-xl px-5 py-4"
-              style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Specialization <span className="text-red-500">*</span>
+        </label>
+        <div className="grid grid-cols-1 gap-2 mb-5">
+          {SPECIALIZATIONS.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => setSpecialization(s.value)}
+              className={`px-4 py-2.5 rounded-lg border text-sm font-medium text-left transition-all ${
+                specialization === s.value
+                  ? "text-white border-transparent"
+                  : "bg-white border-gray-200 text-gray-700 hover:border-amber-300"
+              }`}
+              style={
+                specialization === s.value
+                  ? { backgroundColor: "#7A3100", borderColor: "#7A3100" }
+                  : {}
+              }
             >
-              <p className="text-sm text-gray-500 mb-3">{s.label}</p>
-              <p className="text-3xl sm:text-4xl font-bold leading-none" style={{ color: "#5C1E00" }}>{s.value}</p>
-            </div>
+              {s.label}
+            </button>
           ))}
         </div>
 
-        {/* ── Body: Tickets + Right Panel ── */}
-        <div className="flex flex-col xl:flex-row gap-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Phone Extension <span className="text-gray-400">(optional)</span>
+        </label>
+        <input
+          type="text"
+          value={phoneExtension}
+          onChange={(e) => setPhoneExtension(e.target.value)}
+          placeholder="e.g. 4201"
+          maxLength={10}
+          className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm
+                     focus:outline-none focus:ring-2 mb-5"
+          style={{ focusRingColor: "#7A3100" } as any}
+        />
 
-          {/* Tickets Table */}
-          <div
-            className="flex-1 rounded-xl overflow-hidden min-w-0"
-            style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
-          >
-            <div
-              className="flex flex-wrap items-center justify-between px-5 py-4 gap-2"
-              style={{ borderBottom: "1px solid #EDE5D8" }}
+        {error && (
+          <p className="text-sm text-red-600 mb-4">{error}</p>
+        )}
+
+        <div className="flex gap-3">
+          {isEdit && (
+            <button
+              onClick={() => onComplete(existing!)}
+              className="flex-1 py-3 rounded-lg text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50"
             >
-              <span className="font-semibold text-base sm:text-lg" style={{ color: "#3D1000" }}>My Assigned Tickets</span>
-              <div className="flex gap-1">
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="flex-1 py-3 rounded-lg text-white font-semibold text-sm
+                       transition-opacity disabled:opacity-60"
+            style={{ backgroundColor: "#7A3100" }}
+          >
+            {submitting ? "Saving..." : isEdit ? "Save Changes" : "Complete Setup"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function TechnicianDashboard() {
+  const router = useRouter();
+
+  const [activeFilter, setActiveFilter] = useState<Filter>("All");
+  const [staff, setStaff]               = useState<StaffProfile | null>(null);
+  const [ictProfile, setIctProfile]     = useState<IctProfile | null>(null);
+  const [tickets, setTickets]           = useState<Ticket[]>([]);
+  const [audit, setAudit]               = useState<AuditLog[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [showSetup, setShowSetup]       = useState(false);
+
+  const API = process.env.NEXT_PUBLIC_API_URL;
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [staffRes, ticketRes, auditRes, ictRes] = await Promise.all([
+          fetch(`${API}/staff/me`,         { credentials: "include" }),
+          fetch(`${API}/tickets`,          { credentials: "include" }),
+          fetch(`${API}/audit?limit=5`,    { credentials: "include" }),
+          fetch(`${API}/ict-personnel/me`, { credentials: "include" }),
+        ]);
+
+        if (staffRes.ok)  setStaff(await staffRes.json());
+        if (ticketRes.ok) setTickets(await ticketRes.json());
+        if (auditRes.ok)  setAudit(await auditRes.json());
+
+        if (ictRes.ok) {
+          const myProfile: IctProfile = await ictRes.json();
+          setIctProfile(myProfile);
+          if (!myProfile.specialization) setShowSetup(true);
+        }
+      } catch (e) {
+        console.error("Dashboard fetch error:", e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [API]);
+
+  function handleSetupComplete(profile: IctProfile) {
+    setIctProfile(profile);
+    setShowSetup(false);
+  }
+
+  const fullName = staff?.full_name ?? "Loading...";
+  const initials = fullName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const specialization = ictProfile?.specialization
+    ? specializationLabel[ictProfile.specialization] ?? ictProfile.specialization
+    : null;
+
+  const assignedCount   = tickets.length;
+  const completedToday  = tickets.filter((t) => {
+    if (t.status !== "CLOSED" || !t.closed_at) return false;
+    return new Date(t.closed_at).toDateString() === new Date().toDateString();
+  }).length;
+  const openCount       = tickets.filter((t) => t.status === "OPEN").length;
+  const inProgressCount = tickets.filter((t) => t.status === "IN_PROGRESS").length;
+
+  const fifoTicket = tickets
+    .filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS")
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
+
+  const filtered =
+    activeFilter === "All"
+      ? tickets
+      : tickets.filter((t) => t.status === activeFilter);
+
+  return (
+    <>
+      {showSetup && (
+        <SetupModal onComplete={handleSetupComplete} existing={ictProfile} />
+      )}
+
+      <div className={`min-h-screen bg-gray-100 flex flex-col ${showSetup ? "pointer-events-none select-none" : ""}`}>
+
+        {/* ── Top Bar ── */}
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex flex-wrap items-start justify-between gap-3">
+
+          {/* Bell + Avatar */}
+          <div className="flex items-center gap-2.5 ml-auto">
+            <div
+              className="relative cursor-pointer w-10 h-10 flex items-center justify-center rounded-full"
+              style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 3px rgba(90,30,0,0.08)" }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                   viewBox="0 0 24 24" fill="none" stroke="#7A3100"
+                   strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-400" />
+            </div>
+
+            <div
+              style={{
+                width: 36, height: 36, borderRadius: "50%",
+                background: "#7A3100", color: "#fff",
+                display: "flex", alignItems: "center",
+                justifyContent: "center", fontSize: 13,
+                fontWeight: 700, border: "2px solid #C8962E",
+              }}
+            >
+              {initials}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Hero Card ── */}
+        <div className="px-4 sm:px-6 pt-3">
+          <div
+            className="px-6 sm:px-10 py-8 sm:py-10 rounded-2xl"
+            style={{ background: "linear-gradient(135deg, #5C1E00 0%, #7A3100 50%, #8B4513 100%)" }}
+          >
+            <p className="text-xs sm:text-sm font-semibold tracking-widest uppercase mb-1"
+               style={{ color: "#C8922A" }}>
+              GOOD MORNING
+            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">{fullName}</h1>
+            <p className="text-sm sm:text-base mt-1" style={{ color: "#D4A96A" }}>
+              {specialization ?? "Complete your profile to get started"}
+            </p>
+
+            {ictProfile?.availability && (
+              <span
+                className="mt-3 inline-block px-3 py-1 rounded-full text-xs font-semibold"
+                style={{
+                  backgroundColor:
+                    ictProfile.availability === "available" ? "rgba(34,197,94,0.2)"  :
+                    ictProfile.availability === "busy"      ? "rgba(249,115,22,0.2)" :
+                    "rgba(107,114,128,0.2)",
+                  color:
+                    ictProfile.availability === "available" ? "#86efac" :
+                    ictProfile.availability === "busy"      ? "#fdba74" :
+                    "#d1d5db",
+                }}
+              >
+                {ictProfile.availability}
+              </span>
+            )}
+
+            {fifoTicket && (
+              <div
+                className="mt-4 px-4 py-2 rounded-lg inline-flex items-center gap-2"
+                style={{ backgroundColor: "rgba(200,146,42,0.18)", border: "1px solid #C8922A" }}
+              >
+                <span style={{ color: "#C8922A", fontSize: 13, fontWeight: 600 }}>
+                  ↑ Next up: #{fifoTicket.id} — {fifoTicket.title}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Main Content ── */}
+        <main className="flex-1 px-4 sm:px-6 py-5 flex flex-col gap-5">
+
+          {/* Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { label: "Assigned to Me",  value: loading ? "—" : String(assignedCount)   },
+              { label: "Completed Today", value: loading ? "—" : String(completedToday)  },
+              { label: "Open",            value: loading ? "—" : String(openCount)        },
+              { label: "In Progress",     value: loading ? "—" : String(inProgressCount) },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="rounded-xl px-5 py-4"
+                style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
+              >
+                <p className="text-sm sm:text-base text-gray-500">{s.label}</p>
+                <p className="text-3xl sm:text-4xl font-semibold text-gray-800 leading-none">
+                  {s.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Body */}
+          <div className="flex flex-col xl:flex-row gap-4">
+
+            {/* Tickets Table */}
+            <div className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-w-0">
+              <div className="flex gap-2 px-4 pt-4 pb-2 border-b border-gray-100">
                 {(["All", "OPEN", "IN_PROGRESS"] as Filter[]).map((f) => (
                   <button
                     key={f}
                     onClick={() => setActiveFilter(f)}
-                    className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-                    style={
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                       activeFilter === f
-                        ? { backgroundColor: "#7A3100", color: "#fff" }
-                        : { color: "#7A5C45", backgroundColor: "transparent" }
-                    }
+                        ? "text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                    style={activeFilter === f ? { backgroundColor: "#7A3100" } : {}}
                   >
-                    {f}
+                    {f === "All" ? "All" : f === "OPEN" ? "Open" : "In Progress"}
                   </button>
                 ))}
               </div>
-            </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm sm:text-base" style={{ tableLayout: "fixed", minWidth: "600px" }}>
-                <colgroup>
-                  <col style={{ width: "84px" }} />
-                  <col style={{ width: "145px" }} />
-                  <col style={{ width: "auto" }} />
-                  <col style={{ width: "80px" }} />
-                  <col style={{ width: "66px" }} />
-                  <col style={{ width: "120px" }} />
-                  <col style={{ width: "58px" }} />
-                </colgroup>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid #EDE5D8" }}>
-                    {["Ticket ID", "Issue", "Date", "Status", "Action"].map((h) => (
-                      <th
-                        key={h}
-                        className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wide"
-                        style={{ color: "#A07850" }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.length === 0 ? (
-                    <tr><td colSpan={6} className="px-3 py-8 text-center text-sm" style={{ color: "#A07850" }}>No tickets found.</td></tr>
-                  ) : filtered.map((t) => (
-                    <tr
-                      key={t.id}
-                      className="transition-colors"
-                      style={{ borderBottom: "1px solid #F5EEE4" }}
-                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#FDF8F2")}
-                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
-                    >
-                      <td className="px-3 py-3.5 font-medium text-sm" style={{ color: "#7A3100" }}>TKT-{t.id}</td>
-                      <td className="px-3 py-3.5">
-                        <p className="text-sm" style={{ color: "#4A2800" }}>{t.title}</p>
-                        <p className="text-xs mt-0.5" style={{ color: "#A07850" }}>{t.category}</p>
-                      </td>
-                      <td className="px-3 py-3.5 text-xs" style={{ color: "#7A5C45" }}>
-                        {new Date(t.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-3 py-3.5">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${statusStyles[t.status] ?? "bg-gray-100 text-gray-600"}`}>
-                          {t.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3.5">
-                        <button className="text-sm font-semibold hover:underline" style={{ color: "#7A3100" }}>View</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Right Panel */}
-          <div className="xl:w-[240px] flex-shrink-0 flex flex-row xl:flex-col gap-3">
-
-            {/* Recent Activity */}
-            <div
-              className="flex-1 xl:flex-none rounded-xl p-4 sm:p-5"
-              style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
-            >
-              <h3 className="font-semibold text-base mb-4" style={{ color: "#3D1000" }}>Recent Activity</h3>
-              <div className="flex flex-col gap-4">
-                {tickets.slice(0, 4).map((t) => (
-                  <div key={t.id} className="flex gap-3 items-start">
-                    <div className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: "2px solid #C8922A" }}>
-                      <span className="w-2 h-2 rounded-full block" style={{ backgroundColor: "#C8922A" }} />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm" style={{ color: "#3D1000" }}>TKT-{t.id}</p>
-                      <p className="text-sm mt-0.5" style={{ color: "#7A5C45" }}>{t.title}</p>
-                      <p className="text-xs mt-0.5" style={{ color: "#A07850" }}>{new Date(t.created_at).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Specializations */}
-            <div
-              className="flex-1 xl:flex-none rounded-xl p-4 sm:p-5"
-              style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
-            >
-              <h3 className="font-semibold text-base mb-4" style={{ color: "#3D1000" }}>My Specializations</h3>
-              {specializations.length > 0 ? (
-                <ul className="flex flex-col gap-2.5">
-                  {specializations.map((s) => (
-                    <li key={s} className="flex items-center gap-2.5 text-sm" style={{ color: "#4A2800" }}>
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#C8922A" }} />
-                      {s}
-                    </li>
-                  ))}
-                </ul>
+              {loading ? (
+                <div className="p-8 text-center text-gray-400 text-sm">Loading tickets...</div>
+              ) : !ictProfile?.is_active ? (
+                <div className="p-8 text-center text-gray-400 text-sm">
+                  Complete your profile setup to start receiving tickets.
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="p-8 text-center text-gray-400 text-sm">No tickets found.</div>
               ) : (
-                <p className="text-sm" style={{ color: "#A07850" }}>No specializations listed.</p>
+                <AssignedTicketTable/>
               )}
             </div>
 
+            {/* Right Panel */}
+            <div className="xl:w-[240px] flex-shrink-0 flex flex-row xl:flex-col gap-3">
+
+              {/* Recent Activity */}
+              <div className="flex-1 xl:flex-none bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
+                <h3 className="font-semibold text-base sm:text-lg text-gray-800 mb-4">
+                  Recent Activity
+                </h3>
+                {loading ? (
+                  <p className="text-sm text-gray-400">Loading...</p>
+                ) : audit.length === 0 ? (
+                  <p className="text-sm text-gray-400">No recent activity.</p>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {audit.map((a) => (
+                      <div key={a.id} className="flex gap-3 items-start">
+                        <div
+                          className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ border: "2px solid #C8922A" }}
+                        >
+                          <span className="w-2 h-2 rounded-full block"
+                                style={{ backgroundColor: "#C8922A" }} />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm" style={{ color: "#3D1000" }}>
+                            {a.action.replace(/_/g, " ")}
+                            {a.record_id ? ` #${a.record_id}` : ""}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {timeAgo(a.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Specialization */}
+              <div className="flex-1 xl:flex-none bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
+                <h3 className="font-semibold text-base sm:text-lg text-gray-800 mb-4">
+                  My Specialization
+                </h3>
+                {specialization ? (
+                  <>
+                    <span
+                      className="inline-block px-3 py-1 rounded-full text-sm font-medium text-white"
+                      style={{ backgroundColor: "#7A3100" }}
+                    >
+                      {specialization}
+                    </span>
+                    <p className="text-xs text-gray-400 mt-3">
+                      You only receive tickets matching your specialization.
+                    </p>
+                    <button
+                      onClick={() => setShowSetup(true)}
+                      className="text-xs font-medium underline mt-2 block"
+                      style={{ color: "#7A3100" }}
+                    >
+                      Edit
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-400 mb-3">Not set yet.</p>
+                    <button
+                      onClick={() => setShowSetup(true)}
+                      className="text-xs font-medium underline"
+                      style={{ color: "#7A3100" }}
+                    >
+                      Complete setup
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </>
   );
 }

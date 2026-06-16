@@ -193,7 +193,7 @@ export default function SignupPage() {
           department_id: form.departmentId ? Number(form.departmentId) : null,
           office_number: form.officeNumber,
           office_location: form.officeLocation,
-          role: "STAFF",
+          role: "staff",
           password: form.password,
           confirm_password: form.confirmPw,
         }),
