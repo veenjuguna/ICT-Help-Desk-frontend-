@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
 
-// ── Types ─────────────────────────────────────────────────────
-
 type TicketStatus = "open" | "in_progress" | "closed";
 
 interface Ticket {
@@ -44,8 +42,6 @@ interface IctProfile {
   is_active: boolean;
 }
 
-// ── Helpers ───────────────────────────────────────────────────
-
 function timeAgo(dateStr: string): string {
   const diff = Math.floor(
     (Date.now() - new Date(dateStr).getTime()) / 1000
@@ -65,8 +61,6 @@ const specializationLabel: Record<string, string> = {
 };
 
 type Filter = "All" | "open" | "in_progress";
-
-// ── Setup / Edit Modal ────────────────────────────────────────
 
 function SetupModal({
   onComplete,
@@ -131,7 +125,6 @@ function SetupModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-8">
 
-        {/* Header icon */}
         <div
           className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
           style={{ background: "linear-gradient(135deg, #7A3100, #C8922A)" }}
@@ -153,7 +146,6 @@ function SetupModal({
             : "Select your specialization so the system can assign you the right tickets."}
         </p>
 
-        {/* Specialization */}
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Specialization <span className="text-red-500">*</span>
         </label>
@@ -178,7 +170,6 @@ function SetupModal({
           ))}
         </div>
 
-        {/* Phone extension */}
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Phone Extension <span className="text-gray-400">(optional)</span>
         </label>
@@ -197,7 +188,6 @@ function SetupModal({
           <p className="text-sm text-red-600 mb-4">{error}</p>
         )}
 
-        {/* Actions */}
         <div className="flex gap-3">
           {isEdit && (
             <button
@@ -221,8 +211,6 @@ function SetupModal({
     </div>
   );
 }
-
-// ── Main Component ────────────────────────────────────────────
 
 export default function TechnicianDashboard() {
   const router = useRouter();
@@ -308,14 +296,6 @@ export default function TechnicianDashboard() {
 
         {/* ── Top Bar ── */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">
-              Good Morning, {fullName}
-            </h1>
-            <p className="text-sm sm:text-base text-gray-400 mt-1">
-              ✦ {specialization ?? "Setting up profile..."}
-            </p>
-          </div>
 
           {/* Bell + Avatar */}
           <div className="flex items-center gap-2.5 ml-auto">
@@ -361,7 +341,6 @@ export default function TechnicianDashboard() {
               {specialization ?? "Complete your profile to get started"}
             </p>
 
-            {/* Availability badge */}
             {ictProfile?.availability && (
               <span
                 className="mt-3 inline-block px-3 py-1 rounded-full text-xs font-semibold"
@@ -380,7 +359,6 @@ export default function TechnicianDashboard() {
               </span>
             )}
 
-            {/* FIFO nudge */}
             {fifoTicket && (
               <div
                 className="mt-4 px-4 py-2 rounded-lg inline-flex items-center gap-2"
