@@ -180,7 +180,10 @@ export default function AdminTicketsPage() {
     } catch { setComments(MOCK_COMMENTS); }
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    const timer = setTimeout(() => { void fetchAll(); }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchAll]);
 
   const allCategories = Array.from(new Set([
     ...personnel.map(p => p.category),
