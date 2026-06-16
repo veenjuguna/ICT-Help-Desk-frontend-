@@ -5,14 +5,14 @@ import { Search, Plus, X, Check, UserX } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Availability = "AVAILABLE" | "BUSY" | "OFF_DUTY" | "ON_LEAVE";
+type Availability = "available" | "busy" | "off_duty" | "on_leave";
 
 type Specialization =
-  | "HARDWARE"
-  | "NETWORKING"
-  | "SOFTWARE_AND_SYSTEMS"
-  | "SECURITY"
-  | "OTHER";
+  | "hardware"
+  | "networking"
+  | "software_and_systems"
+  | "security"
+  | "other";
 
 interface IctPersonnel {
   id: number;
@@ -37,11 +37,11 @@ interface AdminUser {
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-neon.onrender.com";
 
 const SPECIALIZATIONS: { value: Specialization; label: string }[] = [
-  { value: "HARDWARE", label: "Hardware" },
-  { value: "NETWORKING", label: "Networking" },
-  { value: "SOFTWARE_AND_SYSTEMS", label: "Software & Systems" },
-  { value: "SECURITY", label: "Security" },
-  { value: "OTHER", label: "Other" },
+  { value: "hardware", label: "Hardware" },
+  { value: "networking", label: "Networking" },
+  { value: "software_and_systems", label: "Software & Systems" },
+  { value: "security", label: "Security" },
+  { value: "other", label: "Other" },
 ];
 
 const POLL_INTERVAL_MS = 30_000;
@@ -66,7 +66,7 @@ function parseArray<T>(data: unknown): T[] {
 
 function normalizeAvailability(p: Record<string, unknown>): Availability {
   const raw = (p.availability ?? p.availability_status ?? "AVAILABLE") as string;
-  return raw.toUpperCase() as Availability;
+  return raw.toLowerCase() as Availability;
 }
 
 function formatShortName(fullName: string): string {
@@ -94,12 +94,12 @@ function isAdminRole(role?: string): boolean {
 
 function AvailabilityBadge({ status }: { status: Availability }) {
   const map: Record<Availability, { bg: string; color: string; dot: string; label: string }> = {
-    AVAILABLE: { bg: "#E8F5E9", color: "#2D6B0F", dot: "#2D6B0F", label: "Available" },
-    BUSY:      { bg: "#FFF3E0", color: "#E65100", dot: "#FF9800", label: "Busy" },
-    OFF_DUTY:  { bg: "#F3F3F3", color: "#7A5C44", dot: "#B0906A", label: "Off Duty" },
-    ON_LEAVE:  { bg: "#F3E8FF", color: "#6B2D8B", dot: "#9B59B6", label: "On Leave" },
+    available: { bg: "#E8F5E9", color: "#2D6B0F", dot: "#2D6B0F", label: "Available" },
+    busy:      { bg: "#FFF3E0", color: "#E65100", dot: "#FF9800", label: "Busy" },
+    off_duty:  { bg: "#F3F3F3", color: "#7A5C44", dot: "#B0906A", label: "Off Duty" },
+    on_leave:  { bg: "#F3E8FF", color: "#6B2D8B", dot: "#9B59B6", label: "On Leave" },
   };
-  const s = map[status] ?? map.AVAILABLE;
+  const s = map[status] ?? map.available;
   return (
     <span style={{
       background: s.bg, color: s.color,
@@ -116,13 +116,13 @@ function AvailabilityBadge({ status }: { status: Availability }) {
 
 function SpecializationBadge({ spec }: { spec: string }) {
   const map: Record<string, { bg: string; color: string }> = {
-    HARDWARE:              { bg: "#E3F2FD", color: "#1565C0" },
-    NETWORKING:            { bg: "#E0F2F1", color: "#00695C" },
-    SOFTWARE_AND_SYSTEMS:  { bg: "#F3E5F5", color: "#7B1FA2" },
-    SECURITY:              { bg: "#FFEBEE", color: "#C62828" },
-    OTHER:                 { bg: "#F5F5F5", color: "#616161" },
+    hardware:              { bg: "#E3F2FD", color: "#1565C0" },
+    networking:            { bg: "#E0F2F1", color: "#00695C" },
+    software_and_systems:  { bg: "#F3E5F5", color: "#7B1FA2" },
+    security:              { bg: "#FFEBEE", color: "#C62828" },
+    other:                 { bg: "#F5F5F5", color: "#616161" },
   };
-  const s = map[spec] ?? map.OTHER;
+  const s = map[spec] ?? map.other;
   return (
     <span style={{
       background: s.bg, color: s.color,
@@ -250,9 +250,12 @@ export default function IctPersonnelPage() {
   }, []);
 
   useEffect(() => {
-    void fetchPersonnel();
-    void fetchStaff();
-    void fetchUserRole();
+    const initialize = async () => {
+      await fetchPersonnel();
+      await fetchStaff();
+      await fetchUserRole();
+    };
+    void initialize();
   }, [fetchPersonnel, fetchStaff, fetchUserRole]);
 
   useEffect(() => {
@@ -387,13 +390,13 @@ export default function IctPersonnelPage() {
   };
 
   const dutyOptions: { value: Availability; label: string; desc: string }[] =
-    dutyTarget?.availability === "AVAILABLE"
+    dutyTarget?.availability === "available" || dutyTarget?.availability === "busy"
       ? [
-          { value: "OFF_DUTY", label: "Off Duty", desc: "Not on shift — excluded from triage" },
-          { value: "ON_LEAVE", label: "On Leave", desc: "Approved leave — excluded from triage" },
+          { value: "off_duty", label: "Off Duty", desc: "Not on shift — excluded from triage" },
+          { value: "on_leave", label: "On Leave", desc: "Approved leave — excluded from triage" },
         ]
-      : dutyTarget && (dutyTarget.availability === "OFF_DUTY" || dutyTarget.availability === "ON_LEAVE")
-        ? [{ value: "AVAILABLE", label: "Available", desc: "Return to duty and resume ticket assignment" }]
+      : dutyTarget && (dutyTarget.availability === "off_duty" || dutyTarget.availability === "on_leave")
+        ? [{ value: "available", label: "Available", desc: "Return to duty and resume ticket assignment" }]
         : [];
 
   return (
@@ -640,16 +643,16 @@ export default function IctPersonnelPage() {
         <div className="ip-summary">
           <div className="ip-pill"><strong>{personnel.length}</strong> Total</div>
           <div className="ip-pill">
-            <strong>{personnel.filter((p) => p.availability === "AVAILABLE" && p.is_active).length}</strong> Available
+            <strong>{personnel.filter((p) => p.availability === "available" && p.is_active).length}</strong> Available
           </div>
           <div className="ip-pill">
-            <strong>{personnel.filter((p) => p.availability === "BUSY").length}</strong> Busy
+            <strong>{personnel.filter((p) => p.availability === "busy").length}</strong> Busy
           </div>
           <div className="ip-pill">
-            <strong>{personnel.filter((p) => p.availability === "OFF_DUTY").length}</strong> Off Duty
+            <strong>{personnel.filter((p) => p.availability === "off_duty").length}</strong> Off Duty
           </div>
           <div className="ip-pill">
-            <strong>{personnel.filter((p) => p.availability === "ON_LEAVE").length}</strong> On Leave
+            <strong>{personnel.filter((p) => p.availability === "on_leave").length}</strong> On Leave
           </div>
         </div>
 
@@ -695,7 +698,7 @@ export default function IctPersonnelPage() {
                 <tbody>
                   {filtered.map((p) => {
                     const fullName = getStaffName(p.staff_id);
-                    const isBusy = p.availability === "BUSY";
+                    const isBusy = p.availability === "busy";
                     return (
                       <tr key={p.id} className={!p.is_active ? "inactive" : undefined}>
                         <td>
@@ -888,7 +891,7 @@ export default function IctPersonnelPage() {
               <p style={{ fontWeight: 700, color: "var(--brown)", fontSize: 15 }}>
                 {getStaffName(deactivateTarget.staff_id)}
               </p>
-              {deactivateTarget.availability === "BUSY" && (
+              {deactivateTarget.availability === "busy" && (
                 <div className="ip-warn-box" style={{ textAlign: "left" }}>
                   <strong>Warning:</strong> This technician has an active ticket.
                   Resolve or reassign the ticket before deactivating.

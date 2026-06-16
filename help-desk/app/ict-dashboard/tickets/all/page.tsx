@@ -1,6 +1,7 @@
+/// This is a Next.js page component for the "All Tickets" view in an ICT dashboard.
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Search,
   Clock,
@@ -11,6 +12,21 @@ import {
   MessageSquare,
 } from "lucide-react";
 import TicketTable from "@/components/ticket-table";
+
+interface StaffProfile {
+  id: string;
+  full_name: string;
+  role: string;
+}
+
+interface IctProfile {
+  id: number;
+  staff_id: string;
+  specialization: string | null;
+  phone_extension: string | null;
+  availability: string;
+  is_active: boolean;
+}
 
 type TicketStatus = "open" | "in_progress" | "resolved" | "escalated";
 type TicketPriority = "High" | "Medium" | "Low";
@@ -23,108 +39,16 @@ interface Note {
 }
 
 interface Ticket {
-  id: string;
-  employee: string;
-  dept: string;
-  issue: string;
+  id: number;
+  title: string;
+  description: string;
   category: string;
-  priority: TicketPriority;
-  created: string;
-  status: TicketStatus;
-  assignedReason: string;
-  notes: Note[];
+  status: string;
+  created_at: string;
+  closed_at: string | null;
+  staff_id: string;
+  assigned_to_id: number;
 }
-
-const MOCK_TECHNICIAN = {
-  name: "Brian Mutuku",
-  specialization: ["Hardware", "Network"],
-};
-
-const INITIAL_TICKETS: Ticket[] = [
-  {
-    id: "TKT-031",
-    employee: "Ann Mwangi",
-    dept: "Revenue",
-    issue: "Desktop screen flickering continuously",
-    category: "Hardware",
-    priority: "High",
-    created: "Today, 08:12 AM",
-    status: "open",
-    assignedReason: "Matched your Hardware specialization",
-    notes: [],
-  },
-  {
-    id: "TKT-032",
-    employee: "Patrick Ouma",
-    dept: "Procurement",
-    issue: "USB ports not working on workstation",
-    category: "Hardware",
-    priority: "Medium",
-    created: "Today, 09:30 AM",
-    status: "in_progress",
-    assignedReason: "Matched your Hardware specialization",
-    notes: [
-      {
-        id: "n1",
-        author: "Brian Mutuku",
-        content:
-          "Checked device manager — USB controller showing error code 43. Running driver update.",
-        timestamp: "Today, 10:00 AM",
-      },
-    ],
-  },
-  {
-    id: "TKT-033",
-    employee: "Linda Chebet",
-    dept: "Planning",
-    issue: "Cannot access shared printer on floor 3",
-    category: "Network",
-    priority: "Medium",
-    created: "Today, 10:05 AM",
-    status: "open",
-    assignedReason: "Matched your Network specialization",
-    notes: [],
-  },
-  {
-    id: "TKT-034",
-    employee: "James Kariuki",
-    dept: "Finance",
-    issue: "Laptop not connecting to VPN",
-    category: "Network",
-    priority: "High",
-    created: "Yesterday, 04:45 PM",
-    status: "escalated",
-    assignedReason: "Matched your Network specialization",
-    notes: [
-      {
-        id: "n2",
-        author: "Brian Mutuku",
-        content:
-          "Escalated to CIRT — possible VPN policy issue affecting entire Finance subnet.",
-        timestamp: "Yesterday, 05:10 PM",
-      },
-    ],
-  },
-  {
-    id: "TKT-028",
-    employee: "Grace Wanjiku",
-    dept: "ICT",
-    issue: "Keyboard keys sticking and unresponsive",
-    category: "Hardware",
-    priority: "Low",
-    created: "Yesterday, 02:00 PM",
-    status: "resolved",
-    assignedReason: "Matched your Hardware specialization",
-    notes: [
-      {
-        id: "n3",
-        author: "Brian Mutuku",
-        content: "Replaced keyboard. Issue resolved.",
-        timestamp: "Yesterday, 03:30 PM",
-      },
-    ],
-  },
-];
 
 const STATUS_CONFIG: Record<
   TicketStatus,
@@ -213,12 +137,10 @@ function TicketDetail({
   ticket,
   onClose,
   onStatusChange,
-  onAddNote,
 }: {
   ticket: Ticket;
   onClose: () => void;
-  onStatusChange: (id: string, status: TicketStatus) => void;
-  onAddNote: (id: string, note: string) => void;
+  onStatusChange: (id: number, status: TicketStatus) => void;
 }) {
   const [noteText, setNoteText] = useState("");
   const [statusDropdown, setStatusDropdown] = useState(false);
@@ -233,7 +155,7 @@ function TicketDetail({
     if (!noteText.trim()) return;
     setSaving(true);
     await new Promise((r) => setTimeout(r, 600));
-    onAddNote(ticket.id, noteText.trim());
+    // onAddNote(ticket.id, noteText.trim());
     setNoteText("");
     setSaving(false);
   };
@@ -300,313 +222,202 @@ function TicketDetail({
         </div>
 
         {/* Body */}
+        {/* Issue */}
+        <div>
+          <p
+            style={{
+              fontSize: 11,
+              color: "#7A5C44",
+              marginBottom: 6,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
+            Issue
+          </p>
+          <p
+            style={{
+              fontSize: 13,
+              color: "#7A5C44",
+              marginTop: 4,
+              lineHeight: 1.5,
+            }}
+          >
+            {ticket.description}
+          </p>
+        </div>
+
+        {/* Info grid */}
         <div
           style={{
-            padding: "1.25rem 1.5rem",
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            gap: "1.25rem",
+            background: "#FDF8F2",
+            borderRadius: 10,
+            padding: "0.9rem 1rem",
+            border: "1px solid #EDE0D0",
           }}
         >
-          {/* Issue */}
-          <div>
-            <p
-              style={{
-                fontSize: 11,
-                color: "#7A5C44",
-                marginBottom: 6,
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-              }}
-            >
-              Issue
-            </p>
-            <p style={{ fontSize: 14, color: "#1A0F08", lineHeight: 1.6 }}>
-              {ticket.issue}
-            </p>
-          </div>
-
-          {/* Info grid */}
           <div
             style={{
-              background: "#FDF8F2",
-              borderRadius: 10,
-              padding: "0.9rem 1rem",
-              border: "1px solid #EDE0D0",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "0.75rem",
             }}
           >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "0.75rem",
-              }}
-            >
-              {(
+            {(
+              [
+                ["Category", ticket.category],
+                ["Status", ticket.status],
+                ["Created", new Date(ticket.created_at).toLocaleDateString()],
                 [
-                  ["Employee", ticket.employee],
-                  ["Department", ticket.dept],
-                  ["Category", ticket.category],
-                  ["Created", ticket.created],
-                ] as [string, string][]
-              ).map(([label, value]) => (
-                <div key={label}>
-                  <p
-                    style={{ fontSize: 11, color: "#7A5C44", marginBottom: 2 }}
-                  >
-                    {label}
-                  </p>
-                  <p
-                    style={{ fontSize: 13, color: "#1A0F08", fontWeight: 600 }}
-                  >
-                    {value}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Priority + Status */}
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-            <div>
-              <p style={{ fontSize: 11, color: "#7A5C44", marginBottom: 6 }}>
-                Priority
-              </p>
-              <PriorityBadge priority={ticket.priority} />
-            </div>
-            <div>
-              <p style={{ fontSize: 11, color: "#7A5C44", marginBottom: 6 }}>
-                Status
-              </p>
-              <div style={{ position: "relative" }}>
-                <button
-                  onClick={() => setStatusDropdown((v) => !v)}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    background: "#FDF8F2",
-                    border: "1px solid #C8962E",
-                    borderRadius: 8,
-                    padding: "5px 10px",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    color: "#1A0F08",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  <StatusBadge status={ticket.status} />
-                  <ChevronDown size={13} style={{ color: "#7A5C44" }} />
-                </button>
-                {statusDropdown && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "110%",
-                      left: 0,
-                      background: "#fff",
-                      border: "1px solid #EDE0D0",
-                      borderRadius: 10,
-                      boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-                      zIndex: 10,
-                      minWidth: 180,
-                      overflow: "hidden",
-                    }}
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => handleStatusChange(s)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          width: "100%",
-                          padding: "10px 14px",
-                          background:
-                            s === ticket.status ? "#FDF8F2" : "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          fontSize: 13,
-                          color: "#1A0F08",
-                          fontFamily: "inherit",
-                          textAlign: "left",
-                        }}
-                      >
-                        <StatusBadge status={s} />
-                      </button>
-                    ))}
-                  </div>
-                )}
+                  "Time",
+                  new Date(ticket.created_at).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                ],
+              ] as [string, string][]
+            ).map(([label, value]) => (
+              <div key={label}>
+                <p style={{ fontSize: 11, color: "#7A5C44", marginBottom: 2 }}>
+                  {label}
+                </p>
+                <p style={{ fontSize: 13, color: "#1A0F08", fontWeight: 600 }}>
+                  {value}
+                </p>
               </div>
-            </div>
+            ))}
           </div>
+        </div>
 
-          {/* Assignment reason */}
-          <div
-            style={{
-              background: "#F5F0FF",
-              borderRadius: 8,
-              padding: "0.7rem 1rem",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <AlertTriangle
-              size={13}
-              style={{ color: "#6B35B5", flexShrink: 0 }}
-            />
-            <p style={{ fontSize: 12, color: "#4A1E8A" }}>
-              {ticket.assignedReason}
-            </p>
-          </div>
-
-          {/* Mark as resolved shortcut */}
-          {ticket.status !== "resolved" && (
+        {/* Status change */}
+        <div>
+          <p style={{ fontSize: 11, color: "#7A5C44", marginBottom: 6 }}>
+            Status
+          </p>
+          <div style={{ position: "relative" }}>
             <button
-              onClick={() => handleStatusChange("resolved")}
+              onClick={() => setStatusDropdown((v) => !v)}
               style={{
-                width: "100%",
-                height: 40,
-                background: "#1E6B33",
-                color: "#fff",
-                border: "none",
-                borderRadius: 9,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
-                justifyContent: "center",
                 gap: 6,
+                background: "#FDF8F2",
+                border: "1px solid #C8962E",
+                borderRadius: 8,
+                padding: "5px 10px",
+                cursor: "pointer",
+                fontSize: 13,
+                color: "#1A0F08",
                 fontFamily: "inherit",
               }}
             >
-              <CheckCircle size={15} />
-              Mark as Resolved
-            </button>
-          )}
-
-          {/* Notes */}
-          <div>
-            <p
-              style={{
-                fontSize: 12,
-                color: "#7A5C44",
-                marginBottom: 10,
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <MessageSquare size={13} />
-              Notes &amp; Updates
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {ticket.notes.length === 0 && (
-                <p
-                  style={{
-                    fontSize: 13,
-                    color: "#C0A882",
-                    fontStyle: "italic",
-                  }}
-                >
-                  No notes yet.
-                </p>
-              )}
-              {ticket.notes.map((note) => (
-                <div
-                  key={note.id}
-                  style={{
-                    background: "#FDF8F2",
-                    border: "1px solid #EDE0D0",
-                    borderRadius: 9,
-                    padding: "0.8rem 1rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: 6,
-                    }}
-                  >
-                    <p
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: "#6B2D0F",
-                      }}
-                    >
-                      {note.author}
-                    </p>
-                    <p style={{ fontSize: 11, color: "#7A5C44" }}>
-                      {note.timestamp}
-                    </p>
-                  </div>
-                  <p
-                    style={{ fontSize: 13, color: "#1A0F08", lineHeight: 1.6 }}
-                  >
-                    {note.content}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* Add note */}
-            <div style={{ marginTop: 12 }}>
-              <textarea
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                placeholder="Add a note or update..."
-                rows={3}
+              <span
                 style={{
-                  width: "100%",
-                  border: "1.5px solid #EDE0D0",
-                  borderRadius: 9,
-                  padding: "10px 12px",
-                  fontSize: 13,
-                  fontFamily: "inherit",
-                  color: "#1A0F08",
-                  background: "#FDFAF6",
-                  outline: "none",
-                  resize: "vertical",
-                  boxSizing: "border-box",
-                }}
-              />
-              <button
-                onClick={handleAddNote}
-                disabled={!noteText.trim() || saving}
-                style={{
-                  marginTop: 8,
-                  height: 36,
-                  padding: "0 1.25rem",
-                  background:
-                    saving || !noteText.trim() ? "#C0A882" : "#6B2D0F",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  fontSize: 13,
+                  padding: "3px 10px",
+                  borderRadius: 20,
+                  fontSize: 12,
                   fontWeight: 600,
-                  cursor:
-                    saving || !noteText.trim() ? "not-allowed" : "pointer",
-                  fontFamily: "inherit",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
+                  background:
+                    ticket.status === "OPEN"
+                      ? "#FEF2F2"
+                      : ticket.status === "IN_PROGRESS"
+                        ? "#FFF8E0"
+                        : "#F0FFF4",
+                  color:
+                    ticket.status === "OPEN"
+                      ? "#BB0000"
+                      : ticket.status === "IN_PROGRESS"
+                        ? "#C8962E"
+                        : "#1E6B33",
                 }}
               >
-                {saving ? "Saving..." : "Add Note"}
-              </button>
-            </div>
+                {ticket.status === "OPEN"
+                  ? "Open"
+                  : ticket.status === "IN_PROGRESS"
+                    ? "In Progress"
+                    : "Resolved"}
+              </span>
+              <ChevronDown size={13} style={{ color: "#7A5C44" }} />
+            </button>
+            {statusDropdown && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "110%",
+                  left: 0,
+                  background: "#fff",
+                  border: "1px solid #EDE0D0",
+                  borderRadius: 10,
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                  zIndex: 10,
+                  minWidth: 180,
+                  overflow: "hidden",
+                }}
+              >
+                {(["OPEN", "IN_PROGRESS", "CLOSED"] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => {
+                      setStatusDropdown(false);
+                      onStatusChange(ticket.id, s as any);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      width: "100%",
+                      padding: "10px 14px",
+                      background:
+                        s === ticket.status ? "#FDF8F2" : "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      color: "#1A0F08",
+                      fontFamily: "inherit",
+                      textAlign: "left",
+                    }}
+                  >
+                    {s === "OPEN"
+                      ? "Open"
+                      : s === "IN_PROGRESS"
+                        ? "In Progress"
+                        : "Resolved"}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Mark as resolved */}
+        {ticket.status !== "CLOSED" && (
+          <button
+            onClick={() => {
+              setStatusDropdown(false);
+              onStatusChange(ticket.id, "CLOSED" as any);
+            }}
+            style={{
+              width: "100%",
+              height: 40,
+              background: "#1E6B33",
+              color: "#fff",
+              border: "none",
+              borderRadius: 9,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              fontFamily: "inherit",
+            }}
+          >
+            <CheckCircle size={15} />
+            Mark as Resolved
+          </button>
+        )}
       </div>
     </div>
   );
@@ -615,13 +426,37 @@ function TicketDetail({
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function AllTicketsPage() {
-  const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All Categories");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
-  const handleStatusChange = (id: string, newStatus: TicketStatus) => {
+  const [staff, setStaff] = useState<StaffProfile | null>(null);
+  const [ictProfile, setIctProfile] = useState<IctProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const API = process.env.NEXT_PUBLIC_API_URL;
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [staffRes, ictRes, ticketsRes] = await Promise.all([
+          fetch(`${API}/staff/me`, { credentials: "include" }),
+          fetch(`${API}/ict-personnel/me`, { credentials: "include" }),
+          fetch(`${API}/tickets`, { credentials: "include" }),
+        ]);
+        if (staffRes.ok) setStaff(await staffRes.json());
+        if (ictRes.ok) setIctProfile(await ictRes.json());
+        if (ticketsRes.ok) setTickets(await ticketsRes.json());
+      } catch (e) {
+        console.error("AllTickets fetch error:", e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [API]);
+
+  const handleStatusChange = (id: number, newStatus: TicketStatus) => {
     setTickets((prev) =>
       prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)),
     );
@@ -630,48 +465,52 @@ export default function AllTicketsPage() {
     );
   };
 
-  const handleAddNote = (id: string, content: string) => {
-    const newNote: Note = {
-      id: `n${Date.now()}`,
-      author: MOCK_TECHNICIAN.name,
-      content,
-      timestamp: "Just now",
-    };
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, notes: [...t.notes, newNote] } : t,
-      ),
-    );
-    setSelectedTicket((prev) =>
-      prev?.id === id ? { ...prev, notes: [...prev.notes, newNote] } : prev,
-    );
+  const statusMap: Record<string, string> = {
+    open: "OPEN",
+    in_progress: "IN_PROGRESS",
+    resolved: "CLOSED",
+    escalated: "ESCALATED",
   };
 
   const filtered = tickets.filter((t) => {
     const q = search.toLowerCase();
     return (
       (!q ||
-        t.id.toLowerCase().includes(q) ||
-        t.employee.toLowerCase().includes(q) ||
-        t.issue.toLowerCase().includes(q)) &&
-      (categoryFilter === "All Categories" || t.category === categoryFilter) &&
-      (statusFilter === "all" || t.status === statusFilter)
+        String(t.id).toLowerCase().includes(q) ||
+        t.title?.toLowerCase().includes(q) ||
+        t.description?.toLowerCase().includes(q)) &&
+      (categoryFilter === "All Categories" ||
+        t.category.toLowerCase() === categoryFilter.toLowerCase()) &&
+      (statusFilter === "all" || t.status === statusMap[statusFilter])
     );
   });
 
   const counts = {
-    open: tickets.filter((t) => t.status === "open").length,
-    in_progress: tickets.filter((t) => t.status === "in_progress").length,
-    resolved: tickets.filter((t) => t.status === "resolved").length,
-    escalated: tickets.filter((t) => t.status === "escalated").length,
+    open: tickets.filter((t) => t.status === "OPEN").length,
+    in_progress: tickets.filter((t) => t.status === "IN_PROGRESS").length,
+    resolved: tickets.filter((t) => t.status === "CLOSED").length,
+    escalated: tickets.filter((t) => t.status === "ESCALATED").length,
   };
 
-  const techInitials = MOCK_TECHNICIAN.name
+  const fullName = staff?.full_name ?? "Loading...";
+  const techInitials = fullName
     .split(" ")
     .map((w) => w[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
+
+  const specializationLabel: Record<string, string> = {
+    HARDWARE: "Hardware",
+    NETWORKING: "Networking",
+    SOFTWARE_AND_SYSTEMS: "Software & Systems",
+    SECURITY: "Security",
+    OTHER: "Other",
+  };
+  const specialization = ictProfile?.specialization
+    ? (specializationLabel[ictProfile.specialization] ??
+      ictProfile.specialization)
+    : "—";
 
   return (
     <>
@@ -762,11 +601,9 @@ export default function AllTicketsPage() {
             </div>
             <div>
               <p style={{ fontSize: 12, fontWeight: 600, color: "#1A0F08" }}>
-                {MOCK_TECHNICIAN.name}
+                {fullName}
               </p>
-              <p style={{ fontSize: 10, color: "#7A5C44" }}>
-                {MOCK_TECHNICIAN.specialization.join(", ")}
-              </p>
+              <p style={{ fontSize: 10, color: "#7A5C44" }}>{specialization}</p>
             </div>
           </div>
         </div>
@@ -777,7 +614,9 @@ export default function AllTicketsPage() {
           <p className="page-sub">
             Tickets auto-assigned to you based on your specialization —{" "}
             <strong style={{ color: "#6B2D0F" }}>
-              {MOCK_TECHNICIAN.specialization.join(" & ")}
+              {ictProfile?.specialization
+                ? specializationLabel[ictProfile.specialization]
+                : "—"}
             </strong>
           </p>
         </div>
@@ -880,7 +719,120 @@ export default function AllTicketsPage() {
               </span>
             </div>
             <div className="table-wrap">
-              <TicketTable />
+              {loading ? (
+                <p
+                  style={{
+                    padding: "2rem",
+                    textAlign: "center",
+                    color: "#7A5C44",
+                    fontSize: 13,
+                  }}
+                >
+                  Loading tickets...
+                </p>
+              ) : filtered.length === 0 ? (
+                <p
+                  style={{
+                    padding: "2rem",
+                    textAlign: "center",
+                    color: "#7A5C44",
+                    fontSize: 13,
+                  }}
+                >
+                  No tickets found.
+                </p>
+              ) : (
+                <table className="ticket-table">
+                  <thead>
+                    <tr>
+                      <th>Date/Time</th>
+                      <th>Ticket ID</th>
+                      <th>Issue</th>
+                      <th>Category</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((t) => (
+                      <tr
+                        key={t.id}
+                        className="ticket-row"
+                        onClick={() => setSelectedTicket(t as any)}
+                      >
+                        <td>
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              color: "#1A0F08",
+                              fontSize: 13,
+                            }}
+                          >
+                            {new Date(t.created_at).toLocaleDateString()}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "#7A5C44",
+                              marginTop: 2,
+                            }}
+                          >
+                            {new Date(t.created_at).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </div>
+                        </td>
+                        <td className="ticket-id">
+                          TKT-{String(t.id).padStart(3, "0")}
+                        </td>
+                        <td>
+                          <div className="issue-text">{t.title}</div>
+                          <div className="issue-cat">{t.description}</div>
+                        </td>
+                        <td style={{ color: "#7A5C44", fontSize: 12 }}>
+                          {t.category}
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              padding: "3px 10px",
+                              borderRadius: 20,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              background:
+                                t.status === "OPEN"
+                                  ? "#FEF2F2"
+                                  : t.status === "IN_PROGRESS"
+                                    ? "#FFF8E0"
+                                    : t.status === "CLOSED"
+                                      ? "#F0FFF4"
+                                      : "#F5F0FF",
+                              color:
+                                t.status === "OPEN"
+                                  ? "#BB0000"
+                                  : t.status === "IN_PROGRESS"
+                                    ? "#C8962E"
+                                    : t.status === "CLOSED"
+                                      ? "#1E6B33"
+                                      : "#6B35B5",
+                            }}
+                          >
+                            {t.status === "OPEN"
+                              ? "Open"
+                              : t.status === "IN_PROGRESS"
+                                ? "In Progress"
+                                : t.status === "CLOSED"
+                                  ? "Resolved"
+                                  : t.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
@@ -891,7 +843,6 @@ export default function AllTicketsPage() {
           ticket={selectedTicket}
           onClose={() => setSelectedTicket(null)}
           onStatusChange={handleStatusChange}
-          onAddNote={handleAddNote}
         />
       )}
     </>
