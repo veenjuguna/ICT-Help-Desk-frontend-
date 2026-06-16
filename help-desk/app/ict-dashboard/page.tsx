@@ -69,7 +69,7 @@ function SetupModal({
   onComplete: (profile: IctProfile) => void;
   existing: IctProfile | null;
 }) {
-  const isEdit = !!existing?.specialization;
+  const isEdit = !!existing?.id;
 
   const [specialization, setSpecialization] = useState(existing?.specialization ?? "");
   const [phoneExtension, setPhoneExtension] = useState(existing?.phone_extension ?? "");
