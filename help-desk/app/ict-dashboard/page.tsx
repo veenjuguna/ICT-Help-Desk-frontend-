@@ -7,7 +7,7 @@ import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
 
 // ── Types ─────────────────────────────────────────────────────
 
-type TicketStatus = "OPEN" | "IN_PROGRESS" | "CLOSED";
+type TicketStatus = "open" | "in_progress" | "closed";
 
 interface Ticket {
   id: number;
@@ -63,7 +63,7 @@ const specializationLabel: Record<string, string> = {
   OTHER: "Other",
 };
 
-type Filter = "All" | "OPEN" | "IN_PROGRESS";
+type Filter = "All" | "open" | "in_progress";
 
 // ── Setup / Edit Modal ────────────────────────────────────────
 
@@ -491,7 +491,7 @@ export default function TechnicianDashboard() {
             {/* Tickets Table */}
             <div className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-w-0">
               <div className="flex gap-2 px-4 pt-4 pb-2 border-b border-gray-100">
-                {(["All", "OPEN", "IN_PROGRESS"] as Filter[]).map((f) => (
+                {(["All", "open", "in_progress"] as Filter[]).map((f) => (
                   <button
                     key={f}
                     onClick={() => setActiveFilter(f)}
