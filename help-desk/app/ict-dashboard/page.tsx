@@ -1,13 +1,10 @@
-// This is the main dashboard page for ICT technicians. It displays an overview of assigned tickets, recent activity, and allows technicians to complete their profile setup if they haven't already.
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
 
-// ── Types ─────────────────────────────────────────────────────
-
-type TicketStatus = "open" | "in_progress" | "closed";
+type TicketStatus = "OPEN" | "IN_PROGRESS" | "CLOSED";
 
 interface Ticket {
   id: number;
@@ -45,27 +42,25 @@ interface IctProfile {
   is_active: boolean;
 }
 
-// ── Helpers ───────────────────────────────────────────────────
-
 function timeAgo(dateStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  const diff = Math.floor(
+    (Date.now() - new Date(dateStr).getTime()) / 1000
+  );
+  if (diff < 60)    return `${diff}s ago`;
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
 const specializationLabel: Record<string, string> = {
-  HARDWARE: "Hardware",
-  NETWORKING: "Networking",
-  SOFTWARE_AND_SYSTEMS: "Software & Systems",
-  SECURITY: "Security",
-  OTHER: "Other",
+  hardware:             "Hardware",
+  networking:           "Networking",
+  software_and_systems: "Software & Systems",
+  security:             "Security",
+  other:                "Other",
 };
 
-type Filter = "All" | "open" | "in_progress";
-
-// ── Setup / Edit Modal ────────────────────────────────────────
+type Filter = "All" | "OPEN" | "IN_PROGRESS";
 
 function SetupModal({
   onComplete,
@@ -76,23 +71,19 @@ function SetupModal({
 }) {
   const isEdit = !!existing?.specialization;
 
-  const [specialization, setSpecialization] = useState(
-    existing?.specialization ?? "",
-  );
-  const [phoneExtension, setPhoneExtension] = useState(
-    existing?.phone_extension ?? "",
-  );
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [specialization, setSpecialization] = useState(existing?.specialization ?? "");
+  const [phoneExtension, setPhoneExtension] = useState(existing?.phone_extension ?? "");
+  const [submitting, setSubmitting]         = useState(false);
+  const [error, setError]                   = useState<string | null>(null);
 
   const API = process.env.NEXT_PUBLIC_API_URL;
 
   const SPECIALIZATIONS = [
-    { value: "HARDWARE", label: "Hardware" },
-    { value: "NETWORKING", label: "Networking" },
-    { value: "SOFTWARE_AND_SYSTEMS", label: "Software & Systems" },
-    { value: "SECURITY", label: "Security" },
-    { value: "OTHER", label: "Other" },
+    { value: "hardware",             label: "Hardware" },
+    { value: "networking",           label: "Networking" },
+    { value: "software_and_systems", label: "Software & Systems" },
+    { value: "security",             label: "Security" },
+    { value: "other",                label: "Other" },
   ];
 
   async function handleSubmit() {
@@ -104,7 +95,9 @@ function SetupModal({
     setError(null);
     try {
       const res = await fetch(
-        isEdit ? `${API}/ict-personnel/me` : `${API}/ict-personnel/me/setup`,
+        isEdit
+          ? `${API}/ict-personnel/me`
+          : `${API}/ict-personnel/me/setup`,
         {
           method: isEdit ? "PATCH" : "POST",
           credentials: "include",
@@ -113,13 +106,11 @@ function SetupModal({
             specialization,
             phone_extension: phoneExtension || null,
           }),
-        },
+        }
       );
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(
-          data.detail ?? (isEdit ? "Update failed." : "Setup failed."),
-        );
+        throw new Error(data.detail ?? (isEdit ? "Update failed." : "Setup failed."));
       }
       const profile: IctProfile = await res.json();
       onComplete(profile);
@@ -133,24 +124,16 @@ function SetupModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-8">
-        {/* Header icon */}
+
         <div
           className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
           style={{ background: "linear-gradient(135deg, #7A3100, #C8922A)" }}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 20h9" />
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
+               viewBox="0 0 24 24" fill="none" stroke="white"
+               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
           </svg>
         </div>
 
@@ -163,7 +146,6 @@ function SetupModal({
             : "Select your specialization so the system can assign you the right tickets."}
         </p>
 
-        {/* Specialization */}
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Specialization <span className="text-red-500">*</span>
         </label>
@@ -188,7 +170,6 @@ function SetupModal({
           ))}
         </div>
 
-        {/* Phone extension */}
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Phone Extension <span className="text-gray-400">(optional)</span>
         </label>
@@ -203,9 +184,10 @@ function SetupModal({
           style={{ focusRingColor: "#7A3100" } as any}
         />
 
-        {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+        {error && (
+          <p className="text-sm text-red-600 mb-4">{error}</p>
+        )}
 
-        {/* Actions */}
         <div className="flex gap-3">
           {isEdit && (
             <button
@@ -222,11 +204,7 @@ function SetupModal({
                        transition-opacity disabled:opacity-60"
             style={{ backgroundColor: "#7A3100" }}
           >
-            {submitting
-              ? "Saving..."
-              : isEdit
-                ? "Save Changes"
-                : "Complete Setup"}
+            {submitting ? "Saving..." : isEdit ? "Save Changes" : "Complete Setup"}
           </button>
         </div>
       </div>
@@ -234,18 +212,16 @@ function SetupModal({
   );
 }
 
-// ── Main Component ────────────────────────────────────────────
-
 export default function TechnicianDashboard() {
   const router = useRouter();
 
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
-  const [staff, setStaff] = useState<StaffProfile | null>(null);
-  const [ictProfile, setIctProfile] = useState<IctProfile | null>(null);
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [audit, setAudit] = useState<AuditLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showSetup, setShowSetup] = useState(false);
+  const [staff, setStaff]               = useState<StaffProfile | null>(null);
+  const [ictProfile, setIctProfile]     = useState<IctProfile | null>(null);
+  const [tickets, setTickets]           = useState<Ticket[]>([]);
+  const [audit, setAudit]               = useState<AuditLog[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [showSetup, setShowSetup]       = useState(false);
 
   const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -253,15 +229,15 @@ export default function TechnicianDashboard() {
     (async () => {
       try {
         const [staffRes, ticketRes, auditRes, ictRes] = await Promise.all([
-          fetch(`${API}/staff/me`, { credentials: "include" }),
-          fetch(`${API}/tickets`, { credentials: "include" }),
-          fetch(`${API}/audit?limit=5`, { credentials: "include" }),
+          fetch(`${API}/staff/me`,         { credentials: "include" }),
+          fetch(`${API}/tickets`,          { credentials: "include" }),
+          fetch(`${API}/audit?limit=5`,    { credentials: "include" }),
           fetch(`${API}/ict-personnel/me`, { credentials: "include" }),
         ]);
 
-        if (staffRes.ok) setStaff(await staffRes.json());
+        if (staffRes.ok)  setStaff(await staffRes.json());
         if (ticketRes.ok) setTickets(await ticketRes.json());
-        if (auditRes.ok) setAudit(await auditRes.json());
+        if (auditRes.ok)  setAudit(await auditRes.json());
 
         if (ictRes.ok) {
           const myProfile: IctProfile = await ictRes.json();
@@ -290,26 +266,20 @@ export default function TechnicianDashboard() {
     .toUpperCase();
 
   const specialization = ictProfile?.specialization
-    ? (specializationLabel[ictProfile.specialization] ??
-      ictProfile.specialization)
+    ? specializationLabel[ictProfile.specialization] ?? ictProfile.specialization
     : null;
 
-  const assignedCount = tickets.length;
-  const completedToday = tickets.filter((t) => {
+  const assignedCount   = tickets.length;
+  const completedToday  = tickets.filter((t) => {
     if (t.status !== "CLOSED" || !t.closed_at) return false;
     return new Date(t.closed_at).toDateString() === new Date().toDateString();
   }).length;
-  const openCount = tickets.filter((t) => t.status === "OPEN").length;
-  const inProgressCount = tickets.filter(
-    (t) => t.status === "IN_PROGRESS",
-  ).length;
+  const openCount       = tickets.filter((t) => t.status === "OPEN").length;
+  const inProgressCount = tickets.filter((t) => t.status === "IN_PROGRESS").length;
 
   const fifoTicket = tickets
     .filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS")
-    .sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-    )[0];
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
 
   const filtered =
     activeFilter === "All"
@@ -322,41 +292,20 @@ export default function TechnicianDashboard() {
         <SetupModal onComplete={handleSetupComplete} existing={ictProfile} />
       )}
 
-      <div
-        className={`min-h-screen bg-gray-100 flex flex-col ${showSetup ? "pointer-events-none select-none" : ""}`}
-      >
+      <div className={`min-h-screen bg-gray-100 flex flex-col ${showSetup ? "pointer-events-none select-none" : ""}`}>
+
         {/* ── Top Bar ── */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">
-              Good Morning, {fullName}
-            </h1>
-            <p className="text-sm sm:text-base text-gray-400 mt-1">
-              ✦ {specialization ?? "Setting up profile..."}
-            </p>
-          </div>
 
           {/* Bell + Avatar */}
           <div className="flex items-center gap-2.5 ml-auto">
             <div
               className="relative cursor-pointer w-10 h-10 flex items-center justify-center rounded-full"
-              style={{
-                backgroundColor: "#fff",
-                border: "1px solid #E8DDD0",
-                boxShadow: "0 1px 3px rgba(90,30,0,0.08)",
-              }}
+              style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 3px rgba(90,30,0,0.08)" }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#7A3100"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                   viewBox="0 0 24 24" fill="none" stroke="#7A3100"
+                   strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
@@ -365,17 +314,11 @@ export default function TechnicianDashboard() {
 
             <div
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                background: "#7A3100",
-                color: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 13,
-                fontWeight: 700,
-                border: "2px solid #C8962E",
+                width: 36, height: 36, borderRadius: "50%",
+                background: "#7A3100", color: "#fff",
+                display: "flex", alignItems: "center",
+                justifyContent: "center", fontSize: 13,
+                fontWeight: 700, border: "2px solid #C8962E",
               }}
             >
               {initials}
@@ -387,62 +330,41 @@ export default function TechnicianDashboard() {
         <div className="px-4 sm:px-6 pt-3">
           <div
             className="px-6 sm:px-10 py-8 sm:py-10 rounded-2xl"
-            style={{
-              background:
-                "linear-gradient(135deg, #5C1E00 0%, #7A3100 50%, #8B4513 100%)",
-            }}
+            style={{ background: "linear-gradient(135deg, #5C1E00 0%, #7A3100 50%, #8B4513 100%)" }}
           >
-            <p
-              className="text-xs sm:text-sm font-semibold tracking-widest uppercase mb-1"
-              style={{ color: "#C8922A" }}
-            >
+            <p className="text-xs sm:text-sm font-semibold tracking-widest uppercase mb-1"
+               style={{ color: "#C8922A" }}>
               GOOD MORNING
             </p>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">
-              {fullName}
-            </h1>
-            <p
-              className="text-sm sm:text-base mt-1"
-              style={{ color: "#D4A96A" }}
-            >
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">{fullName}</h1>
+            <p className="text-sm sm:text-base mt-1" style={{ color: "#D4A96A" }}>
               {specialization ?? "Complete your profile to get started"}
             </p>
 
-            {/* Availability badge */}
             {ictProfile?.availability && (
               <span
                 className="mt-3 inline-block px-3 py-1 rounded-full text-xs font-semibold"
                 style={{
                   backgroundColor:
-                    ictProfile.availability === "AVAILABLE"
-                      ? "rgba(34,197,94,0.2)"
-                      : ictProfile.availability === "BUSY"
-                        ? "rgba(249,115,22,0.2)"
-                        : "rgba(107,114,128,0.2)",
+                    ictProfile.availability === "available" ? "rgba(34,197,94,0.2)"  :
+                    ictProfile.availability === "busy"      ? "rgba(249,115,22,0.2)" :
+                    "rgba(107,114,128,0.2)",
                   color:
-                    ictProfile.availability === "AVAILABLE"
-                      ? "#86efac"
-                      : ictProfile.availability === "BUSY"
-                        ? "#fdba74"
-                        : "#d1d5db",
+                    ictProfile.availability === "available" ? "#86efac" :
+                    ictProfile.availability === "busy"      ? "#fdba74" :
+                    "#d1d5db",
                 }}
               >
                 {ictProfile.availability}
               </span>
             )}
 
-            {/* FIFO nudge */}
             {fifoTicket && (
               <div
                 className="mt-4 px-4 py-2 rounded-lg inline-flex items-center gap-2"
-                style={{
-                  backgroundColor: "rgba(200,146,42,0.18)",
-                  border: "1px solid #C8922A",
-                }}
+                style={{ backgroundColor: "rgba(200,146,42,0.18)", border: "1px solid #C8922A" }}
               >
-                <span
-                  style={{ color: "#C8922A", fontSize: 13, fontWeight: 600 }}
-                >
+                <span style={{ color: "#C8922A", fontSize: 13, fontWeight: 600 }}>
                   ↑ Next up: #{fifoTicket.id} — {fifoTicket.title}
                 </span>
               </div>
@@ -452,31 +374,19 @@ export default function TechnicianDashboard() {
 
         {/* ── Main Content ── */}
         <main className="flex-1 px-4 sm:px-6 py-5 flex flex-col gap-5">
+
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              {
-                label: "Assigned to Me",
-                value: loading ? "—" : String(assignedCount),
-              },
-              {
-                label: "Completed Today",
-                value: loading ? "—" : String(completedToday),
-              },
-              { label: "Open", value: loading ? "—" : String(openCount) },
-              {
-                label: "In Progress",
-                value: loading ? "—" : String(inProgressCount),
-              },
+              { label: "Assigned to Me",  value: loading ? "—" : String(assignedCount)   },
+              { label: "Completed Today", value: loading ? "—" : String(completedToday)  },
+              { label: "Open",            value: loading ? "—" : String(openCount)        },
+              { label: "In Progress",     value: loading ? "—" : String(inProgressCount) },
             ].map((s) => (
               <div
                 key={s.label}
                 className="rounded-xl px-5 py-4"
-                style={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #E8DDD0",
-                  boxShadow: "0 1px 4px rgba(90,30,0,0.07)",
-                }}
+                style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 4px rgba(90,30,0,0.07)" }}
               >
                 <p className="text-sm sm:text-base text-gray-500">{s.label}</p>
                 <p className="text-3xl sm:text-4xl font-semibold text-gray-800 leading-none">
@@ -488,10 +398,11 @@ export default function TechnicianDashboard() {
 
           {/* Body */}
           <div className="flex flex-col xl:flex-row gap-4">
+
             {/* Tickets Table */}
             <div className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-w-0">
               <div className="flex gap-2 px-4 pt-4 pb-2 border-b border-gray-100">
-                {(["All", "open", "in_progress"] as Filter[]).map((f) => (
+                {(["All", "OPEN", "IN_PROGRESS"] as Filter[]).map((f) => (
                   <button
                     key={f}
                     onClick={() => setActiveFilter(f)}
@@ -500,41 +411,29 @@ export default function TechnicianDashboard() {
                         ? "text-white"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }`}
-                    style={
-                      activeFilter === f ? { backgroundColor: "#7A3100" } : {}
-                    }
+                    style={activeFilter === f ? { backgroundColor: "#7A3100" } : {}}
                   >
-                    {f === "All"
-                      ? "All"
-                      : f === "OPEN"
-                        ? "Open"
-                        : "In Progress"}
+                    {f === "All" ? "All" : f === "OPEN" ? "Open" : "In Progress"}
                   </button>
                 ))}
               </div>
 
               {loading ? (
-                <div className="p-8 text-center text-gray-400 text-sm">
-                  Loading tickets...
-                </div>
+                <div className="p-8 text-center text-gray-400 text-sm">Loading tickets...</div>
               ) : !ictProfile?.is_active ? (
                 <div className="p-8 text-center text-gray-400 text-sm">
                   Complete your profile setup to start receiving tickets.
                 </div>
               ) : filtered.length === 0 ? (
-                <div className="p-8 text-center text-gray-400 text-sm">
-                  No tickets found.
-                </div>
+                <div className="p-8 text-center text-gray-400 text-sm">No tickets found.</div>
               ) : (
-                <AssignedTicketTable
-                  tickets={filtered}
-                  fifoTicketId={fifoTicket?.id}
-                />
+                <AssignedTicketTable/>
               )}
             </div>
 
             {/* Right Panel */}
             <div className="xl:w-[240px] flex-shrink-0 flex flex-row xl:flex-col gap-3">
+
               {/* Recent Activity */}
               <div className="flex-1 xl:flex-none bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
                 <h3 className="font-semibold text-base sm:text-lg text-gray-800 mb-4">
@@ -552,16 +451,11 @@ export default function TechnicianDashboard() {
                           className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
                           style={{ border: "2px solid #C8922A" }}
                         >
-                          <span
-                            className="w-2 h-2 rounded-full block"
-                            style={{ backgroundColor: "#C8922A" }}
-                          />
+                          <span className="w-2 h-2 rounded-full block"
+                                style={{ backgroundColor: "#C8922A" }} />
                         </div>
                         <div>
-                          <p
-                            className="font-medium text-sm"
-                            style={{ color: "#3D1000" }}
-                          >
+                          <p className="font-medium text-sm" style={{ color: "#3D1000" }}>
                             {a.action.replace(/_/g, " ")}
                             {a.record_id ? ` #${a.record_id}` : ""}
                           </p>
