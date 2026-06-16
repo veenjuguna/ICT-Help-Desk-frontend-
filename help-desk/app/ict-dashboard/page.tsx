@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
 
-type TicketStatus = "open" | "in_progress" | "closed";
+type TicketStatus = "OPEN" | "IN_PROGRESS" | "CLOSED";
 
 interface Ticket {
   id: number;
@@ -60,7 +60,7 @@ const specializationLabel: Record<string, string> = {
   other:                "Other",
 };
 
-type Filter = "All" | "open" | "in_progress";
+type Filter = "All" | "OPEN" | "IN_PROGRESS";
 
 function SetupModal({
   onComplete,
@@ -271,14 +271,14 @@ export default function TechnicianDashboard() {
 
   const assignedCount   = tickets.length;
   const completedToday  = tickets.filter((t) => {
-    if (t.status !== "closed" || !t.closed_at) return false;
+    if (t.status !== "CLOSED" || !t.closed_at) return false;
     return new Date(t.closed_at).toDateString() === new Date().toDateString();
   }).length;
-  const openCount       = tickets.filter((t) => t.status === "open").length;
-  const inProgressCount = tickets.filter((t) => t.status === "in_progress").length;
+  const openCount       = tickets.filter((t) => t.status === "OPEN").length;
+  const inProgressCount = tickets.filter((t) => t.status === "IN_PROGRESS").length;
 
   const fifoTicket = tickets
-    .filter((t) => t.status === "open" || t.status === "in_progress")
+    .filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS")
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
 
   const filtered =
@@ -402,7 +402,7 @@ export default function TechnicianDashboard() {
             {/* Tickets Table */}
             <div className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-w-0">
               <div className="flex gap-2 px-4 pt-4 pb-2 border-b border-gray-100">
-                {(["All", "open", "in_progress"] as Filter[]).map((f) => (
+                {(["All", "OPEN", "IN_PROGRESS"] as Filter[]).map((f) => (
                   <button
                     key={f}
                     onClick={() => setActiveFilter(f)}
@@ -413,7 +413,7 @@ export default function TechnicianDashboard() {
                     }`}
                     style={activeFilter === f ? { backgroundColor: "#7A3100" } : {}}
                   >
-                    {f === "All" ? "All" : f === "open" ? "Open" : "In Progress"}
+                    {f === "All" ? "All" : f === "OPEN" ? "Open" : "In Progress"}
                   </button>
                 ))}
               </div>
