@@ -508,8 +508,8 @@ export default function AdminTicketsPage() {
                         </thead>
                         <tbody>
                           {catTickets.map(t => {
-                            const sc = STATUS_CONFIG[t.status];
-                            const pc = PRIORITY_CONFIG[t.priority];
+                            const sc = STATUS_CONFIG[t.status] ?? STATUS_CONFIG[t.status?.toLowerCase() as keyof typeof STATUS_CONFIG] ?? { label: t.status, color: "#7A5C44", bg: "#FDF8F2", icon: AlertCircle };
+                            const pc = PRIORITY_CONFIG[t.priority] ?? PRIORITY_CONFIG[t.priority?.toLowerCase() as keyof typeof PRIORITY_CONFIG] ?? { label: t.priority, color: "#7A5C44", dot: "#C4A882" };
                             const StatusIcon = sc.icon;
                             return (
                               <tr key={t.id} onClick={() => openDetail(t)}>
