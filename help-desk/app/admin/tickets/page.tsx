@@ -258,8 +258,10 @@ export default function AdminTicketsPage() {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ body: newComment }),
       });
-      if (res.ok) { setComments(prev => [...prev, await res.json()]); }
-      else throw new Error();
+      if (res.ok) {
+        const comment = await res.json();
+        setComments(prev => [...prev, comment]);
+      } else throw new Error();
     } catch {
       setComments(prev => [...prev, { id: Date.now(), author: "Admin", body: newComment, created_at: new Date().toISOString(), is_internal: false }]);
     } finally { setSending(false); setNewComment(""); }
