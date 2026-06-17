@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
 
-type TicketStatus = "OPEN" | "IN_PROGRESS" | "CLOSED";
+type TicketStatus = "open" | "in_progress" | "closed";
 
 interface Ticket {
   id: number;
@@ -60,7 +60,7 @@ const specializationLabel: Record<string, string> = {
   other:                "Other",
 };
 
-type Filter = "All" | "OPEN" | "IN_PROGRESS";
+type Filter = "All" | "open" | "in_progress";
 
 function SetupModal({
   onComplete,
@@ -69,7 +69,7 @@ function SetupModal({
   onComplete: (profile: IctProfile) => void;
   existing: IctProfile | null;
 }) {
-  const isEdit = !!existing?.id;
+  const isEdit = !!existing?.specialization;
 
   const [specialization, setSpecialization] = useState(existing?.specialization ?? "");
   const [phoneExtension, setPhoneExtension] = useState(existing?.phone_extension ?? "");
@@ -94,12 +94,12 @@ function SetupModal({
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(
-        isEdit
-          ? `${API}/ict-personnel/me`
-          : `${API}/ict-personnel/me/setup`,
-        {
-          method: isEdit ? "PATCH" : "POST",
+     const res = await fetch(
+  isEdit
+    ? `${API}/ict-personnel/${existing!.id}`  // ← use numeric id, not "me"
+    : `${API}/ict-personnel/me/setup`,
+  {
+    method: isEdit ? "PATCH" : "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -271,14 +271,14 @@ export default function TechnicianDashboard() {
 
   const assignedCount   = tickets.length;
   const completedToday  = tickets.filter((t) => {
-    if (t.status !== "CLOSED" || !t.closed_at) return false;
+    if (t.status !== "closed" || !t.closed_at) return false;
     return new Date(t.closed_at).toDateString() === new Date().toDateString();
   }).length;
-  const openCount       = tickets.filter((t) => t.status === "OPEN").length;
-  const inProgressCount = tickets.filter((t) => t.status === "IN_PROGRESS").length;
+  const openCount       = tickets.filter((t) => t.status === "open").length;
+  const inProgressCount = tickets.filter((t) => t.status === "in_progress").length;
 
   const fifoTicket = tickets
-    .filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS")
+    .filter((t) => t.status === "open" || t.status === "in_progress")
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
 
   const filtered =
@@ -402,7 +402,7 @@ export default function TechnicianDashboard() {
             {/* Tickets Table */}
             <div className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-w-0">
               <div className="flex gap-2 px-4 pt-4 pb-2 border-b border-gray-100">
-                {(["All", "OPEN", "IN_PROGRESS"] as Filter[]).map((f) => (
+                {(["All", "open", "in_progress"] as Filter[]).map((f) => (
                   <button
                     key={f}
                     onClick={() => setActiveFilter(f)}
@@ -413,7 +413,7 @@ export default function TechnicianDashboard() {
                     }`}
                     style={activeFilter === f ? { backgroundColor: "#7A3100" } : {}}
                   >
-                    {f === "All" ? "All" : f === "OPEN" ? "Open" : "In Progress"}
+                    {f === "All" ? "All" : f === "open" ? "Open" : "In Progress"}
                   </button>
                 ))}
               </div>
@@ -427,7 +427,7 @@ export default function TechnicianDashboard() {
               ) : filtered.length === 0 ? (
                 <div className="p-8 text-center text-gray-400 text-sm">No tickets found.</div>
               ) : (
-                <AssignedTicketTable/>
+            <AssignedTicketTable tickets={filtered} fifoTicketId={fifoTicket?.id} />
               )}
             </div>
 
