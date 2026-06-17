@@ -278,7 +278,7 @@ export default function MyCompletedPage() {
 
                     <td className="px-6 py-4">
                       <Link
-                        href={`/tickets/${ticket.id}`}
+                        href={`/ict-dashboard/tickets/${ticket.id}`}
                         className="text-[#7a4f31] font-bold hover:underline text-sm"
                       >
                         View
