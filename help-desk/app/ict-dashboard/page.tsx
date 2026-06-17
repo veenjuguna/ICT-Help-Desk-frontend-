@@ -94,12 +94,12 @@ function SetupModal({
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(
-        isEdit
-          ? `${API}/ict-personnel/me`
-          : `${API}/ict-personnel/me/setup`,
-        {
-          method: isEdit ? "PATCH" : "POST",
+     const res = await fetch(
+  isEdit
+    ? `${API}/ict-personnel/${existing!.id}`  // ← use numeric id, not "me"
+    : `${API}/ict-personnel/me/setup`,
+  {
+    method: isEdit ? "PATCH" : "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
