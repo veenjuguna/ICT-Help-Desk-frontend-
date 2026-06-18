@@ -99,7 +99,7 @@ function SetupModal({
     ? `${API}/ict-personnel/${existing!.id}`  // ← use numeric id, not "me"
     : `${API}/ict-personnel/me/setup`,
   {
-    method: isEdit ? "PATCH" : "POST",
+    method: isEdit ? "PATCH" ,
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
