@@ -94,12 +94,14 @@ function SetupModal({
     setSubmitting(true);
     setError(null);
     try {
-     const res = await fetch(
-  isEdit
-    ? `${API}/ict-personnel/${existing!.id}`  // ← use numeric id, not "me"
-    : `${API}/ict-personnel/me/setup`,
-  {
-    method: isEdit ? "PATCH" ,
+      // FIX: completed the broken ternary — was missing the "PATCH" : "POST" branch
+      // and the method key was malformed (credentials line was glued onto it)
+      const res = await fetch(
+        isEdit
+          ? `${API}/ict-personnel/${existing!.id}`
+          : `${API}/ict-personnel/me/setup`,
+        {
+          method: isEdit ? "PATCH" : "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -243,6 +245,10 @@ export default function TechnicianDashboard() {
           const myProfile: IctProfile = await ictRes.json();
           setIctProfile(myProfile);
           if (!myProfile.specialization) setShowSetup(true);
+        } else {
+          // FIX: if /me 404s (no profile created yet), still show setup
+          // instead of leaving ictProfile null and showing nothing
+          setShowSetup(true);
         }
       } catch (e) {
         console.error("Dashboard fetch error:", e);
@@ -427,7 +433,7 @@ export default function TechnicianDashboard() {
               ) : filtered.length === 0 ? (
                 <div className="p-8 text-center text-gray-400 text-sm">No tickets found.</div>
               ) : (
-            <AssignedTicketTable tickets={filtered} fifoTicketId={fifoTicket?.id} />
+                <AssignedTicketTable tickets={filtered} fifoTicketId={fifoTicket?.id} />
               )}
             </div>
 
