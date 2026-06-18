@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface TeamMember {
@@ -64,11 +65,12 @@ function mapAvailability(availability: string): TeamMember["status"] {
 
 // ── Real API Fetch ────────────────────────────────────────────────────────────
 async function fetchTeamMembers(): Promise<TeamMember[]> {
-  const base = process.env.NEXT_PUBLIC_API_URL;
+  const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  const cleanBaseUrl = rawBaseUrl.replace(/\/$/, ""); 
 
   const [personnelRes, ticketsRes] = await Promise.all([
-    fetch(`${base}/ict-personnel/`, { credentials: "include" }),
-    fetch(`${base}/tickets/admin/by-personnel`, { credentials: "include" }),
+    fetch(`${cleanBaseUrl}/ict-personnel/`, { credentials: "include" }),
+    fetch(`${cleanBaseUrl}/tickets/admin/by-personnel/`, { credentials: "include" }),
   ]);
 
   if (!personnelRes.ok) throw new Error("Failed to fetch ICT personnel.");
@@ -97,22 +99,22 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
       status: mapAvailability(p.availability),
       active,
       completed,
-      rating: 0,       // no ratings yet
+      rating: 0,       // Future feature: plug real ratings here
       specializations: p.specialization ? [formatSpecialization(p.specialization)] : ["General"],
-      avgResolution: "—", // no resolution time data yet
+      avgResolution: "—", // Future feature: plug real resolution times here
     };
   });
 }
 
-// ── Icons (Kept exactly as you wrote them) ───────────────────────────────────
+// ── Icons ────────────────────────────────────────────────────────────────────
 function IconTeam() { return <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>; }
 function IconTrend() { return <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/></svg>; }
 function IconUser() { return <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg>; }
 
-// ── Shared UI Components (Kept exactly as you wrote them) ─────────────────────
+// ── Shared UI Components ─────────────────────────────────────────────────────
 function StatCard({ icon, value, label, sublabel }: { icon?: React.ReactNode; value: string | number; label: string; sublabel?: string; }) {
   return (
-    <div className="rounded-xl border border-[#e8e0d8] bg-white px-6 py-5">
+    <div className="rounded-xl border border-[#e8e0d8] bg-white px-6 py-5 shadow-sm">
       {icon && <div className="mb-3 text-[#8a6a56]">{icon}</div>}
       <p className="text-[28px] font-bold leading-tight text-[#1c1410]">{value}</p>
       <p className="mt-0.5 text-sm text-[#6b5a4e]">{label}</p>
@@ -133,7 +135,7 @@ function StatusBadge({ status }: { status: TeamMember["status"] }) {
 
 function MemberCard({ member }: { member: TeamMember }) {
   return (
-    <div className="rounded-xl border border-[#e8e0d8] bg-white px-6 py-5">
+    <div className="rounded-xl border border-[#e8e0d8] bg-white px-6 py-5 shadow-sm transition-shadow hover:shadow-md">
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#e8ddd5] text-sm font-semibold text-[#6b4c38]">{member.initials}</div>
@@ -154,7 +156,7 @@ function MemberCard({ member }: { member: TeamMember }) {
         <p className="mb-2 text-[11px] text-[#9c8576]">Specialization</p>
         <div className="flex flex-wrap gap-1.5">
           {member.specializations.map((spec) => (
-            <span key={spec} className="rounded-md border border-[#d9cfc7] px-2.5 py-0.5 text-xs text-[#4a3728]">{spec}</span>
+            <span key={spec} className="rounded-md border border-[#d9cfc7] px-2.5 py-0.5 text-xs text-[#4a3728] bg-[#fdfbf9]">{spec}</span>
           ))}
         </div>
       </div>
@@ -167,22 +169,38 @@ function MemberCard({ member }: { member: TeamMember }) {
 export default function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      try {
-        const data = await fetchTeamMembers();
-        setMembers(data);
-      } catch (error) {
-        console.error("Failed to fetch team members", error);
-      } finally {
-        setIsLoading(false);
-      }
+  // Extracted data loading logic so it can be called manually or by the interval timer
+  const loadData = useCallback(async (isBackgroundFetch = false) => {
+    if (!isBackgroundFetch) setIsLoading(true);
+    else setIsRefreshing(true);
+
+    try {
+      const data = await fetchTeamMembers();
+      setMembers(data);
+    } catch (error) {
+      console.error("Failed to fetch team members", error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
-    loadData();
   }, []);
 
+  // 1. Fetch instantly on page load
+  // 2. Set up background polling every 30 seconds
+  useEffect(() => {
+    loadData(); // Initial hard load
+    
+    const intervalId = setInterval(() => {
+      loadData(true); // True indicates it's a silent background refresh
+    }, 30000); // 30000ms = 30 seconds
+
+    // Cleanup interval when user navigates away from the page
+    return () => clearInterval(intervalId);
+  }, [loadData]);
+
+  // Derived statistics
   const totalMembers = members.length;
   const activeTickets = members.reduce((sum, member) => sum + member.active, 0);
   const completedToday = members.reduce((sum, member) => sum + member.completed, 0);
@@ -193,28 +211,45 @@ export default function TeamPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f3f0] font-sans">
       {/* Top Bar */}
-      <header className="flex items-center justify-between border-b border-[#e8e0d8] bg-white px-4 py-4 sm:px-8">
+      <header className="flex items-center justify-between border-b border-[#e8e0d8] bg-white px-4 py-4 sm:px-8 shadow-sm z-10">
         <div>
-          <h1 className="text-[18px] font-bold text-[#1c1410]">ICT Support Team</h1>
-          <p className="text-sm text-[#9c8576]">Manage team members and raise tickets</p>
+          <h1 className="text-[18px] font-bold text-[#1c1410] flex items-center gap-2">
+            ICT Support Team
+            {/* Tiny background refresh indicator */}
+            {isRefreshing && <RefreshCw size={14} className="animate-spin text-gray-400" />}
+          </h1>
+          <p className="text-sm text-[#9c8576]">Manage team members and monitor active workloads</p>
         </div>
         
-        {/* Confirmed Link reference targeting the dedicated route layout */}
-        <Link 
-          href="/ict-dashboard/raise-ticket" 
-          className="flex items-center gap-2 rounded-lg bg-[#44271a] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#3a2016]"
-        >
-          <span className="text-base leading-none">+</span> Raise Ticket
-        </Link>
+        <div className="flex items-center gap-3">
+          {/* Manual Refresh Button */}
+          <button 
+            onClick={() => loadData(true)}
+            disabled={isRefreshing}
+            className="flex items-center justify-center p-2.5 rounded-lg border border-[#e8e0d8] text-[#6b4c38] hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50"
+            title="Refresh Data"
+          >
+            <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
+          </button>
+
+          <Link 
+            href="/ict-dashboard/raise-ticket" 
+            className="flex items-center gap-2 rounded-lg bg-[#44271a] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#3a2016] shadow-sm"
+          >
+            <span className="text-base leading-none">+</span> Raise Ticket
+          </Link>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
         {isLoading ? (
-          <div className="flex h-64 items-center justify-center">
-            <p className="text-[#8a6a56]">Loading team data...</p>
+          <div className="flex h-64 flex-col items-center justify-center gap-3">
+            <RefreshCw size={28} className="animate-spin text-[#8a6a56]" />
+            <p className="text-[#8a6a56] font-medium text-sm">Syncing live team workloads...</p>
           </div>
         ) : (
           <>
+            {/* Top Stats Row */}
             <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard icon={<IconTeam />} value={totalMembers} label="Team Members" />
               <StatCard icon={<IconTrend />} value={activeTickets} label="Active Tickets" />
@@ -222,7 +257,8 @@ export default function TeamPage() {
               <StatCard value={`${avgRating}%`} label="Team Avg" sublabel="Satisfaction Rate" />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* Personnel Roster */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
               {members.map((member) => (
                 <MemberCard key={member.id} member={member} />
               ))}
