@@ -13,33 +13,42 @@ export default function SidebarWrapper({
   const router = useRouter();
 
   const noSidebarExact = ["/"];
-  const noSidebarPrefix = [
-    "/login",
-    "/signup",
-    "/verify",
-    "/auth",
-    "/forgot-password",
-    "/ict-dashboard",
-    "/admin",
-  ];
 
-  const hideSidebar =
-    noSidebarExact.includes(pathname) ||
-    noSidebarPrefix.some((route) => pathname.startsWith(route));
+// Routes with their own dedicated layout/sidebar — hide the default sidebar,
+// but they still need the auth check below.
+const ownLayoutPrefix = ["/admin", "/ict-dashboard"];
 
-  useEffect(() => {
-    if (hideSidebar) return; // don't check on public pages
-    (async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
-          credentials: "include",
-        });
-        if (res.status === 401) router.push("/login");
-      } catch {
-        router.push("/login");
-      }
-    })();
-  }, [pathname]); // re-check on every page navigation
+// Fully public routes — no sidebar, no auth check.
+const publicPrefix = [
+  "/login",
+  "/signup",
+  "/verify",
+  "/auth",
+  "/forgot-password",
+];
+
+const hideSidebar =
+  noSidebarExact.includes(pathname) ||
+  ownLayoutPrefix.some((route) => pathname.startsWith(route)) ||
+  publicPrefix.some((route) => pathname.startsWith(route));
+
+const isPublic =
+  noSidebarExact.includes(pathname) ||
+  publicPrefix.some((route) => pathname.startsWith(route));
+
+useEffect(() => {
+  if (isPublic) return; // only skip the check on truly public pages
+  (async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
+        credentials: "include",
+      });
+      if (res.status === 401) router.push("/login");
+    } catch {
+      router.push("/login");
+    }
+  })();
+}, [pathname]); 
 
   if (hideSidebar) {
     return (

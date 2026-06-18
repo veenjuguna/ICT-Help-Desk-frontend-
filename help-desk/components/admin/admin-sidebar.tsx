@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -32,7 +32,6 @@ const navLinks = [
 
 export default function AdminSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
 
   const w = collapsed ? 72 : 240;
@@ -300,10 +299,15 @@ export default function AdminSidebar() {
           <div className="admin-sidebar-footer">
             <button
               className="admin-logout-btn"
-              onClick={() => {
-                localStorage.removeItem("access_token");
-                localStorage.removeItem("user");
-                router.push("/login");
+              onClick={async () => {
+                try {
+                  await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+                    method: "POST",
+                    credentials: "include",
+                  });
+                } catch {}
+                document.cookie = "user_role=; path=/; max-age=0";
+                window.location.href = "/login";
               }}
             >
               <LogOut size={20} style={{ flexShrink: 0 }} />
