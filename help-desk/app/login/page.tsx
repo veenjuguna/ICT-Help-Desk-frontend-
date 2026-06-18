@@ -2,7 +2,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -13,6 +13,19 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    const role = document.cookie
+      .split("; ")
+      .find((r) => r.startsWith("user_role="))
+      ?.split("=")[1];
+
+    if (role === "admin") window.location.href = "/admin";
+    else if (role === "ict_personnel") window.location.href = "/ict-dashboard";
+    else if (role === "staff") window.location.href = "/dashboard";
+    else setChecking(false);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,13 +53,13 @@ export default function LoginPage() {
 
       const role = data.role;
       if (role === "admin") {
-        document.cookie = "user_role=admin; path=/";
+        document.cookie = "user_role=admin; path=/; max-age=28800";
         window.location.href = "/admin";
       } else if (role === "ict_personnel") {
-        document.cookie = "user_role=ict_personnel; path=/";
+        document.cookie = "user_role=ict_personnel; path=/; max-age=28800";
         window.location.href = "/ict-dashboard";
       } else {
-        document.cookie = "user_role=staff; path=/";
+        document.cookie = "user_role=staff; path=/; max-age=28800";
         window.location.href = "/dashboard";
       }
     } catch (err: unknown) {
@@ -59,7 +72,7 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
+  if (checking) return null;
   return (
     <>
       <style>{`
