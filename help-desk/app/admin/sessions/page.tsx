@@ -133,11 +133,10 @@ export default function SessionsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => { fetchData(); }, 0);
-    return () => clearTimeout(timer);
-  }, [fetchData]);
-
+      useEffect(() => {
+      const load = async () => { await fetchData(); };
+      load();
+     }, [fetchData]);
   const handleForceLogout = async (session: Session) => {
     setConfirmTarget(null);
     setForceLoggingOut(prev => new Set(prev).add(session.staff_id));
