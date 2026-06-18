@@ -226,7 +226,9 @@ export default function Sidebar() {
                     },
                   );
                 } catch {}
-                router.push("/");
+                // Clear the role cookie
+                document.cookie = "user_role=; path=/; max-age=0";
+                window.location.href = "/login";
               }}
             >
               <LogOut size={19} />
