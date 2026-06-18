@@ -1,29 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Middleware does a lightweight cookie-presence check.
-// Full session + role verification is handled inside each dashboard page.
-// NOTE: On localhost the session_id cookie has secure=true + samesite=none
-// so it won't be sent over HTTP — skip the check in development to avoid
-// redirect loops.
+// Middleware is intentionally minimal.
+// Session verification is handled inside each dashboard page via
+// credentials: "include" API calls — the backend validates the
+// session_id HttpOnly cookie on every request.
+// A middleware cookie check causes redirect loops because the
+// cross-origin session_id (secure + samesite=none) may not be
+// visible to the Next.js edge runtime on the first navigation.
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  const isProtected =
-    pathname.startsWith("/admin") ||
-    pathname.startsWith("/ict-dashboard") ||
-    pathname.startsWith("/dashboard");
-
-  if (!isProtected) return NextResponse.next();
-
-  // Skip cookie check in development — cookie requires HTTPS (secure=true)
-  if (process.env.NODE_ENV === "development") return NextResponse.next();
-
-  // In production: if no session_id cookie, redirect to login
-  const hasSession = req.cookies.has("session_id");
-  if (!hasSession) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-
   return NextResponse.next();
 }
 
