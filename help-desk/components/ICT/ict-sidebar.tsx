@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname} from "next/navigation";
 import { useState } from "react";
 import {
   LayoutDashboard,
@@ -53,7 +53,6 @@ const NAV_LINKS = [
 
 export default function IctSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const [userName] = useState<string>(() => getUserFromStorage().name);
@@ -66,11 +65,18 @@ export default function IctSidebar() {
     .toUpperCase()
     .slice(0, 2);
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    router.push("/login");
-  };
+  const handleLogout = async () => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {}
+  localStorage.removeItem("user");
+  localStorage.removeItem("token");
+  document.cookie = "user_role=; path=/; max-age=0";
+  window.location.href = "/login";
+};
 
   const handleNavClick = () => setOpen(false);
 
