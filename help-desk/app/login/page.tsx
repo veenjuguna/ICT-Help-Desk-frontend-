@@ -40,11 +40,14 @@ export default function LoginPage() {
 
       const role = data.role;
       if (role === "admin") {
-        router.push("/admin");
+        document.cookie = "user_role=admin; path=/";
+        window.location.href = "/admin";
       } else if (role === "ict_personnel") {
-        router.push("/ict-dashboard");
+        document.cookie = "user_role=ict_personnel; path=/";
+        window.location.href = "/ict-dashboard";
       } else {
-        router.push("/dashboard");
+        document.cookie = "user_role=staff; path=/";
+        window.location.href = "/dashboard";
       }
     } catch (err: unknown) {
       const errorMessage =
