@@ -15,6 +15,48 @@ export default function ResetPasswordPage() {
   );
 }
 
+const EyeIcon = ({ open }: { open: boolean }) =>
+    open ? (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+        <line x1="1" y1="1" x2="23" y2="23" />
+      </svg>
+    ) : (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    );
+
+const LockIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+  >
+    <rect x="3" y="11" width="18" height="11" rx="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </svg>
+);
+
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -25,6 +67,8 @@ function ResetPasswordContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [stage, setStage] = useState<Stage>(token ? "idle" : "invalid");
+
+
   const [errorMsg, setErrorMsg] = useState("");
 
   const checks = {
@@ -55,10 +99,12 @@ function ResetPasswordContent() {
 
     if (password !== confirm) {
       setErrorMsg("Passwords do not match.");
+      setStage("error");
       return;
     }
-    if (strength < 2) {
-      setErrorMsg("Please choose a stronger password.");
+    if (!checks.length || !checks.upper || !checks.number || !checks.special) {
+      setErrorMsg("Password must have 8+ characters, an uppercase letter, a number, and a symbol.");
+      setStage("error");
       return;
     }
 
@@ -69,19 +115,21 @@ function ResetPasswordContent() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token, password }),
+          body: JSON.stringify({ token, new_password: password, confirm_new_password: confirm }),
         },
       );
       if (res.ok) {
         setStage("success");
         setTimeout(() => router.push("/login"), 4000);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setErrorMsg(
-          data?.detail ??
-            data?.message ??
-            "Reset failed. The link may have expired.",
-        );
+     } else {
+        let message = "Reset failed. The link may have expired.";
+        try {
+          const data = await res.json();
+          message = data?.detail ?? data?.message ?? message;
+        } catch {
+          // response wasn't JSON, keep default
+        }
+        setErrorMsg(message);
         setStage("error");
       }
     } catch {
@@ -104,47 +152,6 @@ function ResetPasswordContent() {
     },
   ];
 
-  const EyeIcon = ({ open }: { open: boolean }) =>
-    open ? (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      >
-        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-        <line x1="1" y1="1" x2="23" y2="23" />
-      </svg>
-    ) : (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      >
-        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    );
-
-  const LockIcon = () => (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  );
 
   return (
     <div className="flex min-h-screen w-full font-sans overflow-hidden">
