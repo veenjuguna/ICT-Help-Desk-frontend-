@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface TeamMember {
@@ -190,16 +191,21 @@ export default function TeamPage() {
     : 0;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f3f0]">
+    <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f3f0] font-sans">
       {/* Top Bar */}
       <header className="flex items-center justify-between border-b border-[#e8e0d8] bg-white px-4 py-4 sm:px-8">
         <div>
           <h1 className="text-[18px] font-bold text-[#1c1410]">ICT Support Team</h1>
           <p className="text-sm text-[#9c8576]">Manage team members and raise tickets</p>
         </div>
-        <button className="flex items-center gap-2 rounded-lg bg-[#44271a] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#3a2016]">
+        
+        {/* Confirmed Link reference targeting the dedicated route layout */}
+        <Link 
+          href="/ict-dashboard/raise-ticket" 
+          className="flex items-center gap-2 rounded-lg bg-[#44271a] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#3a2016]"
+        >
           <span className="text-base leading-none">+</span> Raise Ticket
-        </button>
+        </Link>
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
