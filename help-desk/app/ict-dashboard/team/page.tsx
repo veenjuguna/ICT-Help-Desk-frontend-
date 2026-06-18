@@ -63,21 +63,39 @@ function mapAvailability(availability: string): TeamMember["status"] {
   return "Offline";
 }
 
-// ── Real API Fetch ────────────────────────────────────────────────────────────
+// ── Real API Fetch (Bulletproof Version) ──────────────────────────────────────
 async function fetchTeamMembers(): Promise<TeamMember[]> {
   const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || "";
   const cleanBaseUrl = rawBaseUrl.replace(/\/$/, ""); 
 
-  const [personnelRes, ticketsRes] = await Promise.all([
-    fetch(`${cleanBaseUrl}/ict-personnel/`, { credentials: "include" }),
-    fetch(`${cleanBaseUrl}/tickets/admin/by-personnel/`, { credentials: "include" }),
-  ]);
+  // 1. Fetch Personnel FIRST (This is the required part)
+  const personnelRes = await fetch(`${cleanBaseUrl}/ict-personnel/`, { 
+    credentials: "include" 
+  });
 
-  if (!personnelRes.ok) throw new Error("Failed to fetch ICT personnel.");
-  if (!ticketsRes.ok) throw new Error("Failed to fetch ticket data.");
+  if (!personnelRes.ok) {
+    throw new Error(`Failed to fetch ICT personnel. HTTP Status: ${personnelRes.status}`);
+  }
 
   const personnel: IctPersonnelAPI[] = await personnelRes.json();
-  const ticketData: TicketsByPersonnelAPI[] = await ticketsRes.json();
+  console.log("✅ RAW PERSONNEL DATA:", personnel);
+
+  // 2. Fetch Tickets SECOND (Wrapped in a try/catch so it doesn't break the page)
+  let ticketData: TicketsByPersonnelAPI[] = [];
+  try {
+    const ticketsRes = await fetch(`${cleanBaseUrl}/tickets/admin/by-personnel`, { 
+      credentials: "include" 
+    });
+    
+    if (ticketsRes.ok) {
+      ticketData = await ticketsRes.json();
+      console.log("✅ RAW TICKET DATA:", ticketData);
+    } else {
+      console.warn("⚠️ Could not fetch ticket data (likely 403 Forbidden). Status:", ticketsRes.status);
+    }
+  } catch (err) {
+    console.warn("⚠️ Network error fetching ticket data:", err);
+  }
 
   // Build a lookup map: personnel_id → ticket counts
   const ticketMap = new Map<number, TicketsByPersonnelAPI["tickets"]>();
@@ -89,7 +107,9 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
     const tickets = ticketMap.get(p.id) ?? {};
     const active = (tickets.open ?? 0) + (tickets.in_progress ?? 0);
     const completed = tickets.closed ?? 0;
-    const name = p.staff?.full_name ?? "Unknown";
+    
+    // Safely grab the name, or default if staff object is missing
+    const name = p.staff?.full_name ?? `Technician #${p.id}`;
 
     return {
       id: String(p.id),
@@ -99,9 +119,9 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
       status: mapAvailability(p.availability),
       active,
       completed,
-      rating: 0,       // Future feature: plug real ratings here
+      rating: 0,       // Future feature
       specializations: p.specialization ? [formatSpecialization(p.specialization)] : ["General"],
-      avgResolution: "—", // Future feature: plug real resolution times here
+      avgResolution: "—", // Future feature
     };
   });
 }
