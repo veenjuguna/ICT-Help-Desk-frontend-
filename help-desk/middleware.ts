@@ -1,36 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const ROLE_REDIRECTS: Record<string, string> = {
-  admin: "/admin",
-  ict_personnel: "/ict-dashboard",
-  staff: "/dashboard",
-};
-
-const PROTECTED_ROUTES: Record<string, string> = {
-  "/admin": "admin",
-  "/ict-dashboard": "ict_personnel",
-  "/dashboard": "staff",
-};
-
-export async function middleware(req: NextRequest) {
+// Middleware does a lightweight cookie-presence check.
+// Full session + role verification is handled inside each dashboard page.
+// NOTE: On localhost the session_id cookie has secure=true + samesite=none
+// so it won't be sent over HTTP — skip the check in development to avoid
+// redirect loops.
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const matchedPrefix = Object.keys(PROTECTED_ROUTES).find((prefix) =>
-    pathname.startsWith(prefix),
-  );
+  const isProtected =
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/ict-dashboard") ||
+    pathname.startsWith("/dashboard");
 
-  if (!matchedPrefix) return NextResponse.next();
+  if (!isProtected) return NextResponse.next();
 
-  const requiredRole = PROTECTED_ROUTES[matchedPrefix];
-  const role = req.cookies.get("user_role")?.value;
+  // Skip cookie check in development — cookie requires HTTPS (secure=true)
+  if (process.env.NODE_ENV === "development") return NextResponse.next();
 
-  if (!role) {
+  // In production: if no session_id cookie, redirect to login
+  const hasSession = req.cookies.has("session_id");
+  if (!hasSession) {
     return NextResponse.redirect(new URL("/login", req.url));
-  }
-
-  if (role !== requiredRole) {
-    const correctPath = ROLE_REDIRECTS[role] ?? "/login";
-    return NextResponse.redirect(new URL(correctPath, req.url));
   }
 
   return NextResponse.next();

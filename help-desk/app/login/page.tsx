@@ -16,15 +16,29 @@ export default function LoginPage() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const role = document.cookie
-      .split("; ")
-      .find((r) => r.startsWith("user_role="))
-      ?.split("=")[1];
+    // On localhost the session_id cookie requires HTTPS so it won't be sent.
+    // Skip the pre-check in development to avoid staying on a blank screen.
+    if (process.env.NODE_ENV === "development") { setChecking(false); return; }
 
-    if (role === "admin") window.location.href = "/admin";
-    else if (role === "ict_personnel") window.location.href = "/ict-dashboard";
-    else if (role === "staff") window.location.href = "/dashboard";
-    else setChecking(false);
+    // In production: check for an existing session and redirect if already logged in
+    (async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/auth/sessions/me`,
+          { credentials: "include" },
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const role = (data.role as string | undefined)?.toLowerCase();
+          if (role === "admin") { window.location.href = "/admin"; return; }
+          if (role === "ict_personnel") { window.location.href = "/ict-dashboard"; return; }
+          if (role === "staff") { window.location.href = "/dashboard"; return; }
+        }
+      } catch {
+        // Network error — fall through and show login form
+      }
+      setChecking(false);
+    })();
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -49,17 +63,14 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Login failed");
 
-      // No localStorage needed — cookie is set automatically
-
-      const role = data.role;
+      // session_id HttpOnly cookie is set automatically by the backend — no token or cookie to store
+      // Role is read from the response body and used only for the redirect
+      const role = (data.role as string | undefined)?.toLowerCase();
       if (role === "admin") {
-        document.cookie = "user_role=admin; path=/; max-age=28800";
         window.location.href = "/admin";
       } else if (role === "ict_personnel") {
-        document.cookie = "user_role=ict_personnel; path=/; max-age=28800";
         window.location.href = "/ict-dashboard";
       } else {
-        document.cookie = "user_role=staff; path=/; max-age=28800";
         window.location.href = "/dashboard";
       }
     } catch (err: unknown) {

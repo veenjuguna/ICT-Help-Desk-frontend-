@@ -96,21 +96,18 @@ export default function DashboardPage() {
     full_name: string;
     email: string;
     department?: { name: string };
-  } | null>(() => {
-    try {
-      const stored = localStorage.getItem("user");
-      return stored ? JSON.parse(stored) : null;
-    } catch { return null; }
-  });
+  } | null>(null); // Do not seed from localStorage — session is cookie-based
   const [tickets, setTickets] = useState<{ status: string }[]>([]);
 
   useEffect(() => {
     (async () => {
       try {
+        // Verify session and enforce role — redirect away if not a staff user
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
           credentials: "include",
         });
-        if (res.ok) setUser(await res.json());
+        if (!res.ok) { window.location.href = "/login"; return; }
+        setUser(await res.json());
         const ticketRes = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/tickets/`,
           { credentials: "include" },
