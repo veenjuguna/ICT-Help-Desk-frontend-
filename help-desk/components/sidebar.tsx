@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { LayoutDashboard, LifeBuoy, History, User, LogOut } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const navLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/request", label: "Request Assistance", icon: LifeBuoy },
@@ -226,7 +225,9 @@ export default function Sidebar() {
                     },
                   );
                 } catch {}
-                router.push("/");
+                // Clear the role cookie
+                document.cookie = "user_role=; path=/; max-age=0";
+                window.location.href = "/login";
               }}
             >
               <LogOut size={19} />

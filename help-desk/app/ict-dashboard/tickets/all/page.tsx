@@ -443,7 +443,7 @@ export default function AllTicketsPage() {
         const [staffRes, ictRes, ticketsRes] = await Promise.all([
           fetch(`${API}/staff/me`, { credentials: "include" }),
           fetch(`${API}/ict-personnel/me`, { credentials: "include" }),
-          fetch(`${API}/tickets`, { credentials: "include" }),
+          fetch(`${API}/tickets/`, { credentials: "include" }),
         ]);
         if (staffRes.ok) setStaff(await staffRes.json());
         if (ictRes.ok) setIctProfile(await ictRes.json());
