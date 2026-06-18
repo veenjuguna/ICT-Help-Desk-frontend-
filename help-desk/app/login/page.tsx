@@ -30,16 +30,16 @@ export default function LoginPage() {
         if (res.ok) {
           const data = await res.json();
           const role = (data.role as string | undefined)?.toLowerCase();
-          if (role === "admin") { window.location.href = "/admin"; return; }
-          if (role === "ict_personnel") { window.location.href = "/ict-dashboard"; return; }
-          if (role === "staff") { window.location.href = "/dashboard"; return; }
+          if (role === "admin") { router.replace("/admin"); return; }
+          if (role === "ict_personnel") { router.replace("/ict-dashboard"); return; }
+          if (role === "staff") { router.replace("/dashboard"); return; }
         }
       } catch {
         // Network error — fall through and show login form
       }
       setChecking(false);
     })();
-  }, []);
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,15 +63,15 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Login failed");
 
-      // session_id HttpOnly cookie is set automatically by the backend — no token or cookie to store
-      // Role is read from the response body and used only for the redirect
+      // session_id HttpOnly cookie is set automatically by the backend
+      // Use router.replace so the page transition waits properly
       const role = (data.role as string | undefined)?.toLowerCase();
       if (role === "admin") {
-        window.location.href = "/admin";
+        router.replace("/admin");
       } else if (role === "ict_personnel") {
-        window.location.href = "/ict-dashboard";
+        router.replace("/ict-dashboard");
       } else {
-        window.location.href = "/dashboard";
+        router.replace("/dashboard");
       }
     } catch (err: unknown) {
       const errorMessage =
