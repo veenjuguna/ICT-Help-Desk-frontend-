@@ -1,32 +1,107 @@
 "use client";
 
 import React, { useState } from "react";
-import { Monitor, Wrench, Network, AlertCircle, Send } from "lucide-react";
+import { Monitor, Wrench, Network, AlertCircle, Send, CheckCircle2 } from "lucide-react";
 
 type Category = "Hardware" | "Software" | "Network" | "Access" | null;
 
 export default function StandaloneRaiseTicketPage() {
+  // ── Form Content Inputs State ──────────────────────────────────────────────
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>(null);
   const [description, setDescription] = useState("");
-  const [showCategoryError, setShowCategoryError] = useState(true); // Default to true to match screenshot state
+  const [showCategoryError, setShowCategoryError] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ── Network Lifecycle States ────────────────────────────────────────────────
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<{
+    type: "success" | "error" | null;
+    message: string;
+  }>({ type: null, message: "" });
+
+  // ── Actions & Handlers ──────────────────────────────────────────────────────
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Explicit Validation Check
     if (!category) {
       setShowCategoryError(true);
       return;
     }
-    console.log({ title, category, description });
-    alert("Ticket created successfully!");
-    handleClear();
+
+    // Reset layout alerts and engage loading spinner state
+    setIsSubmitting(true);
+    setSubmitStatus({ type: null, message: "" });
+
+    // 1. Get the URL and safely remove any accidental trailing slashes from the .env file
+    const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+    const cleanBaseUrl = rawBaseUrl.replace(/\/$/, ""); 
+
+    // Normalizing payload format to match backend expected casing specifications
+    const payload = {
+      title: title.trim(),
+      description: description.trim(),
+      category: category.toLowerCase(), // Maps "Hardware" -> "hardware"
+    };
+
+    try {
+      // 2. Safely construct the exact URL (no double slashes!)
+      const targetUrl = `${cleanBaseUrl}/tickets/`;
+      
+      // ⏳ THIS IS WHERE IT WAITS FOR THE BACKEND TO RECEIVE IT ⏳
+      const response = await fetch(targetUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include", // Ensures session cookies propagate correctly
+        body: JSON.stringify(payload),
+      });
+
+      // If the backend rejects it, throw an error
+      if (!response.ok) {
+        throw new Error(`Server returned HTTP status code ${response.status}`);
+      }
+
+      // ✅ IF WE REACH THIS LINE, THE BACKEND HAS SUCCESSFULLY SAVED IT ✅
+      setSubmitStatus({
+        type: "success",
+        message: "Ticket created successfully!",
+      });
+      
+      // Flash purge standard form parameters upon completion
+      handleClear(false); 
+      
+      // Auto-hide the flash message after 5 seconds
+      setTimeout(() => {
+        setSubmitStatus({ type: null, message: "" });
+      }, 5000);
+
+    } catch (error) {
+      console.error("Network write exception occurred:", error);
+      setSubmitStatus({
+        type: "error",
+        message: error instanceof Error ? error.message : "An unexpected network error occurred.",
+      });
+      
+      // Auto-hide the error message after 5 seconds too
+      setTimeout(() => {
+        setSubmitStatus({ type: null, message: "" });
+      }, 5000);
+      
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleClear = () => {
+  const handleClear = (resetAlerts = true) => {
     setTitle("");
     setCategory(null);
     setDescription("");
-    setShowCategoryError(true);
+    setShowCategoryError(false);
+    if (resetAlerts) {
+      setSubmitStatus({ type: null, message: "" });
+    }
   };
 
   const categories = [
@@ -37,7 +112,7 @@ export default function StandaloneRaiseTicketPage() {
   ];
 
   return (
-    <div className="min-h-screen w-full bg-[#f8f9fa] font-sans p-6 sm:p-12 flex flex-col items-center overflow-y-auto selection:bg-orange-100">
+    <div className="min-h-screen w-full bg-[#f8f9fa] font-sans p-6 sm:p-12 flex flex-col items-center overflow-y-auto selection:bg-orange-100 relative">
       <div className="w-full max-w-5xl">
         
         {/* ── Header Area ── */}
@@ -60,7 +135,8 @@ export default function StandaloneRaiseTicketPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Cannot connect to VPN"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none text-sm placeholder:text-gray-400 focus:border-[#b34000] focus:ring-1 focus:ring-[#b34000] transition-colors"
+                disabled={isSubmitting}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none text-sm placeholder:text-gray-400 focus:border-[#b34000] focus:ring-1 focus:ring-[#b34000] transition-colors disabled:bg-gray-50 disabled:text-gray-400"
                 required
               />
             </div>
@@ -78,6 +154,7 @@ export default function StandaloneRaiseTicketPage() {
                     <button
                       key={cat.id}
                       type="button"
+                      disabled={isSubmitting}
                       onClick={() => {
                         setCategory(cat.id as Category);
                         setShowCategoryError(false);
@@ -86,7 +163,7 @@ export default function StandaloneRaiseTicketPage() {
                         isSelected
                           ? "border-[#b34000] bg-orange-50/20 ring-1 ring-[#b34000]"
                           : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50"
-                      }`}
+                      } disabled:opacity-60 disabled:hover:bg-white`}
                     >
                       <Icon 
                         size={26} 
@@ -120,7 +197,8 @@ export default function StandaloneRaiseTicketPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Please describe your issue in detail..."
                 rows={6}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none text-sm placeholder:text-gray-400 focus:border-[#b34000] focus:ring-1 focus:ring-[#b34000] transition-colors resize-y"
+                disabled={isSubmitting}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none text-sm placeholder:text-gray-400 focus:border-[#b34000] focus:ring-1 focus:ring-[#b34000] transition-colors resize-y disabled:bg-gray-50 disabled:text-gray-400"
                 required
                 minLength={5}
               />
@@ -133,17 +211,19 @@ export default function StandaloneRaiseTicketPage() {
             <div className="pt-5 border-t border-gray-100 flex items-center justify-end gap-3.5">
               <button
                 type="button"
-                onClick={handleClear}
-                className="px-6 py-2.5 text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                disabled={isSubmitting}
+                onClick={() => handleClear(true)}
+                className="px-6 py-2.5 text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50"
               >
                 Clear Form
               </button>
               <button
                 type="submit"
-                className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-white bg-[#b34000] rounded-lg hover:bg-[#963500] active:bg-[#782b00] transition-colors shadow-sm"
+                disabled={isSubmitting}
+                className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-white bg-[#b34000] rounded-lg hover:bg-[#963500] active:bg-[#782b00] transition-colors shadow-sm disabled:bg-orange-800/50 disabled:cursor-not-allowed"
               >
                 <Send size={13} strokeWidth={2.5} />
-                Create Ticket
+                {isSubmitting ? "Submitting..." : "Create Ticket"}
               </button>
             </div>
           </form>
@@ -169,6 +249,29 @@ export default function StandaloneRaiseTicketPage() {
         </div>
 
       </div>
+
+      {/* ── Floating Bottom Flash Message ── */}
+      {submitStatus.type && (
+        <div 
+          className="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300"
+        >
+          <div 
+            className={`flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl border ${
+              submitStatus.type === "success" 
+                ? "bg-white border-green-200 text-green-800" 
+                : "bg-white border-red-200 text-red-800"
+            }`}
+          >
+            {submitStatus.type === "success" ? (
+              <CheckCircle2 className="h-6 w-6 text-green-500 shrink-0" />
+            ) : (
+              <AlertCircle className="h-6 w-6 text-red-500 shrink-0" />
+            )}
+            <div className="text-sm font-bold tracking-wide">{submitStatus.message}</div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
