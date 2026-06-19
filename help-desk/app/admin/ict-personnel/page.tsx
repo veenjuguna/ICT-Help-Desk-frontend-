@@ -232,18 +232,12 @@ export default function IctPersonnelPage() {
   }, []);
 
   const fetchUserRole = useCallback(async () => {
+    // Determine admin status by calling the session endpoint — no localStorage fallback
+    // The session_id HttpOnly cookie is forwarded automatically with credentials: "include"
     try {
       const res = await fetch(`${API}/admin/me`, { credentials: "include" });
       if (res.ok) {
         const user: AdminUser = await res.json();
-        setIsAdmin(isAdminRole(user.role));
-        return;
-      }
-    } catch {}
-    try {
-      const raw = localStorage.getItem("user");
-      if (raw) {
-        const user = JSON.parse(raw) as AdminUser;
         setIsAdmin(isAdminRole(user.role));
       }
     } catch {}

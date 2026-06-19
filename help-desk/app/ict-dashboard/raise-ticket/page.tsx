@@ -1,9 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import { Monitor, Wrench, Network, AlertCircle, Send, CheckCircle2 } from "lucide-react";
-
-type Category = "Hardware" | "Software" | "Network" | "Access" | null;
+import {
+  Monitor,
+  Wrench,
+  Network,
+  Shield,
+  AlertCircle,
+  Send,
+  CheckCircle2,
+} from "lucide-react";
+type Category = "Hardware" | "Software" | "Network" | "Security" | null;
 
 export default function StandaloneRaiseTicketPage() {
   
@@ -22,7 +29,7 @@ export default function StandaloneRaiseTicketPage() {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Explicit Validation Check
     if (!category) {
       setShowCategoryError(true);
@@ -35,7 +42,7 @@ export default function StandaloneRaiseTicketPage() {
 
     // 1. Get the URL and safely remove any accidental trailing slashes from the .env file
     const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || "";
-    const cleanBaseUrl = rawBaseUrl.replace(/\/$/, ""); 
+    const cleanBaseUrl = rawBaseUrl.replace(/\/$/, "");
 
     // Normalizing payload format to match backend expected casing specifications
     const payload = {
@@ -47,7 +54,7 @@ export default function StandaloneRaiseTicketPage() {
     try {
       // 2. Safely construct the exact URL (no double slashes!)
       const targetUrl = `${cleanBaseUrl}/tickets/`;
-      
+
       // ⏳ THIS IS WHERE IT WAITS FOR THE BACKEND TO RECEIVE IT ⏳
       const response = await fetch(targetUrl, {
         method: "POST",
@@ -68,27 +75,28 @@ export default function StandaloneRaiseTicketPage() {
         type: "success",
         message: "Ticket created successfully!",
       });
-      
+
       // Flash purge standard form parameters upon completion
-      handleClear(false); 
-      
+      handleClear(false);
+
       // Auto-hide the flash message after 5 seconds
       setTimeout(() => {
         setSubmitStatus({ type: null, message: "" });
       }, 5000);
-
     } catch (error) {
       console.error("Network write exception occurred:", error);
       setSubmitStatus({
         type: "error",
-        message: error instanceof Error ? error.message : "An unexpected network error occurred.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "An unexpected network error occurred.",
       });
-      
+
       // Auto-hide the error message after 5 seconds too
       setTimeout(() => {
         setSubmitStatus({ type: null, message: "" });
       }, 5000);
-      
     } finally {
       setIsSubmitting(false);
     }
@@ -105,26 +113,48 @@ export default function StandaloneRaiseTicketPage() {
   };
 
   const categories = [
-    { id: "Hardware", icon: Monitor, label: "Hardware", sub: "Monitors, Printers, etc." },
-    { id: "Software", icon: Wrench, label: "Software", sub: "Apps, Installations" },
-    { id: "Network", icon: Network, label: "Network", sub: "WiFi, Internet, VPN" },
-    { id: "Access", icon: AlertCircle, label: "Access", sub: "Logins, Permissions" },
+    {
+      id: "Hardware",
+      icon: Monitor,
+      label: "Hardware",
+      sub: "Monitors, Printers, etc.",
+    },
+    {
+      id: "Software",
+      icon: Wrench,
+      label: "Software",
+      sub: "Apps, Installations",
+    },
+    {
+      id: "Network",
+      icon: Network,
+      label: "Network",
+      sub: "WiFi, Internet, VPN",
+    },
+    {
+      id: "Security",
+      icon: Shield,
+      label: "Security",
+      sub: "Logins, Permissions",
+    },
   ];
 
   return (
     <div className="min-h-screen w-full bg-[#f8f9fa] font-sans p-6 sm:p-12 flex flex-col items-center overflow-y-auto selection:bg-orange-100 relative">
       <div className="w-full max-w-5xl">
-        
         {/* ── Header Area ── */}
         <div className="mb-8 w-full flex flex-col items-start pl-1">
-          <h1 className="text-[34px] font-bold text-gray-950 tracking-tight">Request Assistance</h1>
-          <p className="text-sm text-gray-500 mt-1.5">Submit a new IT support ticket</p>
+          <h1 className="text-[34px] font-bold text-gray-950 tracking-tight">
+            Request Assistance
+          </h1>
+          <p className="text-sm text-gray-500 mt-1.5">
+            Submit a new IT support ticket
+          </p>
         </div>
 
         {/* ── Main Form Card ── */}
         <div className="bg-white w-full rounded-xl shadow-[0_2px_12px_-4px_rgba(0,0,0,0.08)] border border-gray-200 overflow-hidden mb-6">
           <form onSubmit={handleSubmit} className="p-6 sm:p-10 space-y-7">
-            
             {/* Issue Title */}
             <div>
               <label className="block text-sm font-semibold text-gray-800 mb-2.5">
@@ -165,12 +195,14 @@ export default function StandaloneRaiseTicketPage() {
                           : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50"
                       } disabled:opacity-60 disabled:hover:bg-white`}
                     >
-                      <Icon 
-                        size={26} 
+                      <Icon
+                        size={26}
                         strokeWidth={1.25}
-                        className={`mb-3 ${isSelected ? "text-[#b34000]" : "text-gray-400"}`} 
+                        className={`mb-3 ${isSelected ? "text-[#b34000]" : "text-gray-400"}`}
                       />
-                      <span className={`text-sm font-bold tracking-tight ${isSelected ? "text-[#b34000]" : "text-gray-800"}`}>
+                      <span
+                        className={`text-sm font-bold tracking-tight ${isSelected ? "text-[#b34000]" : "text-gray-800"}`}
+                      >
                         {cat.label}
                       </span>
                       <span className="text-[11px] text-gray-400 mt-1.5 text-center leading-normal">
@@ -190,7 +222,8 @@ export default function StandaloneRaiseTicketPage() {
             {/* Description Area */}
             <div>
               <label className="block text-sm font-semibold text-gray-800 mb-2.5">
-                Description of Problem <span className="text-red-500 font-bold">*</span>
+                Description of Problem{" "}
+                <span className="text-red-500 font-bold">*</span>
               </label>
               <textarea
                 value={description}
@@ -231,34 +264,37 @@ export default function StandaloneRaiseTicketPage() {
 
         {/* ── Descriptive Help Footer ── */}
         <div className="bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-[0_1px_6px_rgba(0,0,0,0.02)] w-full">
-          <h3 className="text-sm font-bold text-[#b34000] mb-5 tracking-tight">Need Help Choosing?</h3>
+          <h3 className="text-sm font-bold text-[#b34000] mb-5 tracking-tight">
+            Need Help Choosing?
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-3.5 text-xs text-gray-500 leading-relaxed">
             <p>
-              <strong className="text-gray-900 font-bold">Hardware:</strong> Physical devices (Monitors, Printers, Keyboards).
+              <strong className="text-gray-900 font-bold">Hardware:</strong>{" "}
+              Physical devices (Monitors, Printers, Keyboards).
             </p>
             <p>
-              <strong className="text-gray-900 font-bold">Software:</strong> Programs, Apps, Installation issues.
+              <strong className="text-gray-900 font-bold">Software:</strong>{" "}
+              Programs, Apps, Installation issues.
             </p>
             <p>
-              <strong className="text-gray-900 font-bold">Network:</strong> Internet, WiFi, VPN connectivity.
+              <strong className="text-gray-900 font-bold">Network:</strong>{" "}
+              Internet, WiFi, VPN connectivity.
             </p>
             <p>
-              <strong className="text-gray-900 font-bold">Access:</strong> Login problems, Password resets, File permissions.
+              <strong className="text-gray-900 font-bold">Security:</strong>{" "}
+              Login problems, Password resets, File permissions.
             </p>
           </div>
         </div>
-
       </div>
 
       {/* ── Floating Bottom Flash Message ── */}
       {submitStatus.type && (
-        <div 
-          className="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300"
-        >
-          <div 
+        <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div
             className={`flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl border ${
-              submitStatus.type === "success" 
-                ? "bg-white border-green-200 text-green-800" 
+              submitStatus.type === "success"
+                ? "bg-white border-green-200 text-green-800"
                 : "bg-white border-red-200 text-red-800"
             }`}
           >
@@ -267,11 +303,12 @@ export default function StandaloneRaiseTicketPage() {
             ) : (
               <AlertCircle className="h-6 w-6 text-red-500 shrink-0" />
             )}
-            <div className="text-sm font-bold tracking-wide">{submitStatus.message}</div>
+            <div className="text-sm font-bold tracking-wide">
+              {submitStatus.message}
+            </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
