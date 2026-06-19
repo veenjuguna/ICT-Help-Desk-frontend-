@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+
 interface TeamMember {
   id: string;
   initials: string;
@@ -18,7 +18,6 @@ interface TeamMember {
   avgResolution: string;
 }
 
-// ── API Types ─────────────────────────────────────────────────────────────────
 interface IctPersonnelAPI {
   id: number;
   staff_id: string;
@@ -49,7 +48,6 @@ interface TicketsByPersonnelAPI {
   };
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -74,7 +72,7 @@ function mapAvailability(availability: string): TeamMember["status"] {
   return "Offline"; // covers off_duty, on_leave
 }
 
-// ── API Fetch ─────────────────────────────────────────────────────────────────
+
 async function fetchTeamMembers(): Promise<TeamMember[]> {
   const cleanBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
@@ -137,7 +135,7 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
     });
 }
 
-// ── Icons ────────────────────────────────────────────────────────────────────
+
 function IconTeam() {
   return (
     <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -162,7 +160,6 @@ function IconUser() {
   );
 }
 
-// ── Shared UI Components ─────────────────────────────────────────────────────
 function StatCard({
   icon,
   value,
@@ -250,7 +247,8 @@ function MemberCard({ member }: { member: TeamMember }) {
   );
 }
 
-// ── Page Component ────────────────────────────────────────────────────────────
+
+
 export default function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
