@@ -200,7 +200,7 @@ export default function IctPersonnelPage() {
       setError("");
     }
     try {
-      const res = await fetch(`${API}/ict-personnel`, { credentials: "include" });
+      const res = await fetch(`${API}/ict-personnel/`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load ICT personnel.");
       const data = await res.json();
       const list = parseArray<Record<string, unknown>>(data).map((p) => ({
@@ -301,7 +301,7 @@ export default function IctPersonnelPage() {
       };
       if (form.phone_extension) body.phone_extension = form.phone_extension;
 
-      const res = await fetch(`${API}/ict-personnel`, {
+      const res = await fetch(`${API}/ict-personnel/`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

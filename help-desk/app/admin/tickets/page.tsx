@@ -128,9 +128,9 @@ export default function AdminTicketsPage() {
     setError(null);
     try {
       const [tRes, sRes, pRes] = await Promise.all([
-        fetch(`${API}/tickets`,        { credentials: "include" }),
+        fetch(`${API}/tickets/`,        { credentials: "include" }),
         fetch(`${API}/staff/`,         { credentials: "include" }),
-        fetch(`${API}/ict-personnel`,  { credentials: "include" }),
+        fetch(`${API}/ict-personnel/`,  { credentials: "include" }),
       ]);
 
       if (!tRes.ok) {
