@@ -232,7 +232,7 @@ export default function TechnicianDashboard() {
       try {
         const [staffRes, ticketRes, auditRes, ictRes] = await Promise.all([
           fetch(`${API}/staff/me`,         { credentials: "include" }),
-          fetch(`${API}/tickets`,          { credentials: "include" }),
+          fetch(`${API}/tickets/`,          { credentials: "include" }),
           fetch(`${API}/audit?limit=5`,    { credentials: "include" }),
           fetch(`${API}/ict-personnel/me`, { credentials: "include" }),
         ]);
