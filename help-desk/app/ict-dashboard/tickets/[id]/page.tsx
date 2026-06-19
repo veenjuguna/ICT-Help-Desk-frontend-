@@ -45,9 +45,9 @@ type Ticket = {
   comment: string | null;
 };
 
-// FIX: Added StaffBasic so we can resolve staff_id → full_name on this page.
-// The dashboard's staffMap doesn't persist across navigation, so we fetch
-// the raiser's profile directly using GET /staff/{staff_id}.
+// Used to resolve staff_id → human-readable name via GET /staff/{id}/basic.
+// The /basic endpoint is accessible by any authenticated staff member,
+// unlike the full GET /{staff_id} which is admin-only.
 type StaffBasic = {
   id: string;
   full_name: string;
@@ -75,19 +75,19 @@ export default function TicketDetailPage() {
   const router   = useRouter();
   const ticketId = Number(params.id);
 
-  const [ticket, setTicket]           = useState<Ticket | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
+  const [ticket, setTicket]       = useState<Ticket | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
 
-  // FIX: Added raisedBy state to hold the resolved staff profile.
-  // Fetched in parallel with the ticket so there's no waterfall delay.
-  const [raisedBy, setRaisedBy]       = useState<StaffBasic | null>(null);
+  // Resolved staff profile of whoever raised this ticket.
+  // Fetched via GET /staff/{staff_id}/basic after the ticket loads.
+  const [raisedBy, setRaisedBy]   = useState<StaffBasic | null>(null);
 
   const [currentStatus, setCurrentStatus] = useState("");
   const [pendingStatus, setPendingStatus] = useState("");
-  const [saved, setSaved]             = useState(false);
-  const [saving, setSaving]           = useState(false);
-  const [saveError, setSaveError]     = useState<string | null>(null);
+  const [saved, setSaved]         = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTicket = async () => {
@@ -95,7 +95,7 @@ export default function TicketDetailPage() {
         setLoading(true);
         setError(null);
 
-        // Step 1: Fetch the ticket first so we have staff_id
+        // Step 1: Fetch the ticket
         const res = await fetch(`${API}/tickets/${ticketId}`, {
           credentials: "include",
           headers: {
@@ -122,18 +122,17 @@ export default function TicketDetailPage() {
         setCurrentStatus(liveStatus);
         setPendingStatus(liveStatus);
 
-        // FIX: Step 2 — resolve staff_id → full name by fetching the raiser's
-        // profile. Using GET /staff/{id} so this page is self-contained and
-        // doesn't depend on staffMap being passed from the dashboard.
+        // Step 2: Resolve staff_id → full name using the /basic endpoint.
+        // This endpoint is accessible by any authenticated staff member,
+        // so technicians can see who raised a ticket without admin rights.
         if (data.staff_id) {
-          const staffRes = await fetch(`${API}/staff/${data.staff_id}`, {
+          const staffRes = await fetch(`${API}/staff/${data.staff_id}/basic`, {
             credentials: "include",
           });
           if (staffRes.ok) {
-            const staffData: StaffBasic = await staffRes.json();
-            setRaisedBy(staffData);
+            setRaisedBy(await staffRes.json());
           }
-          // If staff fetch fails, raisedBy stays null and we fall back gracefully
+          // If staff fetch fails, raisedBy stays null and falls back to "Unknown Staff"
         }
 
       } catch (err) {
@@ -184,7 +183,7 @@ export default function TicketDetailPage() {
     }
   };
 
-  // ── Time elapsed helper ───────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const assignedAgo = (() => {
     if (!ticket) return "";
     const diff = Date.now() - new Date(ticket.created_at).getTime();
@@ -195,11 +194,10 @@ export default function TicketDetailPage() {
     return `${Math.floor(hrs / 24)}d ago`;
   })();
 
-  // ── Initials helper for the avatar ───────────────────────────────────────
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
-  // ── Loading state ─────────────────────────────────────────────────────────
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div style={{
@@ -213,7 +211,7 @@ export default function TicketDetailPage() {
     );
   }
 
-  // ── Error state ───────────────────────────────────────────────────────────
+  // ── Error ─────────────────────────────────────────────────────────────────
   if (error || !ticket) {
     return (
       <div style={{
@@ -294,7 +292,7 @@ export default function TicketDetailPage() {
         {/* ── Main Grid ── */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "20px", alignItems: "start" }}>
 
-          {/* ── LEFT: Issue Details + Status Update ── */}
+          {/* ── LEFT ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
             {/* Issue Details */}
@@ -412,12 +410,10 @@ export default function TicketDetailPage() {
             </div>
           </div>
 
-          {/* ── RIGHT: Raised By + Assignment Details ── */}
+          {/* ── RIGHT ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
-            {/* FIX: Raised By panel now shows full_name, email, and office_location
-                instead of the raw staff_id UUID. Data comes from GET /staff/{staff_id}
-                fetched in the same useEffect as the ticket. */}
+            {/* Raised By — resolved from GET /staff/{staff_id}/basic */}
             <div style={{
               background: "#fff", borderRadius: "12px", border: "1px solid #eee",
               padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
@@ -426,7 +422,7 @@ export default function TicketDetailPage() {
                 Raised By
               </h2>
               <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-                {/* Avatar: initials if name resolved, generic icon if not */}
+                {/* Avatar: brand-coloured initials when resolved, grey icon when not */}
                 <div style={{
                   width: 44, height: 44, borderRadius: "50%",
                   background: raisedBy ? "#7A3100" : "#f0f0f0",
@@ -442,17 +438,14 @@ export default function TicketDetailPage() {
                   )}
                 </div>
                 <div>
-                  {/* Full name — falls back to "Unknown Staff" if fetch failed */}
                   <p style={{ margin: 0, fontWeight: 700, fontSize: "15px", color: "#1a1a1a" }}>
                     {raisedBy?.full_name ?? "Unknown Staff"}
                   </p>
-                  {/* Email */}
                   {raisedBy?.email && (
                     <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#888" }}>
                       {raisedBy.email}
                     </p>
                   )}
-                  {/* Office location if available */}
                   {raisedBy?.office_location && (
                     <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#aaa" }}>
                       {raisedBy.office_location}
@@ -461,7 +454,6 @@ export default function TicketDetailPage() {
                 </div>
               </div>
 
-              {/* Personal number if available */}
               {raisedBy?.personal_number && (
                 <div style={{ marginBottom: "16px" }}>
                   <p style={labelStyle}>Personal No.</p>

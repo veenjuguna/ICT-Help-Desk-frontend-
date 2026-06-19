@@ -13,20 +13,20 @@ import {
 type Category = "Hardware" | "Software" | "Network" | "Security" | null;
 
 export default function StandaloneRaiseTicketPage() {
-  // ── Form Content Inputs State ──────────────────────────────────────────────
+  
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>(null);
   const [description, setDescription] = useState("");
   const [showCategoryError, setShowCategoryError] = useState(false);
 
-  // ── Network Lifecycle States ────────────────────────────────────────────────
+ 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
     type: "success" | "error" | null;
     message: string;
   }>({ type: null, message: "" });
 
-  // ── Actions & Handlers ──────────────────────────────────────────────────────
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
