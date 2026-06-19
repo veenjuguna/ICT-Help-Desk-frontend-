@@ -86,7 +86,7 @@ export default function AuditLogsPage() {
     else setRefreshing(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/audit`, { credentials: "include" });
+      const res = await fetch(`${API}/audit/`, { credentials: "include" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail ?? `Error ${res.status}`);

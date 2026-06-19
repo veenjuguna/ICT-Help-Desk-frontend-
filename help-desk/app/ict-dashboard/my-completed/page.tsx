@@ -1,8 +1,16 @@
+//my-completed
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { CheckCircle2, Calendar, Search, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Calendar,
+  Search,
+  RefreshCw,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -88,11 +96,13 @@ export default function MyCompletedPage() {
 
   const now = new Date();
   const completedToday = tickets.filter(
-    (t) => new Date(t.created_at).toDateString() === now.toDateString()
+    (t) => new Date(t.created_at).toDateString() === now.toDateString(),
   ).length;
   const completedThisMonth = tickets.filter((t) => {
     const d = new Date(t.created_at);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return (
+      d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    );
   }).length;
 
   const displayed = tickets.filter((ticket) => {
@@ -110,12 +120,15 @@ export default function MyCompletedPage() {
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen font-sans text-gray-800">
-
       {/* HEADER */}
       <header className="mb-8 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Completed Tickets</h1>
-          <p className="text-gray-500 text-sm mt-1">View your resolved support tickets</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Completed Tickets
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            View your resolved support tickets
+          </p>
         </div>
         <button
           onClick={fetchTickets}
@@ -182,7 +195,9 @@ export default function MyCompletedPage() {
       {/* TABLE */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">Resolved Tickets</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Resolved Tickets
+          </h2>
         </div>
 
         {loading && (
@@ -228,16 +243,22 @@ export default function MyCompletedPage() {
               <tbody className="divide-y divide-gray-100">
                 {displayed.map((ticket) => (
                   <tr key={ticket.id} className="hover:bg-gray-50 transition">
-
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <CheckCircle2 size={15} className="text-green-500 shrink-0" />
-                        <span className="font-medium text-green-700">{fmtId(ticket.id)}</span>
+                        <CheckCircle2
+                          size={15}
+                          className="text-green-500 shrink-0"
+                        />
+                        <span className="font-medium text-green-700">
+                          {fmtId(ticket.id)}
+                        </span>
                       </div>
                     </td>
 
                     <td className="px-6 py-4 max-w-xs">
-                      <p className="font-medium text-gray-900 truncate">{ticket.description}</p>
+                      <p className="font-medium text-gray-900 truncate">
+                        {ticket.description}
+                      </p>
                     </td>
 
                     <td className="px-6 py-4">
@@ -253,8 +274,8 @@ export default function MyCompletedPage() {
                             ticket.priority.toUpperCase() === "HIGH"
                               ? "text-[#b91c1c]"
                               : ticket.priority.toUpperCase() === "MEDIUM"
-                              ? "text-[#c2410c]"
-                              : "text-gray-500"
+                                ? "text-[#c2410c]"
+                                : "text-gray-500"
                           }`}
                         >
                           {titleCase(ticket.priority)}
@@ -265,8 +286,12 @@ export default function MyCompletedPage() {
                     </td>
 
                     <td className="px-6 py-4 text-gray-600 text-xs whitespace-nowrap">
-                      <div>{new Date(ticket.created_at).toLocaleDateString()}</div>
-                      <div className="text-gray-400">{formatRelative(ticket.created_at)}</div>
+                      <div>
+                        {new Date(ticket.created_at).toLocaleDateString()}
+                      </div>
+                      <div className="text-gray-400">
+                        {formatRelative(ticket.created_at)}
+                      </div>
                     </td>
 
                     <td className="px-6 py-4">
@@ -284,7 +309,6 @@ export default function MyCompletedPage() {
                         View
                       </Link>
                     </td>
-
                   </tr>
                 ))}
               </tbody>
@@ -304,7 +328,15 @@ export default function MyCompletedPage() {
 
 // ─── StatCard ─────────────────────────────────────────────────────────────────
 
-function StatCard({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+function StatCard({
+  icon,
+  value,
+  label,
+}: {
+  icon: React.ReactNode;
+  value: string;
+  label: string;
+}) {
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
       <div className="p-3 bg-gray-50 rounded-full text-[#7a4f31]">{icon}</div>
