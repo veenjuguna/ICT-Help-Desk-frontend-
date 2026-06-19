@@ -117,10 +117,10 @@ export default function RequestPage() {
       desc: "WiFi, Internet, VPN",
     },
     {
-      id: "security",
+      id: "security_incidents",
       label: "Security",
       icon: Shield,
-      desc: "Logins, Permissions",
+      desc: "Incidents, Threats",
     },
   ];
 
