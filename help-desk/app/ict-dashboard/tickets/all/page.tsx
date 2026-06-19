@@ -132,7 +132,6 @@ function PriorityBadge({ priority }: { priority: TicketPriority }) {
 }
 
 // ─── Ticket Detail Panel ─────────────────────────────────────────────────────
-
 function TicketDetail({
   ticket,
   onClose,
@@ -140,7 +139,7 @@ function TicketDetail({
 }: {
   ticket: Ticket;
   onClose: () => void;
-  onStatusChange: (id: number, status: TicketStatus) => void;
+  onStatusChange: (id: number, status: string) => void;
 }) {
   const [noteText, setNoteText] = useState("");
   const [statusDropdown, setStatusDropdown] = useState(false);
@@ -319,22 +318,22 @@ function TicketDetail({
                   fontSize: 12,
                   fontWeight: 600,
                   background:
-                    ticket.status === "OPEN"
+                    ticket.status.toLowerCase() === "open"
                       ? "#FEF2F2"
-                      : ticket.status === "IN_PROGRESS"
+                      : ticket.status.toLowerCase() === "in_progress"
                         ? "#FFF8E0"
                         : "#F0FFF4",
                   color:
-                    ticket.status === "OPEN"
+                    ticket.status.toLowerCase() === "open"
                       ? "#BB0000"
-                      : ticket.status === "IN_PROGRESS"
+                      : ticket.status.toLowerCase() === "in_progress"
                         ? "#C8962E"
                         : "#1E6B33",
                 }}
               >
-                {ticket.status === "OPEN"
+                {ticket.status.toLowerCase() === "open"
                   ? "Open"
-                  : ticket.status === "IN_PROGRESS"
+                  : ticket.status.toLowerCase() === "in_progress"
                     ? "In Progress"
                     : "Resolved"}
               </span>
@@ -355,7 +354,7 @@ function TicketDetail({
                   overflow: "hidden",
                 }}
               >
-                {(["OPEN", "IN_PROGRESS", "CLOSED"] as const).map((s) => (
+                {(["open", "in_progress", "closed"] as const).map((s) => (
                   <button
                     key={s}
                     onClick={() => {
@@ -369,7 +368,9 @@ function TicketDetail({
                       width: "100%",
                       padding: "10px 14px",
                       background:
-                        s === ticket.status ? "#FDF8F2" : "transparent",
+                        s === ticket.status.toLowerCase()
+                          ? "#FDF8F2"
+                          : "transparent",
                       border: "none",
                       cursor: "pointer",
                       fontSize: 13,
@@ -378,9 +379,9 @@ function TicketDetail({
                       textAlign: "left",
                     }}
                   >
-                    {s === "OPEN"
+                    {s === "open"
                       ? "Open"
-                      : s === "IN_PROGRESS"
+                      : s === "in_progress"
                         ? "In Progress"
                         : "Resolved"}
                   </button>
@@ -391,11 +392,11 @@ function TicketDetail({
         </div>
 
         {/* Mark as resolved */}
-        {ticket.status !== "CLOSED" && (
+        {ticket.status.toLowerCase() !== "closed" && (
           <button
             onClick={() => {
               setStatusDropdown(false);
-              onStatusChange(ticket.id, "CLOSED" as any);
+              onStatusChange(ticket.id, "closed" as any);
             }}
             style={{
               width: "100%",
@@ -456,13 +457,28 @@ export default function AllTicketsPage() {
     })();
   }, [API]);
 
-  const handleStatusChange = (id: number, newStatus: TicketStatus) => {
+  const handleStatusChange = async (id: number, newStatus: string) => {
+    // Optimistic UI update
     setTickets((prev) =>
       prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)),
     );
     setSelectedTicket((prev) =>
       prev?.id === id ? { ...prev, status: newStatus } : prev,
     );
+
+    try {
+      const res = await fetch(`${API}/tickets/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) {
+        console.error("Failed to update ticket status:", res.status);
+      }
+    } catch (e) {
+      console.error("Status update error:", e);
+    }
   };
 
   const statusMap: Record<string, string> = {
@@ -481,15 +497,18 @@ export default function AllTicketsPage() {
         t.description?.toLowerCase().includes(q)) &&
       (categoryFilter === "All Categories" ||
         t.category.toLowerCase() === categoryFilter.toLowerCase()) &&
-      (statusFilter === "all" || t.status === statusMap[statusFilter])
+      (statusFilter === "all" ||
+        t.status.toLowerCase() === statusMap[statusFilter].toLowerCase())
     );
   });
 
   const counts = {
-    open: tickets.filter((t) => t.status === "OPEN").length,
-    in_progress: tickets.filter((t) => t.status === "IN_PROGRESS").length,
-    resolved: tickets.filter((t) => t.status === "CLOSED").length,
-    escalated: tickets.filter((t) => t.status === "ESCALATED").length,
+    open: tickets.filter((t) => t.status.toLowerCase() === "open").length,
+    in_progress: tickets.filter((t) => t.status.toLowerCase() === "in_progress")
+      .length,
+    resolved: tickets.filter((t) => t.status.toLowerCase() === "closed").length,
+    escalated: tickets.filter((t) => t.status.toLowerCase() === "escalated")
+      .length,
   };
 
   const fullName = staff?.full_name ?? "Loading...";
@@ -802,28 +821,28 @@ export default function AllTicketsPage() {
                               fontSize: 12,
                               fontWeight: 600,
                               background:
-                                t.status === "OPEN"
+                                t.status.toLowerCase() === "open"
                                   ? "#FEF2F2"
-                                  : t.status === "IN_PROGRESS"
+                                  : t.status.toLowerCase() === "in_progress"
                                     ? "#FFF8E0"
-                                    : t.status === "CLOSED"
+                                    : t.status.toLowerCase() === "closed"
                                       ? "#F0FFF4"
                                       : "#F5F0FF",
                               color:
-                                t.status === "OPEN"
+                                t.status.toLowerCase() === "open"
                                   ? "#BB0000"
-                                  : t.status === "IN_PROGRESS"
+                                  : t.status.toLowerCase() === "in_progress"
                                     ? "#C8962E"
-                                    : t.status === "CLOSED"
+                                    : t.status.toLowerCase() === "closed"
                                       ? "#1E6B33"
                                       : "#6B35B5",
                             }}
                           >
-                            {t.status === "OPEN"
+                            {t.status.toLowerCase() === "open"
                               ? "Open"
-                              : t.status === "IN_PROGRESS"
+                              : t.status.toLowerCase() === "in_progress"
                                 ? "In Progress"
-                                : t.status === "CLOSED"
+                                : t.status.toLowerCase() === "closed"
                                   ? "Resolved"
                                   : t.status}
                           </span>
