@@ -383,7 +383,7 @@ export default function TeamPage() {
                 value={totalMembers}
                 label="Team Members"
               />
-              <StatCard
+              {/* <StatCard
                 icon={<IconTrend />}
                 value={activeTickets}
                 label="Active Tickets"
@@ -392,7 +392,7 @@ export default function TeamPage() {
                 icon={<IconUser />}
                 value={completedToday}
                 label="Completed Today"
-              />
+              /> */}
             </div>
 
             {/* Personnel Roster */}
