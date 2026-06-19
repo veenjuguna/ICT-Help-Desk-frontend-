@@ -164,8 +164,8 @@ export default function AdminTicketsPage() {
     setLoading(true);
     try {
       const [tRes, pRes] = await Promise.all([
-        fetch(`${API}/tickets`,        { credentials: "include" }),
-        fetch(`${API}/ict-personnel`,  { credentials: "include" }),
+        fetch(`${API}/tickets/`,        { credentials: "include" }),
+        fetch(`${API}/ict-personnel/`,  { credentials: "include" }),
       ]);
       if (tRes.ok) { const d = await tRes.json(); setTickets(Array.isArray(d) ? d : d.tickets ?? MOCK_TICKETS); }
       if (pRes.ok) { const d = await pRes.json(); setPersonnel(Array.isArray(d) ? d : d.personnel ?? MOCK_PERSONNEL); }
