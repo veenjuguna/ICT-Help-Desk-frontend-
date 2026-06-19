@@ -19,6 +19,8 @@ interface Ticket {
   comment: string | null;
   staff_id: string;
   assigned_to_id: number;
+  // NEW: enriched field resolved from GET /staff/{staff_id}/basic
+  raised_by?: string;
 }
 
 interface AuditLog {
@@ -33,14 +35,6 @@ interface StaffProfile {
   id: string;
   full_name: string;
   role: string;
-}
-
-// NEW: Lightweight staff shape used to build the staffMap lookup.
-// Fetched from GET /staff/?limit=200 so tickets can resolve who raised them.
-interface StaffBasic {
-  id: string;
-  full_name: string;
-  email: string;
 }
 
 interface IctProfile {
@@ -78,8 +72,7 @@ type Filter = "All" | "open" | "in_progress";
 // ── Setup / Edit Profile Modal ────────────────────────────────────────────────
 // Handles two modes:
 //   • First-time setup  → POST /ict-personnel/me/setup
-//   • Edit existing     → PATCH /ict-personnel/me  (FIX: was previously hitting
-//                         PATCH /ict-personnel/{id} which requires AdminStaff)
+//   • Edit existing     → PATCH /ict-personnel/me (self-service, no admin needed)
 function SetupModal({
   onComplete,
   existing,
@@ -113,9 +106,8 @@ function SetupModal({
     setSubmitting(true);
     setError(null);
     try {
-      // FIX: Edit mode now calls PATCH /ict-personnel/me (self-service endpoint)
-      // instead of PATCH /ict-personnel/{id} which was admin-only and returned
-      // "Admin access required" for regular technicians.
+      // Edit mode → PATCH /ict-personnel/me (self-service endpoint, no admin needed)
+      // Setup mode → POST /ict-personnel/me/setup (first-time only)
       const res = await fetch(
         isEdit
           ? `${API}/ict-personnel/me`
@@ -244,9 +236,6 @@ export default function TechnicianDashboard() {
   const [ictProfile, setIctProfile]     = useState<IctProfile | null>(null);
   const [tickets, setTickets]           = useState<Ticket[]>([]);
   const [audit, setAudit]               = useState<AuditLog[]>([]);
-  // NEW: staffMap resolves staff_id → full_name so the ticket table can show
-  // who raised each ticket without a per-ticket API call.
-  const [staffMap, setStaffMap]         = useState<Record<string, StaffBasic>>({});
   const [loading, setLoading]           = useState(true);
   const [showSetup, setShowSetup]       = useState(false);
 
@@ -255,27 +244,41 @@ export default function TechnicianDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        // NEW: Added GET /staff/?limit=200 to the parallel fetch batch.
-        // This populates staffMap so we can resolve raised_by names on tickets.
-        const [staffRes, ticketRes, auditRes, ictRes, allStaffRes] = await Promise.all([
-          fetch(`${API}/staff/me`,          { credentials: "include" }),
-          fetch(`${API}/tickets/`,          { credentials: "include" }),
-          fetch(`${API}/audit?limit=5`,     { credentials: "include" }),
-          fetch(`${API}/ict-personnel/me`,  { credentials: "include" }),
-          fetch(`${API}/staff/?limit=200`,  { credentials: "include" }),
+        // Fetch staff profile, tickets, audit log, and ICT profile in parallel.
+        // staffMap + allStaffRes removed — raised_by is now resolved per-ticket
+        // via GET /staff/{staff_id}/basic to avoid the admin-only GET /staff/ endpoint.
+        const [staffRes, ticketRes, auditRes, ictRes] = await Promise.all([
+          fetch(`${API}/staff/me`,         { credentials: "include" }),
+          fetch(`${API}/tickets/`,         { credentials: "include" }),
+          fetch(`${API}/audit?limit=5`,    { credentials: "include" }),
+          fetch(`${API}/ict-personnel/me`, { credentials: "include" }),
         ]);
 
         if (staffRes.ok)  setStaff(await staffRes.json());
-        if (ticketRes.ok) setTickets(await ticketRes.json());
         if (auditRes.ok)  setAudit(await auditRes.json());
 
-        // NEW: Build a lookup map: staff_id (UUID string) → StaffBasic object.
-        // Used below to enrich tickets with raised_by before passing to the table.
-        if (allStaffRes.ok) {
-          const allStaff: StaffBasic[] = await allStaffRes.json();
-          const map: Record<string, StaffBasic> = {};
-          allStaff.forEach(s => { map[s.id] = s; });
-          setStaffMap(map);
+        if (ticketRes.ok) {
+          const rawTickets: Ticket[] = await ticketRes.json();
+
+          // Resolve raised_by for each ticket in parallel using /staff/{id}/basic.
+          // This endpoint is accessible by any authenticated staff member (not admin-only).
+          // Falls back to "—" silently if any individual lookup fails.
+          const enriched = await Promise.all(
+            rawTickets.map(async (t) => {
+              try {
+                const sRes = await fetch(`${API}/staff/${t.staff_id}/basic`, {
+                  credentials: "include",
+                });
+                const raised_by = sRes.ok
+                  ? (await sRes.json()).full_name
+                  : "—";
+                return { ...t, raised_by };
+              } catch {
+                return { ...t, raised_by: "—" };
+              }
+            })
+          );
+          setTickets(enriched);
         }
 
         if (ictRes.ok) {
@@ -284,7 +287,7 @@ export default function TechnicianDashboard() {
           // Show setup modal if specialization hasn't been set yet
           if (!myProfile.specialization) setShowSetup(true);
         } else {
-          // FIX: if GET /ict-personnel/me returns 404 (profile not created yet),
+          // If GET /ict-personnel/me returns 404 (profile not created yet),
           // still trigger the setup modal instead of leaving the dashboard empty.
           setShowSetup(true);
         }
@@ -338,12 +341,8 @@ export default function TechnicianDashboard() {
       ? tickets
       : tickets.filter((t) => t.status === activeFilter);
 
-  // NEW: Enrich filtered tickets with raised_by (full name of the staff member
-  // who raised the ticket) resolved from staffMap. Avoids N+1 fetch calls.
-  const enrichedTickets = filtered.map((t) => ({
-    ...t,
-    raised_by: staffMap[t.staff_id]?.full_name ?? "—",
-  }));
+  // Tickets are already enriched with raised_by from the useEffect above,
+  // so we pass filtered directly — no extra mapping needed here.
 
   return (
     <>
@@ -493,10 +492,9 @@ export default function TechnicianDashboard() {
               ) : filtered.length === 0 ? (
                 <div className="p-8 text-center text-gray-400 text-sm">No tickets found.</div>
               ) : (
-                // NEW: Pass enrichedTickets (with raised_by resolved) instead of
-                // raw filtered tickets so the table can display the requester name.
+                // Tickets are pre-enriched with raised_by — pass filtered directly
                 <AssignedTicketTable
-                  tickets={enrichedTickets}
+                  tickets={filtered}
                   fifoTicketId={fifoTicket?.id}
                 />
               )}
