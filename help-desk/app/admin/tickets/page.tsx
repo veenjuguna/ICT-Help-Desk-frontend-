@@ -43,41 +43,6 @@ interface IctPersonnel {
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-neon.onrender.com";
 
-// ── Mock fallback (real shape) ────────────────────────────────────────────────
-const MOCK_TICKETS: Ticket[] = [
-  { id: 41, title: "Cannot access email — Outlook not opening",  description: "Outlook freezes on startup.",                                          category: "SOFTWARE", status: "OPEN",        created_at: "2025-06-09T08:14:00Z", closed_at: null,                   comment: null,                          staff_id: "s-10", assigned_to_id: null },
-  { id: 40, title: "Printer on 4th floor offline",               description: "HP LaserJet shows offline.",                                          category: "HARDWARE", status: "IN_PROGRESS", created_at: "2025-06-08T11:30:00Z", closed_at: null,                   comment: null,                          staff_id: "s-11", assigned_to_id: 1 },
-  { id: 39, title: "VPN disconnecting frequently",               description: "VPN drops every 20–30 minutes.",                                      category: "NETWORK",  status: "OPEN",        created_at: "2025-06-08T09:05:00Z", closed_at: null,                   comment: null,                          staff_id: "s-12", assigned_to_id: null },
-  { id: 38, title: "New staff laptop setup request",             description: "New hire starting Monday.",                                          category: "HARDWARE", status: "IN_PROGRESS", created_at: "2025-06-07T14:20:00Z", closed_at: null,                   comment: null,                          staff_id: "s-13", assigned_to_id: 5 },
-  { id: 37, title: "IFMIS login error — account locked",         description: "Account locked when logging in.",                                    category: "SOFTWARE", status: "CLOSED",      created_at: "2025-06-06T16:00:00Z", closed_at: "2025-06-07T11:45:00Z", comment: "Reset password, but issue recurred next day.", staff_id: "s-14", assigned_to_id: 3 },
-  { id: 36, title: "Screen flickering on desktop monitor",       description: "Monitor flickers intermittently.",                                    category: "HARDWARE", status: "CLOSED",      created_at: "2025-06-05T10:00:00Z", closed_at: "2025-06-06T09:30:00Z", comment: null,                          staff_id: "s-15", assigned_to_id: 1 },
-  { id: 35, title: "Slow internet on 6th floor",                 description: "Internet noticeably slow 9–11am.",                                    category: "NETWORK",  status: "OPEN",        created_at: "2025-06-09T07:50:00Z", closed_at: null,                   comment: null,                          staff_id: "s-16", assigned_to_id: null },
-  { id: 34, title: "Email signature not saving",                 description: "Signature reverts after a day.",                                     category: "SOFTWARE", status: "OPEN",        created_at: "2025-06-09T06:30:00Z", closed_at: null,                   comment: null,                          staff_id: "s-17", assigned_to_id: null },
-  { id: 33, title: "Excel crashing on large files",               description: "Excel closes unexpectedly above 10MB.",                              category: "SOFTWARE", status: "IN_PROGRESS", created_at: "2025-06-08T14:00:00Z", closed_at: null,                   comment: null,                          staff_id: "s-18", assigned_to_id: 3 },
-  { id: 32, title: "Switch on 3rd floor showing errors",          description: "Network switch LED showing amber.",                                  category: "NETWORK",  status: "OPEN",        created_at: "2025-06-07T11:00:00Z", closed_at: null,                   comment: null,                          staff_id: "s-19", assigned_to_id: 2 },
-];
-
-const MOCK_STAFF: Record<string, StaffMember> = {
-  "s-10": { id: "s-10", full_name: "Grace Mwangi",  email: "grace.mwangi@treasury.go.ke",  department: { name: "Budget" } },
-  "s-11": { id: "s-11", full_name: "James Kariuki", email: "james.kariuki@treasury.go.ke", department: { name: "Procurement" } },
-  "s-12": { id: "s-12", full_name: "Faith Njoroge", email: "faith.njoroge@treasury.go.ke", department: { name: "Debt Mgmt" } },
-  "s-13": { id: "s-13", full_name: "Peter Kamau",   email: "peter.kamau@treasury.go.ke",   department: { name: "HR" } },
-  "s-14": { id: "s-14", full_name: "Susan Achieng", email: "susan.achieng@treasury.go.ke", department: { name: "Accounts" } },
-  "s-15": { id: "s-15", full_name: "David Otieno",  email: "david.otieno@treasury.go.ke",  department: { name: "Legal" } },
-  "s-16": { id: "s-16", full_name: "Lilian Wambua", email: "lilian.wambua@treasury.go.ke", department: { name: "Public Debt" } },
-  "s-17": { id: "s-17", full_name: "Moses Barasa",  email: "moses.barasa@treasury.go.ke",  department: { name: "Finance" } },
-  "s-18": { id: "s-18", full_name: "Rachel Ouma",   email: "rachel.ouma@treasury.go.ke",   department: { name: "Planning" } },
-  "s-19": { id: "s-19", full_name: "Tom Simiyu",    email: "tom.simiyu@treasury.go.ke",    department: { name: "ICT" } },
-};
-
-const MOCK_PERSONNEL: IctPersonnel[] = [
-  { id: 1, staff_id: "ict-1", specialization: "hardware",             phone_extension: "4201", availability: "BUSY",      is_active: true, full_name: "Brian Odhiambo" },
-  { id: 2, staff_id: "ict-2", specialization: "networking",           phone_extension: "4202", availability: "AVAILABLE", is_active: true, full_name: "Ann Wanjiku" },
-  { id: 3, staff_id: "ict-3", specialization: "software_and_systems", phone_extension: "4203", availability: "AVAILABLE", is_active: true, full_name: "Ivy Njuguna" },
-  { id: 4, staff_id: "ict-4", specialization: "security",             phone_extension: "4204", availability: "OFF_DUTY",  is_active: true, full_name: "Kevin Mutua" },
-  { id: 5, staff_id: "ict-5", specialization: "hardware",             phone_extension: "4205", availability: "AVAILABLE", is_active: true, full_name: "Stella Kimani" },
-];
-
 // ── Config ────────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; bg: string; icon: React.ElementType }> = {
   OPEN:        { label: "Open",        color: "#B91C1C", bg: "#FEF2F2", icon: AlertCircle  },
@@ -135,9 +100,9 @@ function Toast({ msg, type, onClose }: { msg: string; type: "success" | "error";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AdminTicketsPage() {
-  const [tickets, setTickets]       = useState<Ticket[]>(MOCK_TICKETS);
-  const [staffMap, setStaffMap]     = useState<Record<string, StaffMember>>(MOCK_STAFF);
-  const [personnel, setPersonnel]   = useState<IctPersonnel[]>(MOCK_PERSONNEL);
+  const [tickets, setTickets]       = useState<Ticket[]>([]);
+  const [staffMap, setStaffMap]     = useState<Record<string, StaffMember>>({});
+  const [personnel, setPersonnel]   = useState<IctPersonnel[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
   const [search, setSearch]         = useState("");
