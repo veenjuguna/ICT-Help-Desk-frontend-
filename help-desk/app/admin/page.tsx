@@ -158,28 +158,63 @@ export default function AdminDashboardPage() {
           fetch(`${API}/auth/sessions?active_only=true&limit=10`, { credentials: "include" }),
           fetch(`${API}/staff/?limit=200`,                      { credentials: "include" }),
         ]);
+if (meRes.ok) setUser(await meRes.json());
 
-        if (meRes.ok)       setUser(await meRes.json());
-        if (summaryRes.ok)  setSummary(await summaryRes.json());
-        if (assetsRes.ok)   setAssets(await assetsRes.json());
+        if (summaryRes.ok) {
+          const raw = await summaryRes.json();
+          console.log("SUMMARY RAW:", raw);
+          setSummary(raw);
+        } else {
+          console.log("SUMMARY FAILED:", summaryRes.status, await summaryRes.text());
+        }
+
+        if (assetsRes.ok) {
+          const raw = await assetsRes.json();
+          console.log("ASSETS RAW:", raw);
+          setAssets(Array.isArray(raw) ? raw : raw.assets ?? []);
+        } else {
+          console.log("ASSETS FAILED:", assetsRes.status, await assetsRes.text());
+        }
+
         if (sessionsRes.ok) setSessions(await sessionsRes.json());
 
-        if (personnelRes.ok) setPersonnel(await personnelRes.json());
+        if (personnelRes.ok) {
+          const raw = await personnelRes.json();
+          console.log("PERSONNEL RAW:", raw);
+          setPersonnel(Array.isArray(raw) ? raw : raw.personnel ?? []);
+        } else {
+          console.log("PERSONNEL FAILED:", personnelRes.status, await personnelRes.text());
+        }
 
-        if (ticketsRes.ok)  setRecentTickets(await ticketsRes.json());
+        if (ticketsRes.ok) {
+          const raw = await ticketsRes.json();
+          console.log("TICKETS RAW:", raw);
+          setRecentTickets(Array.isArray(raw) ? raw : raw.tickets ?? []);
+        } else {
+          console.log("TICKETS FAILED:", ticketsRes.status, await ticketsRes.text());
+        }
 
         if (queuedRes.ok) {
           const queued: TicketItem[] = await queuedRes.json();
-          setQueuedCount(queued.length);
+          console.log("QUEUED RAW:", queued);
+          setQueuedCount(Array.isArray(queued) ? queued.length : 0);
+        } else {
+          console.log("QUEUED FAILED:", queuedRes.status, await queuedRes.text());
         }
 
         // Build staff lookup map for resolving names from IDs
         if (staffRes.ok) {
-          const allStaff: StaffItem[] = await staffRes.json();
-          setTotalStaff(allStaff.length);
-          const map: Record<string, StaffItem> = {};
-          allStaff.forEach(s => { map[s.id] = s; });
-          setStaffMap(map);
+          const raw = await staffRes.json();
+          console.log("STAFF RAW:", raw);
+          const staffArray: StaffItem[] = Array.isArray(raw) ? raw : raw.staff ?? [];
+          const staffLookup = staffArray.reduce<Record<string, StaffItem>>((acc, staff) => {
+            acc[staff.id] = staff;
+            return acc;
+          }, {});
+          setStaffMap(staffLookup);
+          setTotalStaff(staffArray.length);
+        } else {
+          console.log("STAFF FAILED:", staffRes.status, await staffRes.text());
         }
       } catch (e) {
         console.error("Dashboard fetch error:", e);

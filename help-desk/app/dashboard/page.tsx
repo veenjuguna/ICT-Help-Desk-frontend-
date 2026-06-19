@@ -9,7 +9,6 @@ import {
   CheckCircle,
   AlertCircle,
   Loader,
-  ArrowRight,
   Bell,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -43,60 +42,8 @@ function getHour() {
   return "Good Evening";
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { bg: string; color: string }> = {
-    Open: { bg: "#FFF3E0", color: "#C8962E" },
-    "In Progress": { bg: "#FFF8E0", color: "#6B2D0F" },
-    Resolved: { bg: "#E8F5E9", color: "#2D6B0F" },
-    Closed: { bg: "#F3F3F3", color: "#555" },
-  };
-  const s = map[status] ?? { bg: "#eee", color: "#333" };
-  return (
-    <span
-      style={{
-        background: s.bg,
-        color: s.color,
-        padding: "3px 10px",
-        borderRadius: "20px",
-        fontSize: "11.5px",
-        fontWeight: 600,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {status}
-    </span>
-  );
-}
-
-function PriorityDot({ priority }: { priority: string }) {
-  const colors: Record<string, string> = {
-    High: "#BB0000",
-    Medium: "#C8962E",
-    Low: "#2D6B0F",
-  };
-  return (
-    <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          background: colors[priority] ?? "#aaa",
-          flexShrink: 0,
-          display: "inline-block",
-        }}
-      />
-      {priority}
-    </span>
-  );
-}
-
 export default function DashboardPage() {
-  const [user, setUser] = useState<{
-    full_name: string;
-    email: string;
-    department?: { name: string };
-  } | null>(null); // Do not seed from localStorage — session is cookie-based
+  const [user, setUser] = useState<User | null>(null); // Do not seed from localStorage — session is cookie-based
   const [tickets, setTickets] = useState<{ status: string }[]>([]);
 
   useEffect(() => {
