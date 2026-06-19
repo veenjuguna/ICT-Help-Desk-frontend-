@@ -6,14 +6,24 @@ type Ticket = {
   category: string;
   status: string;
   created_at: string;
+  comment?: string | null;
+  raised_by?: string;
   staff?: { full_name: string; department?: { name: string } };
 };
 
 const statusStyles: Record<string, string> = {
-  IN_PROGRESS: "bg-blue-100 text-blue-800",
-  OPEN:        "bg-amber-100 text-amber-800",
-  CLOSED:      "bg-gray-100 text-gray-600",
-  RESOLVED:    "bg-green-100 text-green-800",
+  in_progress: "bg-blue-100 text-blue-800",
+  open:        "bg-amber-100 text-amber-800",
+  closed:      "bg-gray-100 text-gray-600",
+};
+
+const categoryLabel: Record<string, string> = {
+  hardware:           "Hardware",
+  software:           "Software",
+  network:            "Network",
+  access_permissions: "Access & Permissions",
+  security_incidents: "Security",
+  other:              "Other",
 };
 
 interface Props {
@@ -38,7 +48,7 @@ export default function AssignedTicketTable({ tickets, fifoTicketId }: Props) {
         </colgroup>
         <thead>
           <tr className="border-b border-gray-100">
-            {["Ticket ID", "Employee", "Issue", "Category", "Status", "Action"].map((h) => (
+            {["Ticket ID", "Raised By", "Issue", "Category", "Status", "Action"].map((h) => (
               <th
                 key={h}
                 className="text-left px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide"
@@ -57,9 +67,10 @@ export default function AssignedTicketTable({ tickets, fifoTicketId }: Props) {
             </tr>
           ) : (
             tickets.map((t) => {
-              const isFifo = t.id === fifoTicketId;
-              const statusClass =
-                statusStyles[t.status] ?? "bg-gray-100 text-gray-600";
+              const isFifo       = t.id === fifoTicketId;
+              const statusClass  = statusStyles[t.status] ?? "bg-gray-100 text-gray-600";
+              const isUnresolved = t.status === "closed" && !!t.comment;
+              const raisedBy     = t.raised_by ?? t.staff?.full_name ?? "—";
 
               return (
                 <tr
@@ -67,6 +78,7 @@ export default function AssignedTicketTable({ tickets, fifoTicketId }: Props) {
                   className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                   style={isFifo ? { backgroundColor: "#fffbeb" } : {}}
                 >
+                  {/* Ticket ID */}
                   <td className="px-3 py-3.5 font-medium text-gray-700">
                     <span>TKT-{String(t.id).padStart(3, "0")}</span>
                     {isFifo && (
@@ -78,23 +90,38 @@ export default function AssignedTicketTable({ tickets, fifoTicketId }: Props) {
                       </span>
                     )}
                   </td>
+
+                  {/* Raised By */}
                   <td className="px-3 py-3.5">
-                    <p className="font-medium text-gray-800">
-                      {t.staff?.full_name ?? "—"}
-                    </p>
-                    <p className="text-gray-400 text-xs mt-0.5">
-                      {t.staff?.department?.name ?? "—"}
-                    </p>
+                    <p className="font-medium text-gray-800">{raisedBy}</p>
                   </td>
+
+                  {/* Issue */}
                   <td className="px-3 py-3.5 text-gray-700">{t.title}</td>
-                  <td className="px-3 py-3.5 text-gray-500">{t.category}</td>
+
+                  {/* Category */}
+                  <td className="px-3 py-3.5 text-gray-500">
+                    {categoryLabel[t.category] ?? t.category}
+                  </td>
+
+                  {/* Status */}
                   <td className="px-3 py-3.5">
                     <span
                       className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${statusClass}`}
                     >
                       {t.status.replace(/_/g, " ")}
                     </span>
+                    {isUnresolved && (
+                      <span
+                        className="block text-xs mt-0.5"
+                        style={{ color: "#BB0000" }}
+                      >
+                        ⚠ Unresolved
+                      </span>
+                    )}
                   </td>
+
+                  {/* Action */}
                   <td className="px-3 py-3.5">
                     <button className="text-[#7A3100] font-semibold hover:underline text-sm">
                       View

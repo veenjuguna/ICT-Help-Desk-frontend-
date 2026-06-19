@@ -4,8 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
 
+// ── Ticket Status ─────────────────────────────────────────────────────────────
 type TicketStatus = "open" | "in_progress" | "closed";
 
+// ── Core Data Shapes ──────────────────────────────────────────────────────────
 interface Ticket {
   id: number;
   title: string;
@@ -33,6 +35,14 @@ interface StaffProfile {
   role: string;
 }
 
+// NEW: Lightweight staff shape used to build the staffMap lookup.
+// Fetched from GET /staff/?limit=200 so tickets can resolve who raised them.
+interface StaffBasic {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
 interface IctProfile {
   id: number;
   staff_id: string;
@@ -42,6 +52,7 @@ interface IctProfile {
   is_active: boolean;
 }
 
+// ── Utility: Human-readable relative time ────────────────────────────────────
 function timeAgo(dateStr: string): string {
   const diff = Math.floor(
     (Date.now() - new Date(dateStr).getTime()) / 1000
@@ -52,6 +63,7 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+// ── Specialization display labels (maps backend enum → UI string) ─────────────
 const specializationLabel: Record<string, string> = {
   hardware:             "Hardware",
   networking:           "Networking",
@@ -60,8 +72,14 @@ const specializationLabel: Record<string, string> = {
   other:                "Other",
 };
 
+// ── Ticket filter options ─────────────────────────────────────────────────────
 type Filter = "All" | "open" | "in_progress";
 
+// ── Setup / Edit Profile Modal ────────────────────────────────────────────────
+// Handles two modes:
+//   • First-time setup  → POST /ict-personnel/me/setup
+//   • Edit existing     → PATCH /ict-personnel/me  (FIX: was previously hitting
+//                         PATCH /ict-personnel/{id} which requires AdminStaff)
 function SetupModal({
   onComplete,
   existing,
@@ -69,6 +87,7 @@ function SetupModal({
   onComplete: (profile: IctProfile) => void;
   existing: IctProfile | null;
 }) {
+  // isEdit is true when the technician already has a specialization set
   const isEdit = !!existing?.specialization;
 
   const [specialization, setSpecialization] = useState(existing?.specialization ?? "");
@@ -94,11 +113,12 @@ function SetupModal({
     setSubmitting(true);
     setError(null);
     try {
-      // FIX: completed the broken ternary — was missing the "PATCH" : "POST" branch
-      // and the method key was malformed (credentials line was glued onto it)
+      // FIX: Edit mode now calls PATCH /ict-personnel/me (self-service endpoint)
+      // instead of PATCH /ict-personnel/{id} which was admin-only and returned
+      // "Admin access required" for regular technicians.
       const res = await fetch(
         isEdit
-          ? `${API}/ict-personnel/${existing!.id}`
+          ? `${API}/ict-personnel/me`
           : `${API}/ict-personnel/me/setup`,
         {
           method: isEdit ? "PATCH" : "POST",
@@ -191,6 +211,7 @@ function SetupModal({
         )}
 
         <div className="flex gap-3">
+          {/* Cancel only shown in edit mode — first-time setup has no cancel */}
           {isEdit && (
             <button
               onClick={() => onComplete(existing!)}
@@ -214,6 +235,7 @@ function SetupModal({
   );
 }
 
+// ── Main Dashboard Component ──────────────────────────────────────────────────
 export default function TechnicianDashboard() {
   const router = useRouter();
 
@@ -222,6 +244,9 @@ export default function TechnicianDashboard() {
   const [ictProfile, setIctProfile]     = useState<IctProfile | null>(null);
   const [tickets, setTickets]           = useState<Ticket[]>([]);
   const [audit, setAudit]               = useState<AuditLog[]>([]);
+  // NEW: staffMap resolves staff_id → full_name so the ticket table can show
+  // who raised each ticket without a per-ticket API call.
+  const [staffMap, setStaffMap]         = useState<Record<string, StaffBasic>>({});
   const [loading, setLoading]           = useState(true);
   const [showSetup, setShowSetup]       = useState(false);
 
@@ -230,24 +255,37 @@ export default function TechnicianDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const [staffRes, ticketRes, auditRes, ictRes] = await Promise.all([
-          fetch(`${API}/staff/me`,         { credentials: "include" }),
-          fetch(`${API}/tickets`,          { credentials: "include" }),
-          fetch(`${API}/audit?limit=5`,    { credentials: "include" }),
-          fetch(`${API}/ict-personnel/me`, { credentials: "include" }),
+        // NEW: Added GET /staff/?limit=200 to the parallel fetch batch.
+        // This populates staffMap so we can resolve raised_by names on tickets.
+        const [staffRes, ticketRes, auditRes, ictRes, allStaffRes] = await Promise.all([
+          fetch(`${API}/staff/me`,          { credentials: "include" }),
+          fetch(`${API}/tickets/`,          { credentials: "include" }),
+          fetch(`${API}/audit?limit=5`,     { credentials: "include" }),
+          fetch(`${API}/ict-personnel/me`,  { credentials: "include" }),
+          fetch(`${API}/staff/?limit=200`,  { credentials: "include" }),
         ]);
 
         if (staffRes.ok)  setStaff(await staffRes.json());
         if (ticketRes.ok) setTickets(await ticketRes.json());
         if (auditRes.ok)  setAudit(await auditRes.json());
 
+        // NEW: Build a lookup map: staff_id (UUID string) → StaffBasic object.
+        // Used below to enrich tickets with raised_by before passing to the table.
+        if (allStaffRes.ok) {
+          const allStaff: StaffBasic[] = await allStaffRes.json();
+          const map: Record<string, StaffBasic> = {};
+          allStaff.forEach(s => { map[s.id] = s; });
+          setStaffMap(map);
+        }
+
         if (ictRes.ok) {
           const myProfile: IctProfile = await ictRes.json();
           setIctProfile(myProfile);
+          // Show setup modal if specialization hasn't been set yet
           if (!myProfile.specialization) setShowSetup(true);
         } else {
-          // FIX: if /me 404s (no profile created yet), still show setup
-          // instead of leaving ictProfile null and showing nothing
+          // FIX: if GET /ict-personnel/me returns 404 (profile not created yet),
+          // still trigger the setup modal instead of leaving the dashboard empty.
           setShowSetup(true);
         }
       } catch (e) {
@@ -258,11 +296,14 @@ export default function TechnicianDashboard() {
     })();
   }, [API]);
 
+  // Called by SetupModal on both first-time setup and edits.
+  // Updates local ictProfile state and dismisses the modal.
   function handleSetupComplete(profile: IctProfile) {
     setIctProfile(profile);
     setShowSetup(false);
   }
 
+  // ── Derived display values ─────────────────────────────────────────────────
   const fullName = staff?.full_name ?? "Loading...";
   const initials = fullName
     .split(" ")
@@ -271,10 +312,12 @@ export default function TechnicianDashboard() {
     .slice(0, 2)
     .toUpperCase();
 
+  // Map backend enum value to human-readable label for display
   const specialization = ictProfile?.specialization
     ? specializationLabel[ictProfile.specialization] ?? ictProfile.specialization
     : null;
 
+  // ── Ticket statistics ──────────────────────────────────────────────────────
   const assignedCount   = tickets.length;
   const completedToday  = tickets.filter((t) => {
     if (t.status !== "closed" || !t.closed_at) return false;
@@ -283,28 +326,39 @@ export default function TechnicianDashboard() {
   const openCount       = tickets.filter((t) => t.status === "open").length;
   const inProgressCount = tickets.filter((t) => t.status === "in_progress").length;
 
+  // FIFO: surface the oldest open/in-progress ticket so the technician
+  // always works in the order tickets were raised
   const fifoTicket = tickets
     .filter((t) => t.status === "open" || t.status === "in_progress")
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
 
+  // Apply active filter tab
   const filtered =
     activeFilter === "All"
       ? tickets
       : tickets.filter((t) => t.status === activeFilter);
 
+  // NEW: Enrich filtered tickets with raised_by (full name of the staff member
+  // who raised the ticket) resolved from staffMap. Avoids N+1 fetch calls.
+  const enrichedTickets = filtered.map((t) => ({
+    ...t,
+    raised_by: staffMap[t.staff_id]?.full_name ?? "—",
+  }));
+
   return (
     <>
+      {/* Setup modal rendered outside main div so pointer-events lock doesn't block it */}
       {showSetup && (
         <SetupModal onComplete={handleSetupComplete} existing={ictProfile} />
       )}
 
+      {/* Main layout — pointer events disabled while setup modal is open */}
       <div className={`min-h-screen bg-gray-100 flex flex-col ${showSetup ? "pointer-events-none select-none" : ""}`}>
 
         {/* ── Top Bar ── */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex flex-wrap items-start justify-between gap-3">
-
-          {/* Bell + Avatar */}
           <div className="flex items-center gap-2.5 ml-auto">
+            {/* Notification bell with unread indicator */}
             <div
               className="relative cursor-pointer w-10 h-10 flex items-center justify-center rounded-full"
               style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 3px rgba(90,30,0,0.08)" }}
@@ -318,6 +372,7 @@ export default function TechnicianDashboard() {
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-400" />
             </div>
 
+            {/* Avatar — initials derived from staff full_name */}
             <div
               style={{
                 width: 36, height: 36, borderRadius: "50%",
@@ -347,6 +402,7 @@ export default function TechnicianDashboard() {
               {specialization ?? "Complete your profile to get started"}
             </p>
 
+            {/* Availability badge — color-coded by status */}
             {ictProfile?.availability && (
               <span
                 className="mt-3 inline-block px-3 py-1 rounded-full text-xs font-semibold"
@@ -365,6 +421,7 @@ export default function TechnicianDashboard() {
               </span>
             )}
 
+            {/* FIFO next-up banner — shown when there's an active ticket */}
             {fifoTicket && (
               <div
                 className="mt-4 px-4 py-2 rounded-lg inline-flex items-center gap-2"
@@ -381,7 +438,7 @@ export default function TechnicianDashboard() {
         {/* ── Main Content ── */}
         <main className="flex-1 px-4 sm:px-6 py-5 flex flex-col gap-5">
 
-          {/* Stats */}
+          {/* ── Stats Row ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               { label: "Assigned to Me",  value: loading ? "—" : String(assignedCount)   },
@@ -402,11 +459,13 @@ export default function TechnicianDashboard() {
             ))}
           </div>
 
-          {/* Body */}
+          {/* ── Body: Tickets + Right Panel ── */}
           <div className="flex flex-col xl:flex-row gap-4">
 
             {/* Tickets Table */}
             <div className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-w-0">
+
+              {/* Filter tabs */}
               <div className="flex gap-2 px-4 pt-4 pb-2 border-b border-gray-100">
                 {(["All", "open", "in_progress"] as Filter[]).map((f) => (
                   <button
@@ -427,17 +486,23 @@ export default function TechnicianDashboard() {
               {loading ? (
                 <div className="p-8 text-center text-gray-400 text-sm">Loading tickets...</div>
               ) : !ictProfile?.is_active ? (
+                // Guard: don't show tickets until profile is active
                 <div className="p-8 text-center text-gray-400 text-sm">
                   Complete your profile setup to start receiving tickets.
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="p-8 text-center text-gray-400 text-sm">No tickets found.</div>
               ) : (
-                <AssignedTicketTable tickets={filtered} fifoTicketId={fifoTicket?.id} />
+                // NEW: Pass enrichedTickets (with raised_by resolved) instead of
+                // raw filtered tickets so the table can display the requester name.
+                <AssignedTicketTable
+                  tickets={enrichedTickets}
+                  fifoTicketId={fifoTicket?.id}
+                />
               )}
             </div>
 
-            {/* Right Panel */}
+            {/* ── Right Panel ── */}
             <div className="xl:w-[240px] flex-shrink-0 flex flex-row xl:flex-col gap-3">
 
               {/* Recent Activity */}
@@ -475,7 +540,7 @@ export default function TechnicianDashboard() {
                 )}
               </div>
 
-              {/* Specialization */}
+              {/* My Specialization */}
               <div className="flex-1 xl:flex-none bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
                 <h3 className="font-semibold text-base sm:text-lg text-gray-800 mb-4">
                   My Specialization
@@ -491,6 +556,7 @@ export default function TechnicianDashboard() {
                     <p className="text-xs text-gray-400 mt-3">
                       You only receive tickets matching your specialization.
                     </p>
+                    {/* Triggers edit mode of SetupModal */}
                     <button
                       onClick={() => setShowSetup(true)}
                       className="text-xs font-medium underline mt-2 block"

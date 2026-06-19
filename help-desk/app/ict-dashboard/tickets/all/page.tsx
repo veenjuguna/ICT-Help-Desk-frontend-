@@ -132,7 +132,6 @@ function PriorityBadge({ priority }: { priority: TicketPriority }) {
 }
 
 // ─── Ticket Detail Panel ─────────────────────────────────────────────────────
-
 function TicketDetail({
   ticket,
   onClose,
@@ -140,7 +139,7 @@ function TicketDetail({
 }: {
   ticket: Ticket;
   onClose: () => void;
-  onStatusChange: (id: number, status: TicketStatus) => void;
+  onStatusChange: (id: number, status: string) => void;
 }) {
   const [noteText, setNoteText] = useState("");
   const [statusDropdown, setStatusDropdown] = useState(false);
@@ -222,202 +221,231 @@ function TicketDetail({
         </div>
 
         {/* Body */}
-        {/* Issue */}
-        <div>
-          <p
-            style={{
-              fontSize: 11,
-              color: "#7A5C44",
-              marginBottom: 6,
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-            }}
-          >
-            Issue
-          </p>
-          <p
-            style={{
-              fontSize: 13,
-              color: "#7A5C44",
-              marginTop: 4,
-              lineHeight: 1.5,
-            }}
-          >
-            {ticket.description}
-          </p>
-        </div>
-
-        {/* Info grid */}
         <div
           style={{
-            background: "#FDF8F2",
-            borderRadius: 10,
-            padding: "0.9rem 1rem",
-            border: "1px solid #EDE0D0",
+            padding: "1.25rem 1.5rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1.5rem",
           }}
         >
+          {/* Issue */}
+          <div>
+            <p
+              style={{
+                fontSize: 11,
+                color: "#7A5C44",
+                marginBottom: 8,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              Issue
+            </p>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#1A0F08",
+                lineHeight: 1.6,
+                background: "#FDF8F2",
+                padding: "0.75rem 1rem",
+                borderRadius: 8,
+                border: "1px solid #EDE0D0",
+              }}
+            >
+              {ticket.description}
+            </p>
+          </div>
+
+          {/* Info grid */}
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "0.75rem",
+              background: "#FDF8F2",
+              borderRadius: 10,
+              padding: "1rem 1.1rem",
+              border: "1px solid #EDE0D0",
             }}
           >
-            {(
-              [
-                ["Category", ticket.category],
-                ["Status", ticket.status],
-                ["Created", new Date(ticket.created_at).toLocaleDateString()],
-                [
-                  "Time",
-                  new Date(ticket.created_at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }),
-                ],
-              ] as [string, string][]
-            ).map(([label, value]) => (
-              <div key={label}>
-                <p style={{ fontSize: 11, color: "#7A5C44", marginBottom: 2 }}>
-                  {label}
-                </p>
-                <p style={{ fontSize: 13, color: "#1A0F08", fontWeight: 600 }}>
-                  {value}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Status change */}
-        <div>
-          <p style={{ fontSize: 11, color: "#7A5C44", marginBottom: 6 }}>
-            Status
-          </p>
-          <div style={{ position: "relative" }}>
-            <button
-              onClick={() => setStatusDropdown((v) => !v)}
+            <div
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                background: "#FDF8F2",
-                border: "1px solid #C8962E",
-                borderRadius: 8,
-                padding: "5px 10px",
-                cursor: "pointer",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                rowGap: "1.1rem",
+                columnGap: "1rem",
+              }}
+            >
+              {(
+                [
+                  ["Category", ticket.category],
+                  ["Status", ticket.status],
+                  ["Created", new Date(ticket.created_at).toLocaleDateString()],
+                  [
+                    "Time",
+                    new Date(ticket.created_at).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }),
+                  ],
+                ] as [string, string][]
+              ).map(([label, value]) => (
+                <div key={label}>
+                  <p
+                    style={{ fontSize: 11, color: "#7A5C44", marginBottom: 4 }}
+                  >
+                    {label}
+                  </p>
+                  <p
+                    style={{ fontSize: 14, color: "#1A0F08", fontWeight: 600 }}
+                  >
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Status change */}
+          <div>
+            <p
+              style={{
+                fontSize: 11,
+                color: "#7A5C44",
+                marginBottom: 8,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              Update Status
+            </p>
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setStatusDropdown((v) => !v)}
+                style={{
+                  display: "flex",
+                  width: "100%",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  background: "#FDF8F2",
+                  border: "1px solid #C8962E",
+                  borderRadius: 8,
+                  padding: "0.65rem 0.9rem",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  color: "#1A0F08",
+                  fontFamily: "inherit",
+                }}
+              >
+                <span
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background:
+                      ticket.status.toLowerCase() === "open"
+                        ? "#FEF2F2"
+                        : ticket.status.toLowerCase() === "in_progress"
+                          ? "#FFF8E0"
+                          : "#F0FFF4",
+                    color:
+                      ticket.status.toLowerCase() === "open"
+                        ? "#BB0000"
+                        : ticket.status.toLowerCase() === "in_progress"
+                          ? "#C8962E"
+                          : "#1E6B33",
+                  }}
+                >
+                  {ticket.status.toLowerCase() === "open"
+                    ? "Open"
+                    : ticket.status.toLowerCase() === "in_progress"
+                      ? "In Progress"
+                      : "Resolved"}
+                </span>
+                <ChevronDown size={15} style={{ color: "#7A5C44" }} />
+              </button>
+              {statusDropdown && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "110%",
+                    left: 0,
+                    right: 0,
+                    background: "#fff",
+                    border: "1px solid #EDE0D0",
+                    borderRadius: 10,
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                    zIndex: 10,
+                    overflow: "hidden",
+                  }}
+                >
+                  {(["open", "in_progress", "closed"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => {
+                        setStatusDropdown(false);
+                        onStatusChange(ticket.id, s as any);
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        width: "100%",
+                        padding: "0.7rem 0.9rem",
+                        background:
+                          s === ticket.status.toLowerCase()
+                            ? "#FDF8F2"
+                            : "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        color: "#1A0F08",
+                        fontFamily: "inherit",
+                        textAlign: "left",
+                      }}
+                    >
+                      {s === "open"
+                        ? "Open"
+                        : s === "in_progress"
+                          ? "In Progress"
+                          : "Resolved"}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Mark as resolved */}
+          {ticket.status.toLowerCase() !== "closed" && (
+            <button
+              onClick={() => {
+                setStatusDropdown(false);
+                onStatusChange(ticket.id, "closed" as any);
+              }}
+              style={{
+                width: "100%",
+                height: 42,
+                background: "#1E6B33",
+                color: "#fff",
+                border: "none",
+                borderRadius: 9,
                 fontSize: 13,
-                color: "#1A0F08",
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
                 fontFamily: "inherit",
               }}
             >
-              <span
-                style={{
-                  padding: "3px 10px",
-                  borderRadius: 20,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  background:
-                    ticket.status === "OPEN"
-                      ? "#FEF2F2"
-                      : ticket.status === "IN_PROGRESS"
-                        ? "#FFF8E0"
-                        : "#F0FFF4",
-                  color:
-                    ticket.status === "OPEN"
-                      ? "#BB0000"
-                      : ticket.status === "IN_PROGRESS"
-                        ? "#C8962E"
-                        : "#1E6B33",
-                }}
-              >
-                {ticket.status === "OPEN"
-                  ? "Open"
-                  : ticket.status === "IN_PROGRESS"
-                    ? "In Progress"
-                    : "Resolved"}
-              </span>
-              <ChevronDown size={13} style={{ color: "#7A5C44" }} />
+              <CheckCircle size={15} />
+              Mark as Resolved
             </button>
-            {statusDropdown && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "110%",
-                  left: 0,
-                  background: "#fff",
-                  border: "1px solid #EDE0D0",
-                  borderRadius: 10,
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-                  zIndex: 10,
-                  minWidth: 180,
-                  overflow: "hidden",
-                }}
-              >
-                {(["OPEN", "IN_PROGRESS", "CLOSED"] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => {
-                      setStatusDropdown(false);
-                      onStatusChange(ticket.id, s as any);
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      width: "100%",
-                      padding: "10px 14px",
-                      background:
-                        s === ticket.status ? "#FDF8F2" : "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      color: "#1A0F08",
-                      fontFamily: "inherit",
-                      textAlign: "left",
-                    }}
-                  >
-                    {s === "OPEN"
-                      ? "Open"
-                      : s === "IN_PROGRESS"
-                        ? "In Progress"
-                        : "Resolved"}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
         </div>
-
-        {/* Mark as resolved */}
-        {ticket.status !== "CLOSED" && (
-          <button
-            onClick={() => {
-              setStatusDropdown(false);
-              onStatusChange(ticket.id, "CLOSED" as any);
-            }}
-            style={{
-              width: "100%",
-              height: 40,
-              background: "#1E6B33",
-              color: "#fff",
-              border: "none",
-              borderRadius: 9,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              fontFamily: "inherit",
-            }}
-          >
-            <CheckCircle size={15} />
-            Mark as Resolved
-          </button>
-        )}
       </div>
     </div>
   );
@@ -456,13 +484,28 @@ export default function AllTicketsPage() {
     })();
   }, [API]);
 
-  const handleStatusChange = (id: number, newStatus: TicketStatus) => {
+  const handleStatusChange = async (id: number, newStatus: string) => {
+    // Optimistic UI update
     setTickets((prev) =>
       prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)),
     );
     setSelectedTicket((prev) =>
       prev?.id === id ? { ...prev, status: newStatus } : prev,
     );
+
+    try {
+      const res = await fetch(`${API}/tickets/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) {
+        console.error("Failed to update ticket status:", res.status);
+      }
+    } catch (e) {
+      console.error("Status update error:", e);
+    }
   };
 
   const statusMap: Record<string, string> = {
@@ -481,15 +524,18 @@ export default function AllTicketsPage() {
         t.description?.toLowerCase().includes(q)) &&
       (categoryFilter === "All Categories" ||
         t.category.toLowerCase() === categoryFilter.toLowerCase()) &&
-      (statusFilter === "all" || t.status === statusMap[statusFilter])
+      (statusFilter === "all" ||
+        t.status.toLowerCase() === statusMap[statusFilter].toLowerCase())
     );
   });
 
   const counts = {
-    open: tickets.filter((t) => t.status === "OPEN").length,
-    in_progress: tickets.filter((t) => t.status === "IN_PROGRESS").length,
-    resolved: tickets.filter((t) => t.status === "CLOSED").length,
-    escalated: tickets.filter((t) => t.status === "ESCALATED").length,
+    open: tickets.filter((t) => t.status.toLowerCase() === "open").length,
+    in_progress: tickets.filter((t) => t.status.toLowerCase() === "in_progress")
+      .length,
+    resolved: tickets.filter((t) => t.status.toLowerCase() === "closed").length,
+    escalated: tickets.filter((t) => t.status.toLowerCase() === "escalated")
+      .length,
   };
 
   const fullName = staff?.full_name ?? "Loading...";
@@ -802,28 +848,28 @@ export default function AllTicketsPage() {
                               fontSize: 12,
                               fontWeight: 600,
                               background:
-                                t.status === "OPEN"
+                                t.status.toLowerCase() === "open"
                                   ? "#FEF2F2"
-                                  : t.status === "IN_PROGRESS"
+                                  : t.status.toLowerCase() === "in_progress"
                                     ? "#FFF8E0"
-                                    : t.status === "CLOSED"
+                                    : t.status.toLowerCase() === "closed"
                                       ? "#F0FFF4"
                                       : "#F5F0FF",
                               color:
-                                t.status === "OPEN"
+                                t.status.toLowerCase() === "open"
                                   ? "#BB0000"
-                                  : t.status === "IN_PROGRESS"
+                                  : t.status.toLowerCase() === "in_progress"
                                     ? "#C8962E"
-                                    : t.status === "CLOSED"
+                                    : t.status.toLowerCase() === "closed"
                                       ? "#1E6B33"
                                       : "#6B35B5",
                             }}
                           >
-                            {t.status === "OPEN"
+                            {t.status.toLowerCase() === "open"
                               ? "Open"
-                              : t.status === "IN_PROGRESS"
+                              : t.status.toLowerCase() === "in_progress"
                                 ? "In Progress"
-                                : t.status === "CLOSED"
+                                : t.status.toLowerCase() === "closed"
                                   ? "Resolved"
                                   : t.status}
                           </span>
