@@ -1,15 +1,7 @@
 "use client"; // Required for Next.js App Router if using hooks
 
 import { useState, useEffect } from "react";
-import {
-  Monitor,
-  Wrench,
-  Network,
-  AlertCircle,
-  Send,
-  Clock,
-} from "lucide-react";
-
+import { Monitor, Wrench, Network, Shield, Send, Clock } from "lucide-react";
 export default function RequestPage() {
   const [staffId, setStaffId] = useState<string>("");
   const [formData, setFormData] = useState({
@@ -125,10 +117,10 @@ export default function RequestPage() {
       desc: "WiFi, Internet, VPN",
     },
     {
-      id: "access_permissions",
-      label: "Access",
-      icon: AlertCircle,
-      desc: "Logins, Permissions",
+      id: "security_incidents",
+      label: "Security",
+      icon: Shield,
+      desc: "Incidents, Threats",
     },
   ];
 
@@ -274,7 +266,7 @@ export default function RequestPage() {
             connectivity.
           </p>
           <p>
-            <strong className="text-black">Access:</strong> Login problems,
+            <strong className="text-black">Security:</strong> Login problems,
             Password resets, File permissions.
           </p>
         </div>

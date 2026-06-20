@@ -13,20 +13,17 @@ import {
 type Category = "Hardware" | "Software" | "Network" | "Security" | null;
 
 export default function StandaloneRaiseTicketPage() {
-  // ── Form Content Inputs State ──────────────────────────────────────────────
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>(null);
   const [description, setDescription] = useState("");
   const [showCategoryError, setShowCategoryError] = useState(false);
 
-  // ── Network Lifecycle States ────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
     type: "success" | "error" | null;
     message: string;
   }>({ type: null, message: "" });
 
-  // ── Actions & Handlers ──────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -45,10 +42,18 @@ export default function StandaloneRaiseTicketPage() {
     const cleanBaseUrl = rawBaseUrl.replace(/\/$/, "");
 
     // Normalizing payload format to match backend expected casing specifications
+    const categoryMap: Record<string, string> = {
+      Hardware: "hardware",
+      Software: "software",
+      Network: "network",
+      Security: "security_incidents",
+    };
+
     const payload = {
       title: title.trim(),
       description: description.trim(),
-      category: category.toLowerCase(), // Maps "Hardware" -> "hardware"
+      category:
+        categoryMap[category as string] ?? (category as string).toLowerCase(),
     };
 
     try {
