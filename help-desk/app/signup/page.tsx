@@ -678,7 +678,7 @@ export default function SignupPage() {
                   <div className="su-input-wrap">
                     <input
                       type="text"
-                      placeholder="e.g. 4th Floor"
+                      placeholder="e.g. Treasury Building, 4th Floor"
                       value={form.officeLocation}
                       onChange={(e) => set("officeLocation", e.target.value)}
                     />
