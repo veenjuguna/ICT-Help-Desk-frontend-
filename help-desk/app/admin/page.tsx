@@ -436,7 +436,7 @@ if (meRes.ok) setUser(await meRes.json());
           padding: 2px 8px; border-radius: 10px;
         }
 
-        .staff-list { padding: 4px 0; }
+        .staff-list { padding: 4px 0; max-height: 280px; overflow-y: auto; }
         .staff-row {
           display: flex; align-items: center;
           padding: 11px 1.5rem; gap: 12px;
@@ -686,7 +686,7 @@ if (meRes.ok) setUser(await meRes.json());
                 <div className="staff-list">
                   {personnel.length === 0 ? (
                     <p className="empty-state">No ICT personnel yet.</p>
-                  ) : personnel.slice(0, 6).map((p) => {
+                  ) : personnel.map((p) => {
                     const s = staffMap[p.staff_id];
                     const name = s?.full_name ?? `Staff ${p.staff_id.slice(0, 6)}`;
                     const availDot =
