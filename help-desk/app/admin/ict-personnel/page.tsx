@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Search, Plus, X, UserX } from "lucide-react";
+import { Search, Plus, X, UserX, UserCheck } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -165,6 +165,7 @@ export default function IctPersonnelPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [dutyTarget, setDutyTarget] = useState<IctPersonnel | null>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<IctPersonnel | null>(null);
+  const [reactivateTarget, setReactivateTarget] = useState<IctPersonnel | null>(null);
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [staffSearch, setStaffSearch] = useState("");
@@ -384,6 +385,34 @@ export default function IctPersonnelPage() {
       showToast("Technician deactivated.");
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Deactivation failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (!reactivateTarget) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API}/ict-personnel/${reactivateTarget.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { detail?: string }).detail ??
+            (err as { message?: string }).message ??
+            "Reactivation failed.",
+        );
+      }
+      setReactivateTarget(null);
+      await fetchPersonnel();
+      showToast("Technician reactivated.");
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Reactivation failed.");
     } finally {
       setSubmitting(false);
     }
@@ -724,7 +753,7 @@ export default function IctPersonnelPage() {
                               >
                                 Set Duty
                               </button>
-                              {p.is_active && (
+                              {p.is_active ? (
                                 <>
                                   <span className="ip-action-sep">|</span>
                                   <button
@@ -732,6 +761,17 @@ export default function IctPersonnelPage() {
                                     onClick={() => setDeactivateTarget(p)}
                                   >
                                     Deactivate
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="ip-action-sep">|</span>
+                                  <button
+                                    className="ip-action-link"
+                                    style={{ color: "#2D6B0F" }}
+                                    onClick={() => setReactivateTarget(p)}
+                                  >
+                                    Reactivate
                                   </button>
                                 </>
                               )}
@@ -911,7 +951,42 @@ export default function IctPersonnelPage() {
           </div>
         </div>
       )}
-
+      {/* Reactivate Confirmation */}
+      {reactivateTarget && (
+        <div className="ip-overlay" onClick={(e) => { if (e.target === e.currentTarget) setReactivateTarget(null); }}>
+          <div className="ip-modal" style={{ maxWidth: 420 }}>
+            <div className="ip-modal-header">
+              <p className="ip-modal-title">Reactivate Technician</p>
+              <button className="ip-modal-close" onClick={() => setReactivateTarget(null)}><X size={14} /></button>
+            </div>
+            <div className="ip-modal-body" style={{ textAlign: "center" }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: "50%",
+                background: "#E8F5E9", display: "flex",
+                alignItems: "center", justifyContent: "center",
+                color: "#2D6B0F", margin: "0 auto",
+              }}>
+                <UserCheck size={24} />
+              </div>
+              <p style={{ fontSize: 14, color: "var(--text-sub)" }}>
+                Reactivate ICT profile for
+              </p>
+              <p style={{ fontWeight: 700, color: "var(--brown)", fontSize: 15 }}>
+                {getStaffName(reactivateTarget.staff_id)}
+              </p>
+              <p style={{ fontSize: 12.5, color: "var(--text-sub)", lineHeight: 1.6 }}>
+                This technician will be included in ticket assignment triage again.
+              </p>
+            </div>
+            <div className="ip-modal-footer">
+              <button className="ip-btn-ghost" onClick={() => setReactivateTarget(null)}>Cancel</button>
+              <button className="ip-btn-submit" onClick={handleReactivate} disabled={submitting}>
+                {submitting ? "Reactivating…" : "Yes, Reactivate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {toast && <div className="ip-toast">{toast}</div>}
     </>
   );
