@@ -735,7 +735,7 @@ export default function IctPersonnelPage() {
                         </td>
                         <td><SpecializationBadge spec={p.specialization} /></td>
                         <td><AvailabilityBadge status={p.availability} /></td>
-                        <td><ActiveBadge active={p.is_active} /></td>
+                        <td><ActiveBadge active={p.is_active && p.availability === "available"} /></td>
                         {isAdmin && (
                           <td>
                             <div className="ip-actions">
