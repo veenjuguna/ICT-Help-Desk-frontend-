@@ -43,9 +43,9 @@ interface TicketItem {
 }
 
 interface TicketSummary {
-  OPEN?: number;
-  IN_PROGRESS?: number;
-  CLOSED?: number;
+  open?: number;
+  in_progress?: number;
+  closed?: number;
 }
 
 interface AssetItem {
@@ -83,12 +83,12 @@ function formatTime(iso: string) {
 function StatusBadge({ status, comment }: { status: string; comment?: string | null }) {
   // RESOLVED and UNRESOLVED are transient — never stored in DB
   // CLOSED with a comment = was marked unresolved by ICT
-  const isUnresolved = status === "CLOSED" && !!comment;
+  const isUnresolved = status === "closed" && !!comment;
 
   const map: Record<string, { bg: string; color: string }> = {
-    "OPEN":        { bg: "#FFF3E0", color: "#C8962E" },
-    "IN_PROGRESS": { bg: "#FFF8E0", color: "#6B2D0F" },
-    "CLOSED":      { bg: "#F3F3F3", color: "#555"    },
+    "open":        { bg: "#FFF3E0", color: "#C8962E" },
+    "in_progress": { bg: "#FFF8E0", color: "#6B2D0F" },
+    "closed":      { bg: "#F3F3F3", color: "#555"    },
   };
 
   const s = map[status] ?? { bg: "#eee", color: "#333" };
@@ -109,11 +109,11 @@ function StatusBadge({ status, comment }: { status: string; comment?: string | n
 }
 
 const specializationLabel: Record<string, string> = {
-  HARDWARE:             "Hardware",
-  NETWORKING:           "Networking",
-  SOFTWARE_AND_SYSTEMS: "Software & Systems",
-  SECURITY:             "Security",
-  OTHER:                "Other",
+  hardware:             "Hardware",
+  networking:           "Networking",
+  software_and_systems: "Software & Systems",
+  security:             "Security",
+  other:                "Other",
 };
 
 const categoryLabel: Record<string, string> = {
@@ -229,7 +229,7 @@ if (meRes.ok) setUser(await meRes.json());
   const email      = user?.email ?? "";
 
   const availableCount = personnel.filter(
-    p => p.availability === "AVAILABLE" && p.is_active
+    p => p.availability === "available" && p.is_active
   ).length;
 
   const today = new Date().toLocaleDateString("en-KE", {
@@ -245,7 +245,7 @@ if (meRes.ok) setUser(await meRes.json());
     },
     {
       label: "Open Tickets",
-      value: loading ? "—" : String(summary.OPEN ?? 0),
+      value: loading ? "—" : String(summary.open ?? 0),
       icon: Ticket,
       color: "#6B2D0F",
     },
@@ -689,8 +689,8 @@ if (meRes.ok) setUser(await meRes.json());
                     const s = staffMap[p.staff_id];
                     const name = s?.full_name ?? `Staff ${p.staff_id.slice(0, 6)}`;
                     const availDot =
-                      p.availability === "AVAILABLE" && p.is_active ? "#2D6B0F" :
-                      p.availability === "BUSY"                      ? "#C8962E" :
+                      p.availability === "available" && p.is_active ? "#2D6B0F" :
+                      p.availability === "busy"                      ? "#C8962E" :
                       "#B0906A";
 
                     return (
