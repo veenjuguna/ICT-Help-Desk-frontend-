@@ -116,11 +116,11 @@ function AvailabilityBadge({ status }: { status: Availability }) {
 
 function SpecializationBadge({ spec }: { spec: string }) {
   const map: Record<string, { bg: string; color: string }> = {
-    hardware:              { bg: "#E3F2FD", color: "#1565C0" },
-    networking:            { bg: "#E0F2F1", color: "#00695C" },
-    software_and_systems:  { bg: "#F3E5F5", color: "#7B1FA2" },
-    security:              { bg: "#FFEBEE", color: "#C62828" },
-    other:                 { bg: "#F5F5F5", color: "#616161" },
+    hardware:              { bg: "#FFF3E0", color: "#C8962E" },
+    networking:            { bg: "#F5EDE3", color: "#6B2D0F" },
+    software_and_systems:  { bg: "#FDF6EE", color: "#8B4513" },
+    security:              { bg: "#FFEBEE", color: "#BB0000" },
+    other:                 { bg: "#F3F3F3", color: "#7A5C44" },
   };
   const s = map[spec] ?? map.other;
   return (
@@ -145,7 +145,6 @@ function ActiveIndicator({ active }: { active: boolean }) {
     </span>
   );
 }
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function IctPersonnelPage() {
