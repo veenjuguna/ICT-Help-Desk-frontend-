@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Search, Plus, X, Check, UserX } from "lucide-react";
+import { Search, Plus, X, UserX } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ type Specialization =
 
 interface IctPersonnel {
   id: number;
-  staff_id: number;
+  staff_id: string;
   specialization: Specialization;
   availability: Availability;
   phone_extension?: string;
@@ -25,7 +25,7 @@ interface IctPersonnel {
 }
 
 interface Staff {
-  id: number;
+  id: string;
   full_name: string;
   email: string;
 }
@@ -134,14 +134,21 @@ function SpecializationBadge({ spec }: { spec: string }) {
   );
 }
 
-function ActiveIndicator({ active }: { active: boolean }) {
-  return active ? (
-    <span title="Active" style={{ color: "#2D6B0F", display: "inline-flex" }}>
-      <Check size={18} strokeWidth={2.5} />
-    </span>
-  ) : (
-    <span title="Inactive" style={{ color: "#BB0000", display: "inline-flex" }}>
-      <X size={18} strokeWidth={2.5} />
+function ActiveBadge({ active }: { active: boolean }) {
+  return (
+    <span style={{
+      background: active ? "#E8F5E9" : "#F3F3F3",
+      color: active ? "#2D6B0F" : "#7A5C44",
+      padding: "3px 10px", borderRadius: "20px",
+      fontSize: "11.5px", fontWeight: 600,
+      display: "inline-flex", alignItems: "center", gap: 5,
+      whiteSpace: "nowrap",
+    }}>
+      <span style={{
+        width: 6, height: 6, borderRadius: "50%",
+        background: active ? "#2D6B0F" : "#B0906A", flexShrink: 0,
+      }} />
+      {active ? "Active" : "Inactive"}
     </span>
   );
 }
@@ -166,7 +173,7 @@ export default function IctPersonnelPage() {
   const [toast, setToast] = useState("");
 
   const staffById = useMemo(() => {
-    const map = new Map<number, Staff>();
+    const map = new Map<string, Staff>();
     for (const s of staffList) map.set(s.id, s);
     return map;
   }, [staffList]);
@@ -204,7 +211,7 @@ export default function IctPersonnelPage() {
       const data = await res.json();
       const list = parseArray<Record<string, unknown>>(data).map((p) => ({
         id: p.id as number,
-        staff_id: (p.staff_id ?? (p.staff as { id?: number })?.id) as number,
+        staff_id: (p.staff_id ?? (p.staff as { id?: string })?.id) as string,
         specialization: (p.specialization ?? "OTHER") as Specialization,
         availability: normalizeAvailability(p),
         phone_extension: p.phone_extension as string | undefined,
@@ -223,7 +230,7 @@ export default function IctPersonnelPage() {
 
   const fetchStaff = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/staff`, { credentials: "include" });
+      const res = await fetch(`${API}/staff/?limit=200`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       setStaffList(parseArray<Staff>(data));
@@ -234,14 +241,14 @@ export default function IctPersonnelPage() {
     // Determine admin status by calling the session endpoint — no localStorage fallback
     // The session_id HttpOnly cookie is forwarded automatically with credentials: "include"
     try {
-      const res = await fetch(`${API}/admin/me`, { credentials: "include" });
+      const res = await fetch(`${API}/staff/me`, { credentials: "include" });
       if (res.ok) {
         const user: AdminUser = await res.json();
         setIsAdmin(isAdminRole(user.role));
       }
     } catch {}
   }, []);
-
+  
   useEffect(() => {
     const initialize = async () => {
       await fetchPersonnel();
@@ -256,7 +263,7 @@ export default function IctPersonnelPage() {
     return () => clearInterval(id);
   }, [fetchPersonnel]);
 
-  const getStaffName = (staffId: number) =>
+  const getStaffName = (staffId: string) =>
     staffById.get(staffId)?.full_name ?? `Staff #${staffId}`;
 
   const filtered = personnel.filter((p) => {
@@ -295,7 +302,7 @@ export default function IctPersonnelPage() {
     setFormError("");
     try {
       const body: Record<string, unknown> = {
-        staff_id: Number(form.staff_id),
+        staff_id: form.staff_id,
         specialization: form.specialization,
       };
       if (form.phone_extension) body.phone_extension = form.phone_extension;
@@ -699,7 +706,7 @@ export default function IctPersonnelPage() {
                         </td>
                         <td><SpecializationBadge spec={p.specialization} /></td>
                         <td><AvailabilityBadge status={p.availability} /></td>
-                        <td><ActiveIndicator active={p.is_active} /></td>
+                        <td><ActiveBadge active={p.is_active} /></td>
                         {isAdmin && (
                           <td>
                             <div className="ip-actions">
