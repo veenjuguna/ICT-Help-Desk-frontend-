@@ -148,7 +148,7 @@ function ActiveBadge({ active }: { active: boolean }) {
         width: 6, height: 6, borderRadius: "50%",
         background: active ? "#2D6B0F" : "#B0906A", flexShrink: 0,
       }} />
-      {active ? "Active" : "Inactive"}
+      {active ? "Assignable" : "Not Assignable"}
     </span>
   );
 }
@@ -691,7 +691,7 @@ export default function IctPersonnelPage() {
                     <th>Name</th>
                     <th>Specialization</th>
                     <th>Availability</th>
-                    <th>Active</th>
+                    <th>Assignable</th>
                     {isAdmin && <th style={{ textAlign: "right" }}>Actions</th>}
                   </tr>
                 </thead>
