@@ -618,10 +618,11 @@ if (meRes.ok) setUser(await meRes.json());
                         </td>
                       </tr>
                     ) : recentTickets.map((t) => {
-                      const assignedStaff = t.assigned_to_id
-                        ? Object.values(staffMap).find(
-                            s => s.id === String(t.assigned_to_id)
-                          )
+                      const assignedPersonnel = t.assigned_to_id
+                        ? personnel.find(p => p.id === t.assigned_to_id)
+                        : null;
+                      const assignedStaff = assignedPersonnel
+                        ? staffMap[assignedPersonnel.staff_id]
                         : null;
                       const raisedBy = staffMap[t.staff_id];
 
