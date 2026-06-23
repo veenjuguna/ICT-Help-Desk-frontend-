@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
 
-// ── Ticket Status ─────────────────────────────────────────────────────────────
+//  Ticket Status 
 type TicketStatus = "open" | "in_progress" | "closed";
 
-// ── Core Data Shapes ──────────────────────────────────────────────────────────
+// Core Data Shapes 
 interface Ticket {
   id: number;
   title: string;
@@ -46,7 +46,7 @@ interface IctProfile {
   is_active: boolean;
 }
 
-// ── Utility: Human-readable relative time ────────────────────────────────────
+//  Utility: Human-readable relative time 
 function timeAgo(dateStr: string): string {
   const diff = Math.floor(
     (Date.now() - new Date(dateStr).getTime()) / 1000
@@ -57,7 +57,15 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-// ── Specialization display labels (maps backend enum → UI string) ─────────────
+//  Utility: Time-of-day greeting 
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "GOOD MORNING";
+  if (hour < 18) return "GOOD AFTERNOON";
+  return "GOOD EVENING";
+}
+
+//  Specialization display labels (maps backend enum → UI string) 
 const specializationLabel: Record<string, string> = {
   hardware:             "Hardware",
   networking:           "Networking",
@@ -66,10 +74,10 @@ const specializationLabel: Record<string, string> = {
   other:                "Other",
 };
 
-// ── Ticket filter options ─────────────────────────────────────────────────────
+//  Ticket filter options 
 type Filter = "All" | "open" | "in_progress";
 
-// ── Setup / Edit Profile Modal ────────────────────────────────────────────────
+//  Setup / Edit Profile Modal 
 // Handles two modes:
 //   • First-time setup  → POST /ict-personnel/me/setup
 //   • Edit existing     → PATCH /ict-personnel/me (self-service, no admin needed)
@@ -227,7 +235,7 @@ function SetupModal({
   );
 }
 
-// ── Main Dashboard Component ──────────────────────────────────────────────────
+//  Main Dashboard Component 
 export default function TechnicianDashboard() {
   const router = useRouter();
 
@@ -306,7 +314,7 @@ export default function TechnicianDashboard() {
     setShowSetup(false);
   }
 
-  // ── Derived display values ─────────────────────────────────────────────────
+  //  Derived display values 
   const fullName = staff?.full_name ?? "Loading...";
   const initials = fullName
     .split(" ")
@@ -320,7 +328,7 @@ export default function TechnicianDashboard() {
     ? specializationLabel[ictProfile.specialization] ?? ictProfile.specialization
     : null;
 
-  // ── Ticket statistics ──────────────────────────────────────────────────────
+  //  Ticket statistics 
   const assignedCount   = tickets.length;
   const completedToday  = tickets.filter((t) => {
     if (t.status !== "closed" || !t.closed_at) return false;
@@ -394,7 +402,7 @@ export default function TechnicianDashboard() {
           >
             <p className="text-xs sm:text-sm font-semibold tracking-widest uppercase mb-1"
                style={{ color: "#C8922A" }}>
-              GOOD MORNING
+              {getGreeting()}
             </p>
             <h1 className="text-2xl sm:text-3xl font-bold text-white">{fullName}</h1>
             <p className="text-sm sm:text-base mt-1" style={{ color: "#D4A96A" }}>
