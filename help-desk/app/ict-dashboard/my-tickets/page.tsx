@@ -260,7 +260,7 @@ function EmptyState({ filter }: { filter: string }) {
           : "Try switching the filter above to see other tickets."}
       </p>
       <Link
-        href="/raise-ticket"
+        href="/ict-dashboard/raise-ticket"
         className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#44271a] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#3a2016] transition-colors shadow-sm"
       >
         <Plus size={15} strokeWidth={2.5} />
@@ -380,7 +380,7 @@ export default function MyTicketsPage() {
             />
           </button>
           <Link
-            href="/raise-ticket"
+            href="/ict-dashboard/raise-ticket"
             className="flex items-center gap-2 rounded-lg bg-[#44271a] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#3a2016] shadow-sm"
           >
             <Plus size={15} strokeWidth={2.5} />
