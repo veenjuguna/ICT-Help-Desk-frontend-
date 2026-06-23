@@ -45,15 +45,16 @@ type Ticket = {
   comment: string | null;
 };
 
-// Used to resolve staff_id → human-readable name via GET /staff/{id}/basic.
+// Used to resolve staff_id → human-readable profile via GET /staff/{id}/basic.
 // The /basic endpoint is accessible by any authenticated staff member,
 // unlike the full GET /{staff_id} which is admin-only.
 type StaffBasic = {
   id: string;
   full_name: string;
   email: string;
+  phone_number: string | null;    // FIX: was personal_number — this is the contact number
+  office_number: string | null;
   office_location: string | null;
-  personal_number: string | null;
 };
 
 // ── Status Badge ──────────────────────────────────────────────────────────────
@@ -84,9 +85,8 @@ export default function TicketDetailPage() {
   const [raisedBy, setRaisedBy]   = useState<StaffBasic | null>(null);
 
   const [currentStatus, setCurrentStatus] = useState("");
-  const [pendingStatus, setPendingStatus] = useState("");
-  const [saved, setSaved]         = useState(false);
   const [saving, setSaving]       = useState(false);
+  const [saved, setSaved]         = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -120,11 +120,10 @@ export default function TicketDetailPage() {
 
         const liveStatus = ticketStatusStore[data.id] ?? data.status;
         setCurrentStatus(liveStatus);
-        setPendingStatus(liveStatus);
 
-        // Step 2: Resolve staff_id → full name using the /basic endpoint.
-        // This endpoint is accessible by any authenticated staff member,
-        // so technicians can see who raised a ticket without admin rights.
+        // Step 2: Resolve staff_id → full profile using the /basic endpoint.
+        // Accessible by any authenticated staff member (not admin-only).
+        // Falls back gracefully to "Unknown Staff" if the fetch fails.
         if (data.staff_id) {
           const staffRes = await fetch(`${API}/staff/${data.staff_id}/basic`, {
             credentials: "include",
@@ -132,7 +131,6 @@ export default function TicketDetailPage() {
           if (staffRes.ok) {
             setRaisedBy(await staffRes.json());
           }
-          // If staff fetch fails, raisedBy stays null and falls back to "Unknown Staff"
         }
 
       } catch (err) {
@@ -145,23 +143,21 @@ export default function TicketDetailPage() {
     if (!isNaN(ticketId)) fetchTicket();
   }, [ticketId]);
 
-  // ── Status update ─────────────────────────────────────────────────────────
-  const statusOptions = [
-    { value: "open",        label: "Open" },
-    { value: "in_progress", label: "In Progress" },
-    { value: "resolved",    label: "Resolved" },
-  ];
-
-  const handleDone = async () => {
+  // FIX: ICT personnel can only mark a ticket resolved or unresolved.
+  // They cannot change status freely between open/in_progress — that is
+  // controlled by the ticket lifecycle (assignment, escalation, etc).
+  // Each button fires immediately as a direct action, no pending/confirm flow.
+  const handleMarkResolution = async (resolution: "resolved" | "unresolved") => {
     if (!ticket) return;
     try {
       setSaving(true);
       setSaveError(null);
+
       const res = await fetch(`${API}/tickets/${ticket.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: pendingStatus }),
+        body: JSON.stringify({ status: resolution }),
       });
 
       if (!res.ok) {
@@ -172,7 +168,6 @@ export default function TicketDetailPage() {
       const updated: Ticket = await res.json();
       setTicket(updated);
       setCurrentStatus(updated.status);
-      setPendingStatus(updated.status);
       ticketStatusStore[ticket.id] = updated.status;
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -356,51 +351,73 @@ export default function TicketDetailPage() {
               )}
             </div>
 
-            {/* Update Status */}
+            {/* FIX: Renamed from "Update Ticket Status" to "Mark Ticket Resolution".
+                ICT personnel can only mark resolved or unresolved — they cannot
+                freely change status between open/in_progress. Each button fires
+                immediately as a direct action with no pending/confirm flow. */}
             <div style={{
               background: "#fff", borderRadius: "12px", border: "1px solid #eee",
               padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
             }}>
-              <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 16px 0", color: "#1a1a1a" }}>
-                Update Ticket Status
+              <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 8px 0", color: "#1a1a1a" }}>
+                Mark Ticket Resolution
               </h2>
+              <p style={{ fontSize: "13px", color: "#888", margin: "0 0 16px 0" }}>
+                Mark this ticket as resolved once the issue is fixed, or unresolved if it could not be completed.
+              </p>
+
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-                {statusOptions.map(({ value: val, label: lbl }) => (
-                  <button key={val}
-                    onClick={() => { setPendingStatus(val); setSaved(false); setSaveError(null); }}
-                    style={{
-                      background: pendingStatus === val ? COLORS.primary : "#fff",
-                      color: pendingStatus === val ? "#fff" : "#444",
-                      border: `1px solid ${pendingStatus === val ? COLORS.primary : "#ddd"}`,
-                      padding: "9px 18px", borderRadius: "8px", cursor: "pointer",
-                      fontSize: "13px", fontWeight: 500, transition: "all 0.15s ease",
-                    }}
-                  >
-                    {lbl}
-                  </button>
-                ))}
 
-                {pendingStatus !== currentStatus && (
-                  <button onClick={handleDone} disabled={saving} style={{
-                    background: saving ? "#999" : "#1a1a1a",
-                    color: "#fff", border: "none", padding: "9px 18px",
-                    borderRadius: "8px", cursor: saving ? "not-allowed" : "pointer",
-                    fontSize: "13px", fontWeight: 600,
-                    display: "flex", alignItems: "center", gap: "6px",
-                  }}>
-                    {saving
-                      ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Saving...</>
-                      : <><Check size={14} /> Done</>
-                    }
-                  </button>
-                )}
+                {/* Resolved button — green accent when already resolved */}
+                <button
+                  onClick={() => handleMarkResolution("resolved")}
+                  disabled={saving || currentStatus === "resolved"}
+                  style={{
+                    background: currentStatus === "resolved" ? "#E8F5E9" : "#fff",
+                    color: currentStatus === "resolved" ? "#2D6B0F" : "#444",
+                    border: `1px solid ${currentStatus === "resolved" ? "#2D6B0F" : "#ddd"}`,
+                    padding: "9px 18px", borderRadius: "8px",
+                    cursor: saving || currentStatus === "resolved" ? "not-allowed" : "pointer",
+                    fontSize: "13px", fontWeight: 600, transition: "all 0.15s ease",
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  {saving ? (
+                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Saving...
+                    </span>
+                  ) : (
+                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <Check size={14} /> Mark Resolved
+                    </span>
+                  )}
+                </button>
 
+                {/* Unresolved button — red accent when already unresolved */}
+                <button
+                  onClick={() => handleMarkResolution("unresolved")}
+                  disabled={saving || currentStatus === "unresolved"}
+                  style={{
+                    background: currentStatus === "unresolved" ? "#FCE4EC" : "#fff",
+                    color: currentStatus === "unresolved" ? "#C62828" : "#444",
+                    border: `1px solid ${currentStatus === "unresolved" ? "#C62828" : "#ddd"}`,
+                    padding: "9px 18px", borderRadius: "8px",
+                    cursor: saving || currentStatus === "unresolved" ? "not-allowed" : "pointer",
+                    fontSize: "13px", fontWeight: 600, transition: "all 0.15s ease",
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  Mark Unresolved
+                </button>
+
+                {/* Success confirmation */}
                 {saved && (
                   <span style={{ fontSize: "13px", color: "#2D6B0F", fontWeight: 500, display: "flex", alignItems: "center", gap: "4px" }}>
-                    <Check size={13} /> Status updated
+                    <Check size={13} /> Ticket updated
                   </span>
                 )}
 
+                {/* Error message */}
                 {saveError && (
                   <span style={{ fontSize: "13px", color: "#C62828", fontWeight: 500 }}>
                     ⚠️ {saveError}
@@ -421,8 +438,9 @@ export default function TicketDetailPage() {
               <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 20px 0", color: "#1a1a1a" }}>
                 Raised By
               </h2>
+
+              {/* Avatar + name + email */}
               <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-                {/* Avatar: brand-coloured initials when resolved, grey icon when not */}
                 <div style={{
                   width: 44, height: 44, borderRadius: "50%",
                   background: raisedBy ? "#7A3100" : "#f0f0f0",
@@ -446,20 +464,29 @@ export default function TicketDetailPage() {
                       {raisedBy.email}
                     </p>
                   )}
-                  {raisedBy?.office_location && (
-                    <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#aaa" }}>
-                      {raisedBy.office_location}
-                    </p>
-                  )}
                 </div>
               </div>
 
-              {raisedBy?.personal_number && (
-                <div style={{ marginBottom: "16px" }}>
-                  <p style={labelStyle}>Personal No.</p>
-                  <p style={valueStyle}>{raisedBy.personal_number}</p>
+              {/* Labelled contact + location fields */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
+
+                {/* FIX: Replaced personal_number with phone_number — actual contact field */}
+                <div>
+                  <p style={labelStyle}>Phone Number</p>
+                  <p style={valueStyle}>{raisedBy?.phone_number ?? "—"}</p>
                 </div>
-              )}
+
+                <div>
+                  <p style={labelStyle}>Office Number</p>
+                  <p style={valueStyle}>{raisedBy?.office_number ?? "—"}</p>
+                </div>
+
+                <div>
+                  <p style={labelStyle}>Office Location</p>
+                  <p style={valueStyle}>{raisedBy?.office_location ?? "—"}</p>
+                </div>
+
+              </div>
 
               <button style={{
                 width: "100%", background: COLORS.primaryDark, color: "#fff",
