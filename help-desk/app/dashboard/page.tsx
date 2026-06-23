@@ -80,19 +80,21 @@ export default function DashboardPage() {
     },
     {
       label: "Open",
-      value: tickets.filter((t) => t.status === "OPEN").length,
+      value: tickets.filter((t) => t.status?.toUpperCase() === "OPEN").length,
       icon: Clock,
       color: "#E8B84B",
     },
     {
       label: "In Progress",
-      value: tickets.filter((t) => t.status === "IN_PROGRESS").length,
+      value: tickets.filter((t) => t.status?.toUpperCase() === "IN_PROGRESS").length,
       icon: Loader,
       color: "#6B2D0F",
     },
     {
       label: "Resolved",
-      value: tickets.filter((t) => t.status === "RESOLVED").length,
+      value: tickets.filter((t) =>
+        ["RESOLVED", "CLOSED"].includes(t.status?.toUpperCase())
+      ).length,
       icon: CheckCircle,
       color: "#2D6B0F",
     },
