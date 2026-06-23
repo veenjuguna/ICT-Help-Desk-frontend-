@@ -37,9 +37,9 @@ interface BackendAllocation {
 
 interface BackendStaff {
   id: string; // UUID
-  first_name: string;
-  last_name: string;
-  department: string;
+  full_name: string;
+  email: string;
+  department: { id: number; name: string } | null; // StaffResponse.department -> DepartmentBasic
 }
 
 // ── UI-facing types ─────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ interface UiAsset {
   purchase_date: string | null;
   warranty_expiry: string | null;
   allocation_id: number | null;
-  allocated_to: { id: string; first_name: string; last_name: string; department: string } | null;
+  allocated_to: { id: string; full_name: string; department: string } | null;
 }
 
 interface AssetFormState {
@@ -124,6 +124,10 @@ function deriveStatus(asset: BackendAsset, hasActiveAllocation: boolean): UiStat
   return hasActiveAllocation ? "allocated" : "available";
 }
 
+function staffDeptLabel(s: BackendStaff): string {
+  return s.department?.name ?? "—";
+}
+
 function toUiAssets(assets: BackendAsset[], allocations: BackendAllocation[], staff: BackendStaff[]): UiAsset[] {
   const staffMap = new Map(staff.map(s => [s.id, s]));
   const activeAllocByAsset = new Map<number, BackendAllocation>();
@@ -147,7 +151,7 @@ function toUiAssets(assets: BackendAsset[], allocations: BackendAllocation[], st
       purchase_date: a.purchase_date,
       warranty_expiry: a.warranty_expiry,
       allocation_id: alloc?.id ?? null,
-      allocated_to: s ? { id: s.id, first_name: s.first_name, last_name: s.last_name, department: s.department } : null,
+      allocated_to: s ? { id: s.id, full_name: s.full_name, department: staffDeptLabel(s) } : null,
     };
   });
 }
@@ -245,7 +249,7 @@ export default function AdminAssetsPage() {
   // ── Derived ────────────────────────────────────────────────────────────────
   const filtered = assets.filter(a => {
     const q = search.toLowerCase();
-    const matchQ = !q || a.asset_tag.toLowerCase().includes(q) || a.name.toLowerCase().includes(q) || (a.allocated_to ? `${a.allocated_to.first_name} ${a.allocated_to.last_name}`.toLowerCase().includes(q) : false);
+    const matchQ = !q || a.asset_tag.toLowerCase().includes(q) || a.name.toLowerCase().includes(q) || (a.allocated_to ? a.allocated_to.full_name.toLowerCase().includes(q) : false);
     const matchT = typeFilter === "all" || a.device_type === typeFilter;
     const matchS = statusFilter === "all" || a.status === statusFilter;
     return matchQ && matchT && matchS;
@@ -646,7 +650,7 @@ export default function AdminAssetsPage() {
                         <td>
                           {a.allocated_to
                             ? <div>
-                                <div style={{ fontSize: "0.82rem", fontWeight: 500 }}>{a.allocated_to.first_name} {a.allocated_to.last_name}</div>
+                                <div style={{ fontSize: "0.82rem", fontWeight: 500 }}>{a.allocated_to.full_name}</div>
                                 <div className="ast-sub">{a.allocated_to.department}</div>
                               </div>
                             : <span style={{ fontSize: "0.78rem", color: "#B91C1C", fontStyle: "italic" }}>Unallocated</span>
@@ -766,8 +770,8 @@ export default function AdminAssetsPage() {
               {staff.map(s => (
                 <div key={s.id} className={`ast-staff-item${allocTarget === s.id ? " selected" : ""}`} onClick={() => setAllocTarget(s.id)}>
                   <div>
-                    <div className="ast-staff-name">{s.first_name} {s.last_name}</div>
-                    <div className="ast-staff-dept">{s.department}</div>
+                    <div className="ast-staff-name">{s.full_name}</div>
+                    <div className="ast-staff-dept">{staffDeptLabel(s)}</div>
                   </div>
                   {allocTarget === s.id && <CheckCircle2 size={15} color="#6B2D0F" />}
                 </div>
@@ -800,7 +804,7 @@ export default function AdminAssetsPage() {
             <h3>Return Asset</h3>
             <p>
               Mark <strong>{returning.asset_tag} — {returning.name}</strong> as returned by{" "}
-              {returning.allocated_to ? `${returning.allocated_to.first_name} ${returning.allocated_to.last_name}` : "the current holder"}?
+              {returning.allocated_to ? returning.allocated_to.full_name : "the current holder"}?
               It will become available again.
             </p>
             <div className="ast-modal-actions">
