@@ -4,83 +4,152 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Search, ChevronDown, Plus, Edit2, Trash2, Package,
   Monitor, Printer, Cpu, RefreshCw, X, Loader2,
-  CheckCircle2, AlertCircle, ChevronUp, UserCheck,
+  CheckCircle2, AlertCircle, ChevronUp, UserCheck, Undo2,
 } from "lucide-react";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-interface Asset {
+// ── Backend types (mirror app/assets/schemas.py exactly) ───────────────────────
+type BackendDeviceType = "laptop" | "desktop" | "printer" | "monitor" | "other";
+type BackendClassification = "confidential" | "internal" | "public";
+type BackendCondition = "good" | "fair" | "poor" | "decommissioned";
+
+interface BackendAsset {
   id: number;
   asset_tag: string;
-  name: string;
-  device_type: "Laptop" | "Desktop" | "Printer" | "Monitor" | "Other";
   serial_number: string;
-  status: "available" | "allocated" | "maintenance" | "retired";
-  condition: "new" | "good" | "fair" | "poor";
-  purchased_at: string | null;
-  notes: string | null;
-  allocated_to: { id: number; first_name: string; last_name: string; department: string } | null;
+  device_type: BackendDeviceType;
+  brand: string;
+  model: string;
+  classification: BackendClassification;
+  condition: BackendCondition;
+  purchase_date: string | null;
+  warranty_expiry: string | null;
+  created_at: string;
 }
 
-interface StaffMember {
+interface BackendAllocation {
   id: number;
+  asset_id: number;
+  staff_id: string; // UUID
+  allocation_date: string;
+  return_date: string | null;
+  notes: string | null;
+}
+
+interface BackendStaff {
+  id: string; // UUID
   first_name: string;
   last_name: string;
   department: string;
 }
 
+// ── UI-facing types ─────────────────────────────────────────────────────────────
+// The backend has no "status" column — it's derived here from whether an asset
+// has a live allocation (return_date == null) and from its condition.
+type UiStatus = "available" | "allocated" | "retired";
+
+interface UiAsset {
+  id: number;
+  asset_tag: string;
+  serial_number: string;
+  name: string; // brand + model, for display/search only
+  brand: string;
+  model: string;
+  device_type: BackendDeviceType;
+  classification: BackendClassification;
+  condition: BackendCondition;
+  status: UiStatus;
+  purchase_date: string | null;
+  warranty_expiry: string | null;
+  allocation_id: number | null;
+  allocated_to: { id: string; first_name: string; last_name: string; department: string } | null;
+}
+
+interface AssetFormState {
+  asset_tag?: string;
+  serial_number?: string;
+  brand?: string;
+  model?: string;
+  device_type?: BackendDeviceType;
+  classification?: BackendClassification;
+  condition?: BackendCondition;
+  purchase_date?: string | null;
+  warranty_expiry?: string | null;
+}
+
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-neon.onrender.com";
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
-const MOCK_ASSETS: Asset[] = [
-  { id: 1,  asset_tag: "TNT-LAP-001", name: "Dell Latitude 5520",        device_type: "Laptop",  serial_number: "SN-DL5520-001", status: "allocated",   condition: "good", purchased_at: "2023-01-15", notes: null,                    allocated_to: { id: 10, first_name: "Grace",  last_name: "Mwangi",  department: "Budget"      } },
-  { id: 2,  asset_tag: "TNT-LAP-002", name: "HP EliteBook 840",          device_type: "Laptop",  serial_number: "SN-HP840-002",  status: "available",   condition: "good", purchased_at: "2023-03-10", notes: null,                    allocated_to: null },
-  { id: 3,  asset_tag: "TNT-DES-001", name: "Dell OptiPlex 7090",        device_type: "Desktop", serial_number: "SN-OP7090-001", status: "allocated",   condition: "good", purchased_at: "2022-11-20", notes: null,                    allocated_to: { id: 11, first_name: "James",  last_name: "Kariuki", department: "Procurement" } },
-  { id: 4,  asset_tag: "TNT-DES-002", name: "HP ProDesk 600",            device_type: "Desktop", serial_number: "SN-PD600-002",  status: "maintenance", condition: "fair", purchased_at: "2022-06-05", notes: "Screen flickering",      allocated_to: null },
-  { id: 5,  asset_tag: "TNT-PRT-001", name: "HP LaserJet Pro M404",      device_type: "Printer", serial_number: "SN-LJ404-001",  status: "allocated",   condition: "good", purchased_at: "2023-05-22", notes: null,                    allocated_to: { id: 12, first_name: "Faith",  last_name: "Njoroge", department: "Debt Mgmt"   } },
-  { id: 6,  asset_tag: "TNT-PRT-002", name: "Canon imageRUNNER 2625",    device_type: "Printer", serial_number: "SN-IR2625-001", status: "available",   condition: "new",  purchased_at: "2024-01-08", notes: null,                    allocated_to: null },
-  { id: 7,  asset_tag: "TNT-MON-001", name: "Dell 24\" P2422H",          device_type: "Monitor", serial_number: "SN-P2422-001",  status: "allocated",   condition: "good", purchased_at: "2023-02-14", notes: null,                    allocated_to: { id: 13, first_name: "Peter",  last_name: "Kamau",   department: "HR"          } },
-  { id: 8,  asset_tag: "TNT-MON-002", name: "LG 27\" 27BN65Q",          device_type: "Monitor", serial_number: "SN-27BN65-001", status: "available",   condition: "good", purchased_at: "2023-07-19", notes: null,                    allocated_to: null },
-  { id: 9,  asset_tag: "TNT-LAP-003", name: "Lenovo ThinkPad E15",       device_type: "Laptop",  serial_number: "SN-TPE15-003",  status: "retired",     condition: "poor", purchased_at: "2020-03-01", notes: "Battery dead, keyboard", allocated_to: null },
-  { id: 10, asset_tag: "TNT-DES-003", name: "Dell OptiPlex 3080",        device_type: "Desktop", serial_number: "SN-OP3080-003", status: "available",   condition: "new",  purchased_at: "2024-02-28", notes: null,                    allocated_to: null },
-];
-
-const MOCK_STAFF: StaffMember[] = [
-  { id: 10, first_name: "Grace",  last_name: "Mwangi",  department: "Budget"      },
-  { id: 11, first_name: "James",  last_name: "Kariuki", department: "Procurement" },
-  { id: 12, first_name: "Faith",  last_name: "Njoroge", department: "Debt Mgmt"   },
-  { id: 13, first_name: "Peter",  last_name: "Kamau",   department: "HR"          },
-  { id: 14, first_name: "Susan",  last_name: "Achieng", department: "Accounts"    },
-  { id: 15, first_name: "David",  last_name: "Otieno",  department: "Legal"       },
-];
+// TODO: wire this up to whoever is actually logged in (e.g. an auth/session
+// context or a "/staff/me" call). AssetAllocationCreate.allocated_by_id is a
+// plain int on the backend, distinct from the UUID staff_id used elsewhere —
+// it must be a real staff/admin id or the /assets/allocate call will fail.
+const CURRENT_STAFF_ID = 1;
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const STATUS_CONFIG = {
-  available:   { label: "Available",   color: "#166534", bg: "#F0FDF4" },
-  allocated:   { label: "Allocated",   color: "#8B4513", bg: "#FDF6EE" },
-  maintenance: { label: "Maintenance", color: "#B45309", bg: "#FFFBEB" },
-  retired:     { label: "Retired",     color: "#7A5C44", bg: "#FDF8F2" },
+const STATUS_CONFIG: Record<UiStatus, { label: string; color: string; bg: string }> = {
+  available: { label: "Available", color: "#166534", bg: "#F0FDF4" },
+  allocated: { label: "Allocated", color: "#8B4513", bg: "#FDF6EE" },
+  retired:   { label: "Retired",   color: "#7A5C44", bg: "#FDF8F2" },
 };
 
-const CONDITION_CONFIG = {
-  new:  { label: "New",  color: "#166534" },
-  good: { label: "Good", color: "#8B4513" },
-  fair: { label: "Fair", color: "#B45309" },
-  poor: { label: "Poor", color: "#B91C1C" },
+const CONDITION_CONFIG: Record<BackendCondition, { label: string; color: string }> = {
+  good:           { label: "Good",           color: "#166534" },
+  fair:           { label: "Fair",           color: "#B45309" },
+  poor:           { label: "Poor",           color: "#B91C1C" },
+  decommissioned: { label: "Decommissioned", color: "#7A5C44" },
 };
 
-const DEVICE_ICONS: Record<string, React.ElementType> = {
-  Laptop:  Cpu,
-  Desktop: Monitor,
-  Printer: Printer,
-  Monitor: Monitor,
-  Other:   Package,
+const DEVICE_LABELS: Record<BackendDeviceType, string> = {
+  laptop: "Laptop", desktop: "Desktop", printer: "Printer", monitor: "Monitor", other: "Other",
 };
 
-const DEVICE_TYPES = ["Laptop", "Desktop", "Printer", "Monitor", "Other"] as const;
+const DEVICE_ICONS: Record<BackendDeviceType, React.ElementType> = {
+  laptop: Cpu, desktop: Monitor, printer: Printer, monitor: Monitor, other: Package,
+};
+
+const DEVICE_TYPES: BackendDeviceType[] = ["laptop", "desktop", "printer", "monitor", "other"];
+const CLASSIFICATIONS: BackendClassification[] = ["confidential", "internal", "public"];
+const CONDITIONS: BackendCondition[] = ["good", "fair", "poor", "decommissioned"];
 
 function fmt(iso: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function deriveStatus(asset: BackendAsset, hasActiveAllocation: boolean): UiStatus {
+  if (asset.condition === "decommissioned") return "retired";
+  return hasActiveAllocation ? "allocated" : "available";
+}
+
+function toUiAssets(assets: BackendAsset[], allocations: BackendAllocation[], staff: BackendStaff[]): UiAsset[] {
+  const staffMap = new Map(staff.map(s => [s.id, s]));
+  const activeAllocByAsset = new Map<number, BackendAllocation>();
+  for (const alloc of allocations) {
+    if (alloc.return_date == null) activeAllocByAsset.set(alloc.asset_id, alloc);
+  }
+  return assets.map(a => {
+    const alloc = activeAllocByAsset.get(a.id);
+    const s = alloc ? staffMap.get(alloc.staff_id) : undefined;
+    return {
+      id: a.id,
+      asset_tag: a.asset_tag,
+      serial_number: a.serial_number,
+      name: `${a.brand} ${a.model}`.trim(),
+      brand: a.brand,
+      model: a.model,
+      device_type: a.device_type,
+      classification: a.classification,
+      condition: a.condition,
+      status: deriveStatus(a, !!alloc),
+      purchase_date: a.purchase_date,
+      warranty_expiry: a.warranty_expiry,
+      allocation_id: alloc?.id ?? null,
+      allocated_to: s ? { id: s.id, first_name: s.first_name, last_name: s.last_name, department: s.department } : null,
+    };
+  });
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -97,9 +166,10 @@ function Toast({ msg, type, onClose }: { msg: string; type: "success" | "error";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AdminAssetsPage() {
-  const [assets, setAssets]       = useState<Asset[]>(MOCK_ASSETS);
-  const [staff, setStaff]         = useState<StaffMember[]>(MOCK_STAFF);
-  const [loading, setLoading]     = useState(false);
+  const [assets, setAssets]       = useState<UiAsset[]>([]);
+  const [staff, setStaff]         = useState<BackendStaff[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch]       = useState("");
   const [typeFilter, setType]     = useState("all");
   const [statusFilter, setStatus] = useState("all");
@@ -107,36 +177,70 @@ export default function AdminAssetsPage() {
   const [toast, setToast]         = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
   // Add/Edit modal
-  const [editing, setEditing]     = useState<Asset | null>(null);
+  const [editing, setEditing]     = useState<UiAsset | null>(null);
   const [adding, setAdding]       = useState(false);
   const [saving, setSaving]       = useState(false);
-  const [form, setForm]           = useState<Partial<Asset>>({});
+  const [form, setForm]           = useState<AssetFormState>({});
 
   // Delete modal
-  const [deleting, setDeleting]   = useState<Asset | null>(null);
+  const [deleting, setDeleting]   = useState<UiAsset | null>(null);
   const [savingDel, setSavingDel] = useState(false);
 
   // Allocate modal
-  const [allocating, setAllocating]   = useState<Asset | null>(null);
-  const [allocTarget, setAllocTarget] = useState<number | null>(null);
+  const [allocating, setAllocating]   = useState<UiAsset | null>(null);
+  const [allocTarget, setAllocTarget] = useState<string | null>(null);
+  const [allocDate, setAllocDate]     = useState(todayIso());
+  const [allocNotes, setAllocNotes]   = useState("");
   const [savingAlloc, setSavingAlloc] = useState(false);
+
+  // Return modal
+  const [returning, setReturning]     = useState<UiAsset | null>(null);
+  const [savingReturn, setSavingReturn] = useState(false);
 
   const showToast = (msg: string, type: "success" | "error") => setToast({ msg, type });
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
-    setLoading(true);
     try {
-      const [aRes, sRes] = await Promise.all([
-        fetch(`${API}/assets/`,  { credentials: "include" }),
-        fetch(`${API}/staff/`,   { credentials: "include" }),
+      const [assetsRes, allocRes, staffRes] = await Promise.all([
+        fetch(`${API}/assets/`, { credentials: "include" }),
+        fetch(`${API}/assets/allocations`, { credentials: "include" }),
+        fetch(`${API}/staff/`, { credentials: "include" }),
       ]);
-      if (aRes.ok) setAssets(await aRes.json());
-      if (sRes.ok) setStaff(await sRes.json());
-    } catch { /* keep mock */ } finally { setLoading(false); }
+      if (!assetsRes.ok) throw new Error(`Failed to load assets (${assetsRes.status})`);
+
+      const rawAssets: BackendAsset[] = await assetsRes.json();
+      const rawAllocations: BackendAllocation[] = allocRes.ok ? await allocRes.json() : [];
+      const rawStaff: BackendStaff[] = staffRes.ok ? await staffRes.json() : [];
+
+      setStaff(rawStaff);
+      setAssets(toUiAssets(rawAssets, rawAllocations, rawStaff));
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load data from the server.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { const load = async () => { await fetchAll(); }; load(); }, [fetchAll]);
+  // Manual re-fetch (Refresh button, error banner retry). This runs from an
+  // event handler, not an effect, so flipping `loading`/`loadError` here
+  // synchronously is fine — the lint rule only targets effects.
+  const handleRefresh = useCallback(() => {
+    setLoading(true);
+    setLoadError(null);
+    fetchAll();
+  }, [fetchAll]);
+
+  // This is the standard "fetch data in an effect" pattern from React's own
+  // docs (react.dev/learn/synchronizing-with-effects#fetching-data). The
+  // react-hooks/set-state-in-effect rule has a known false positive here: it
+  // statically flags any setState reachable from a function called in an
+  // effect, regardless of whether that call actually happens after an
+  // internal `await` — see facebook/react#34743, acknowledged by the React
+  // Compiler team as overly strict and not yet resolved upstream.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const filtered = assets.filter(a => {
@@ -155,41 +259,69 @@ export default function AdminAssetsPage() {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const openAdd = () => {
-    setForm({ device_type: "Laptop", status: "available", condition: "good" });
+    setForm({ device_type: "laptop", classification: "internal", condition: "good" });
     setAdding(true);
   };
 
-  const openEdit = (a: Asset) => { setForm({ ...a }); setEditing(a); };
+  const openEdit = (a: UiAsset) => {
+    setForm({
+      asset_tag: a.asset_tag,
+      serial_number: a.serial_number,
+      brand: a.brand,
+      model: a.model,
+      device_type: a.device_type,
+      classification: a.classification,
+      condition: a.condition,
+      purchase_date: a.purchase_date,
+      warranty_expiry: a.warranty_expiry,
+    });
+    setEditing(a);
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
       const isEdit = !!editing;
+      // AssetUpdate only accepts brand/model/classification/condition/warranty_expiry —
+      // asset_tag, serial_number, device_type and purchase_date are immutable after creation.
+      const payload = isEdit
+        ? {
+            brand: form.brand,
+            model: form.model,
+            classification: form.classification,
+            condition: form.condition,
+            warranty_expiry: form.warranty_expiry || null,
+          }
+        : {
+            asset_tag: form.asset_tag,
+            serial_number: form.serial_number,
+            device_type: form.device_type,
+            brand: form.brand,
+            model: form.model,
+            classification: form.classification,
+            condition: form.condition ?? "good",
+            purchase_date: form.purchase_date || null,
+            warranty_expiry: form.warranty_expiry || null,
+          };
+
       const res = await fetch(isEdit ? `${API}/assets/${editing!.id}` : `${API}/assets/`, {
         method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error((await res.json()).detail ?? "Failed to save");
-      const saved: Asset = await res.json();
-      if (isEdit) setAssets(prev => prev.map(a => a.id === saved.id ? saved : a));
-      else setAssets(prev => [...prev, saved]);
-      showToast(isEdit ? "Asset updated." : "Asset created.", "success");
-    } catch (e: unknown) {
-      // fallback for demo
-      if (editing) {
-        setAssets(prev => prev.map(a => a.id === editing.id ? { ...a, ...form } as Asset : a));
-      } else {
-        const mock: Asset = { id: Date.now(), asset_tag: form.asset_tag ?? "TNT-NEW", name: form.name ?? "New Asset", device_type: form.device_type ?? "Laptop", serial_number: form.serial_number ?? "", status: form.status ?? "available", condition: form.condition ?? "good", purchased_at: form.purchased_at ?? null, notes: form.notes ?? null, allocated_to: null };
-        setAssets(prev => [...prev, mock]);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.detail ?? "Failed to save asset.");
       }
-      showToast(editing ? "Asset updated (offline)." : "Asset created (offline).", "success");
-      if (e) { /* suppress */ }
+      showToast(isEdit ? "Asset updated." : "Asset created.", "success");
+      setAdding(false);
+      setEditing(null);
+      await fetchAll();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Failed to save asset.", "error");
     } finally {
       setSaving(false);
-      setEditing(null);
-      setAdding(false);
     }
   };
 
@@ -198,15 +330,17 @@ export default function AdminAssetsPage() {
     setSavingDel(true);
     try {
       const res = await fetch(`${API}/assets/${deleting.id}`, { method: "DELETE", credentials: "include" });
-      if (!res.ok) throw new Error();
+      if (!res.ok && res.status !== 204) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.detail ?? "Failed to delete asset.");
+      }
       setAssets(prev => prev.filter(a => a.id !== deleting.id));
       showToast("Asset deleted.", "success");
-    } catch {
-      setAssets(prev => prev.filter(a => a.id !== deleting.id));
-      showToast("Asset deleted (offline).", "success");
+      setDeleting(null);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Failed to delete asset.", "error");
     } finally {
       setSavingDel(false);
-      setDeleting(null);
     }
   };
 
@@ -218,20 +352,52 @@ export default function AdminAssetsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ asset_id: allocating.id, staff_id: allocTarget }),
+        body: JSON.stringify({
+          asset_id: allocating.id,
+          staff_id: allocTarget,
+          allocated_by_id: CURRENT_STAFF_ID,
+          allocation_date: allocDate,
+          notes: allocNotes || null,
+        }),
       });
-      if (!res.ok) throw new Error((await res.json()).detail ?? "Allocation failed");
-      const updated: Asset = await res.json();
-      setAssets(prev => prev.map(a => a.id === allocating.id ? updated : a));
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.detail ?? "Allocation failed.");
+      }
       showToast("Asset allocated successfully.", "success");
-    } catch {
-      const s = staff.find(x => x.id === allocTarget);
-      setAssets(prev => prev.map(a => a.id === allocating.id ? { ...a, status: "allocated", allocated_to: s ? { id: s.id, first_name: s.first_name, last_name: s.last_name, department: s.department } : a.allocated_to } : a));
-      showToast("Asset allocated (offline).", "success");
-    } finally {
-      setSavingAlloc(false);
       setAllocating(null);
       setAllocTarget(null);
+      setAllocNotes("");
+      setAllocDate(todayIso());
+      await fetchAll();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Allocation failed.", "error");
+    } finally {
+      setSavingAlloc(false);
+    }
+  };
+
+  const handleReturn = async () => {
+    if (!returning || returning.allocation_id == null) return;
+    setSavingReturn(true);
+    try {
+      const res = await fetch(`${API}/assets/allocations/${returning.allocation_id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ return_date: todayIso() }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.detail ?? "Failed to return asset.");
+      }
+      showToast("Asset returned.", "success");
+      setReturning(null);
+      await fetchAll();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Failed to return asset.", "error");
+    } finally {
+      setSavingReturn(false);
     }
   };
 
@@ -261,6 +427,10 @@ export default function AdminAssetsPage() {
         .ast-refresh-btn:hover { border-color: var(--gold); color: var(--gold); }
         .ast-add-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--brown-dark); border: none; border-radius: 8px; font-size: 0.84rem; font-weight: 600; color: #fff; cursor: pointer; transition: background 0.15s; }
         .ast-add-btn:hover { background: var(--brown-main); }
+
+        /* Error banner */
+        .ast-error-banner { display: flex; align-items: center; gap: 10px; background: #FEF2F2; border: 1.5px solid #FECACA; color: #991B1B; padding: 12px 16px; border-radius: 10px; font-size: 0.84rem; margin-bottom: 18px; }
+        .ast-error-banner button { margin-left: auto; background: #fff; border: 1.5px solid #FECACA; color: #991B1B; border-radius: 6px; padding: 6px 12px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
 
         /* Stats */
         .ast-stats { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -323,6 +493,8 @@ export default function AdminAssetsPage() {
         .ast-form-field label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-sub); }
         .ast-form-input { padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.84rem; color: var(--text-main); background: #fff; outline: none; font-family: inherit; }
         .ast-form-input:focus { border-color: var(--gold); }
+        .ast-form-input:disabled { background: var(--cream); color: var(--text-sub); cursor: not-allowed; }
+        .ast-form-hint { font-size: 0.7rem; color: var(--text-sub); margin-top: -2px; }
         .ast-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
         .ast-modal-cancel { padding: 8px 18px; border: 1.5px solid var(--border); background: #fff; border-radius: 8px; font-size: 0.84rem; font-weight: 600; color: var(--text-sub); cursor: pointer; }
         .ast-modal-cancel:hover { border-color: var(--brown-mid); color: var(--brown-dark); }
@@ -355,18 +527,25 @@ export default function AdminAssetsPage() {
             <p>Device registry, tracking and allocation</p>
           </div>
           <div className="ast-header-btns">
-            <button className="ast-refresh-btn" onClick={() => fetchAll()}><RefreshCw size={14} /> Refresh</button>
+            <button className="ast-refresh-btn" onClick={handleRefresh}><RefreshCw size={14} /> Refresh</button>
             <button className="ast-add-btn" onClick={openAdd}><Plus size={14} /> Add Asset</button>
           </div>
         </div>
+
+        {loadError && (
+          <div className="ast-error-banner">
+            <AlertCircle size={16} />
+            {loadError}
+            <button onClick={handleRefresh}>Retry</button>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="ast-stats">
           <div className="ast-stat"><div className="ast-stat-val">{assets.length}</div><div className="ast-stat-label">Total Assets</div></div>
           <div className="ast-stat gold"><div className="ast-stat-val">{assets.filter(a => a.status === "allocated").length}</div><div className="ast-stat-label">Allocated</div></div>
           <div className="ast-stat"><div className="ast-stat-val">{assets.filter(a => a.status === "available").length}</div><div className="ast-stat-label">Available</div></div>
-          <div className="ast-stat red"><div className="ast-stat-val">{assets.filter(a => a.status === "maintenance").length}</div><div className="ast-stat-label">Maintenance</div></div>
-          <div className="ast-stat"><div className="ast-stat-val">{assets.filter(a => a.status === "retired").length}</div><div className="ast-stat-label">Retired</div></div>
+          <div className="ast-stat red"><div className="ast-stat-val">{assets.filter(a => a.status === "retired").length}</div><div className="ast-stat-label">Retired</div></div>
         </div>
 
         {/* Utilization */}
@@ -383,7 +562,7 @@ export default function AdminAssetsPage() {
                   <div className="ast-util-row" key={u.type}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 100 }}>
                       <div className="ast-type-icon" style={{ width: 22, height: 22 }}><Icon size={12} /></div>
-                      <span className="ast-util-label">{u.type}</span>
+                      <span className="ast-util-label">{DEVICE_LABELS[u.type]}</span>
                     </div>
                     <div className="ast-util-bar-wrap">
                       <div className="ast-util-bar" style={{ width: `${u.pct}%` }} />
@@ -405,7 +584,7 @@ export default function AdminAssetsPage() {
           <div className="ast-select-wrap">
             <select className="ast-select" value={typeFilter} onChange={e => setType(e.target.value)}>
               <option value="all">All Types</option>
-              {DEVICE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              {DEVICE_TYPES.map(t => <option key={t} value={t}>{DEVICE_LABELS[t]}</option>)}
             </select>
             <ChevronDown size={13} />
           </div>
@@ -414,7 +593,6 @@ export default function AdminAssetsPage() {
               <option value="all">All Statuses</option>
               <option value="available">Available</option>
               <option value="allocated">Allocated</option>
-              <option value="maintenance">Maintenance</option>
               <option value="retired">Retired</option>
             </select>
             <ChevronDown size={13} />
@@ -456,7 +634,7 @@ export default function AdminAssetsPage() {
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <div className="ast-type-icon"><Icon size={13} /></div>
-                            <span style={{ fontSize: "0.82rem" }}>{a.device_type}</span>
+                            <span style={{ fontSize: "0.82rem" }}>{DEVICE_LABELS[a.device_type]}</span>
                           </div>
                         </td>
                         <td>
@@ -474,12 +652,15 @@ export default function AdminAssetsPage() {
                             : <span style={{ fontSize: "0.78rem", color: "#B91C1C", fontStyle: "italic" }}>Unallocated</span>
                           }
                         </td>
-                        <td style={{ fontSize: "0.78rem", color: "var(--text-sub)" }}>{fmt(a.purchased_at)}</td>
+                        <td style={{ fontSize: "0.78rem", color: "var(--text-sub)" }}>{fmt(a.purchase_date)}</td>
                         <td>
                           <div className="ast-actions">
                             <button className="ast-btn-icon" title="Edit" onClick={() => openEdit(a)}><Edit2 size={13} /></button>
                             {a.status === "available" && (
-                              <button className="ast-btn-icon" title="Allocate" onClick={() => { setAllocating(a); setAllocTarget(null); }}><UserCheck size={13} /></button>
+                              <button className="ast-btn-icon" title="Allocate" onClick={() => { setAllocating(a); setAllocTarget(null); setAllocDate(todayIso()); setAllocNotes(""); }}><UserCheck size={13} /></button>
+                            )}
+                            {a.status === "allocated" && (
+                              <button className="ast-btn-icon" title="Return" onClick={() => setReturning(a)}><Undo2 size={13} /></button>
                             )}
                             <button className="ast-btn-icon danger" title="Delete" onClick={() => setDeleting(a)}><Trash2 size={13} /></button>
                           </div>
@@ -503,52 +684,55 @@ export default function AdminAssetsPage() {
             <div className="ast-form-grid">
               <div className="ast-form-field">
                 <label>Asset Tag *</label>
-                <input className="ast-form-input" placeholder="TNT-LAP-001" value={form.asset_tag ?? ""} onChange={e => setForm(f => ({ ...f, asset_tag: e.target.value }))} />
+                <input className="ast-form-input" placeholder="TNT-LAP-001" value={form.asset_tag ?? ""} disabled={!!editing} onChange={e => setForm(f => ({ ...f, asset_tag: e.target.value }))} />
               </div>
               <div className="ast-form-field">
-                <label>Serial Number</label>
-                <input className="ast-form-input" placeholder="SN-XXXXX" value={form.serial_number ?? ""} onChange={e => setForm(f => ({ ...f, serial_number: e.target.value }))} />
+                <label>Serial Number *</label>
+                <input className="ast-form-input" placeholder="SN-XXXXX" value={form.serial_number ?? ""} disabled={!!editing} onChange={e => setForm(f => ({ ...f, serial_number: e.target.value }))} />
               </div>
-              <div className="ast-form-field full">
-                <label>Name / Model *</label>
-                <input className="ast-form-input" placeholder="Dell Latitude 5520" value={form.name ?? ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              <div className="ast-form-field">
+                <label>Brand *</label>
+                <input className="ast-form-input" placeholder="Dell" value={form.brand ?? ""} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))} />
+              </div>
+              <div className="ast-form-field">
+                <label>Model *</label>
+                <input className="ast-form-input" placeholder="Latitude 5520" value={form.model ?? ""} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} />
               </div>
               <div className="ast-form-field">
                 <label>Device Type</label>
-                <select className="ast-form-input" value={form.device_type ?? "Laptop"} onChange={e => setForm(f => ({ ...f, device_type: e.target.value as Asset["device_type"] }))}>
-                  {DEVICE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                <select className="ast-form-input" value={form.device_type ?? "laptop"} disabled={!!editing} onChange={e => setForm(f => ({ ...f, device_type: e.target.value as BackendDeviceType }))}>
+                  {DEVICE_TYPES.map(t => <option key={t} value={t}>{DEVICE_LABELS[t]}</option>)}
+                </select>
+              </div>
+              <div className="ast-form-field">
+                <label>Classification *</label>
+                <select className="ast-form-input" value={form.classification ?? "internal"} onChange={e => setForm(f => ({ ...f, classification: e.target.value as BackendClassification }))}>
+                  {CLASSIFICATIONS.map(c => <option key={c} value={c}>{c[0].toUpperCase() + c.slice(1)}</option>)}
                 </select>
               </div>
               <div className="ast-form-field">
                 <label>Condition</label>
-                <select className="ast-form-input" value={form.condition ?? "good"} onChange={e => setForm(f => ({ ...f, condition: e.target.value as Asset["condition"] }))}>
-                  <option value="new">New</option>
-                  <option value="good">Good</option>
-                  <option value="fair">Fair</option>
-                  <option value="poor">Poor</option>
-                </select>
-              </div>
-              <div className="ast-form-field">
-                <label>Status</label>
-                <select className="ast-form-input" value={form.status ?? "available"} onChange={e => setForm(f => ({ ...f, status: e.target.value as Asset["status"] }))}>
-                  <option value="available">Available</option>
-                  <option value="allocated">Allocated</option>
-                  <option value="maintenance">Maintenance</option>
-                  <option value="retired">Retired</option>
+                <select className="ast-form-input" value={form.condition ?? "good"} onChange={e => setForm(f => ({ ...f, condition: e.target.value as BackendCondition }))}>
+                  {CONDITIONS.map(c => <option key={c} value={c}>{CONDITION_CONFIG[c].label}</option>)}
                 </select>
               </div>
               <div className="ast-form-field">
                 <label>Purchase Date</label>
-                <input className="ast-form-input" type="date" value={form.purchased_at ?? ""} onChange={e => setForm(f => ({ ...f, purchased_at: e.target.value }))} />
+                <input className="ast-form-input" type="date" value={form.purchase_date ?? ""} disabled={!!editing} onChange={e => setForm(f => ({ ...f, purchase_date: e.target.value }))} />
               </div>
               <div className="ast-form-field full">
-                <label>Notes</label>
-                <textarea className="ast-form-input" rows={2} placeholder="Any notes about this asset…" value={form.notes ?? ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={{ resize: "none" }} />
+                <label>Warranty Expiry</label>
+                <input className="ast-form-input" type="date" value={form.warranty_expiry ?? ""} onChange={e => setForm(f => ({ ...f, warranty_expiry: e.target.value }))} />
               </div>
+              {editing && <div className="ast-form-field full"><div className="ast-form-hint">Tag, serial number, device type and purchase date are locked after creation.</div></div>}
             </div>
             <div className="ast-modal-actions">
               <button className="ast-modal-cancel" onClick={() => { setAdding(false); setEditing(null); }}>Cancel</button>
-              <button className="ast-modal-confirm" disabled={!form.asset_tag || !form.name || saving} onClick={handleSave}>
+              <button
+                className="ast-modal-confirm"
+                disabled={saving || !form.brand || !form.model || !form.classification || (!editing && (!form.asset_tag || !form.serial_number))}
+                onClick={handleSave}
+              >
                 {saving ? <Loader2 size={13} /> : <CheckCircle2 size={13} />} {editing ? "Save Changes" : "Create Asset"}
               </button>
             </div>
@@ -589,10 +773,40 @@ export default function AdminAssetsPage() {
                 </div>
               ))}
             </div>
+            <div className="ast-form-grid">
+              <div className="ast-form-field">
+                <label>Allocation Date</label>
+                <input className="ast-form-input" type="date" value={allocDate} onChange={e => setAllocDate(e.target.value)} />
+              </div>
+              <div className="ast-form-field full">
+                <label>Notes</label>
+                <input className="ast-form-input" placeholder="Optional note" value={allocNotes} onChange={e => setAllocNotes(e.target.value)} />
+              </div>
+            </div>
             <div className="ast-modal-actions">
               <button className="ast-modal-cancel" onClick={() => { setAllocating(null); setAllocTarget(null); }}>Cancel</button>
               <button className="ast-modal-confirm" disabled={!allocTarget || savingAlloc} onClick={handleAllocate}>
                 {savingAlloc ? <Loader2 size={13} /> : <UserCheck size={13} />} Allocate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Return modal */}
+      {returning && (
+        <div className="ast-modal-overlay" onClick={() => setReturning(null)}>
+          <div className="ast-modal" style={{ width: 380 }} onClick={e => e.stopPropagation()}>
+            <h3>Return Asset</h3>
+            <p>
+              Mark <strong>{returning.asset_tag} — {returning.name}</strong> as returned by{" "}
+              {returning.allocated_to ? `${returning.allocated_to.first_name} ${returning.allocated_to.last_name}` : "the current holder"}?
+              It will become available again.
+            </p>
+            <div className="ast-modal-actions">
+              <button className="ast-modal-cancel" onClick={() => setReturning(null)}>Cancel</button>
+              <button className="ast-modal-confirm" disabled={savingReturn} onClick={handleReturn}>
+                {savingReturn ? <Loader2 size={13} /> : <Undo2 size={13} />} Return
               </button>
             </div>
           </div>
