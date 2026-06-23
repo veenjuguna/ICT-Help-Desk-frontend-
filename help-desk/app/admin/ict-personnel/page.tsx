@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Search, Plus, X, Check, UserX } from "lucide-react";
+import { Search, Plus, X, UserX, UserCheck } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ type Specialization =
 
 interface IctPersonnel {
   id: number;
-  staff_id: number;
+  staff_id: string;
   specialization: Specialization;
   availability: Availability;
   phone_extension?: string;
@@ -25,7 +25,7 @@ interface IctPersonnel {
 }
 
 interface Staff {
-  id: number;
+  id: string;
   full_name: string;
   email: string;
 }
@@ -116,11 +116,11 @@ function AvailabilityBadge({ status }: { status: Availability }) {
 
 function SpecializationBadge({ spec }: { spec: string }) {
   const map: Record<string, { bg: string; color: string }> = {
-    hardware:              { bg: "#E3F2FD", color: "#1565C0" },
-    networking:            { bg: "#E0F2F1", color: "#00695C" },
-    software_and_systems:  { bg: "#F3E5F5", color: "#7B1FA2" },
-    security:              { bg: "#FFEBEE", color: "#C62828" },
-    other:                 { bg: "#F5F5F5", color: "#616161" },
+    hardware:              { bg: "#FFF3E0", color: "#C8962E" },
+    networking:            { bg: "#F5EDE3", color: "#6B2D0F" },
+    software_and_systems:  { bg: "#FDF6EE", color: "#8B4513" },
+    security:              { bg: "#FFEBEE", color: "#BB0000" },
+    other:                 { bg: "#F3F3F3", color: "#7A5C44" },
   };
   const s = map[spec] ?? map.other;
   return (
@@ -134,18 +134,24 @@ function SpecializationBadge({ spec }: { spec: string }) {
   );
 }
 
-function ActiveIndicator({ active }: { active: boolean }) {
-  return active ? (
-    <span title="Active" style={{ color: "#2D6B0F", display: "inline-flex" }}>
-      <Check size={18} strokeWidth={2.5} />
-    </span>
-  ) : (
-    <span title="Inactive" style={{ color: "#BB0000", display: "inline-flex" }}>
-      <X size={18} strokeWidth={2.5} />
+function ActiveBadge({ active }: { active: boolean }) {
+  return (
+    <span style={{
+      background: active ? "#E8F5E9" : "#F3F3F3",
+      color: active ? "#2D6B0F" : "#7A5C44",
+      padding: "3px 10px", borderRadius: "20px",
+      fontSize: "11.5px", fontWeight: 600,
+      display: "inline-flex", alignItems: "center", gap: 5,
+      whiteSpace: "nowrap",
+    }}>
+      <span style={{
+        width: 6, height: 6, borderRadius: "50%",
+        background: active ? "#2D6B0F" : "#B0906A", flexShrink: 0,
+      }} />
+      {active ? "Assignable" : "Not Assignable"}
     </span>
   );
 }
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function IctPersonnelPage() {
@@ -159,6 +165,7 @@ export default function IctPersonnelPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [dutyTarget, setDutyTarget] = useState<IctPersonnel | null>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<IctPersonnel | null>(null);
+  const [reactivateTarget, setReactivateTarget] = useState<IctPersonnel | null>(null);
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [staffSearch, setStaffSearch] = useState("");
@@ -167,7 +174,7 @@ export default function IctPersonnelPage() {
   const [toast, setToast] = useState("");
 
   const staffById = useMemo(() => {
-    const map = new Map<number, Staff>();
+    const map = new Map<string, Staff>();
     for (const s of staffList) map.set(s.id, s);
     return map;
   }, [staffList]);
@@ -205,7 +212,7 @@ export default function IctPersonnelPage() {
       const data = await res.json();
       const list = parseArray<Record<string, unknown>>(data).map((p) => ({
         id: p.id as number,
-        staff_id: (p.staff_id ?? (p.staff as { id?: number })?.id) as number,
+        staff_id: (p.staff_id ?? (p.staff as { id?: string })?.id) as string,
         specialization: (p.specialization ?? "OTHER") as Specialization,
         availability: normalizeAvailability(p),
         phone_extension: p.phone_extension as string | undefined,
@@ -224,7 +231,7 @@ export default function IctPersonnelPage() {
 
   const fetchStaff = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/staff`, { credentials: "include" });
+      const res = await fetch(`${API}/staff/?limit=200`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       setStaffList(parseArray<Staff>(data));
@@ -235,14 +242,14 @@ export default function IctPersonnelPage() {
     // Determine admin status by calling the session endpoint — no localStorage fallback
     // The session_id HttpOnly cookie is forwarded automatically with credentials: "include"
     try {
-      const res = await fetch(`${API}/admin/me`, { credentials: "include" });
+      const res = await fetch(`${API}/staff/me`, { credentials: "include" });
       if (res.ok) {
         const user: AdminUser = await res.json();
         setIsAdmin(isAdminRole(user.role));
       }
     } catch {}
   }, []);
-
+  
   useEffect(() => {
     const initialize = async () => {
       await fetchPersonnel();
@@ -257,7 +264,7 @@ export default function IctPersonnelPage() {
     return () => clearInterval(id);
   }, [fetchPersonnel]);
 
-  const getStaffName = (staffId: number) =>
+  const getStaffName = (staffId: string) =>
     staffById.get(staffId)?.full_name ?? `Staff #${staffId}`;
 
   const filtered = personnel.filter((p) => {
@@ -296,7 +303,7 @@ export default function IctPersonnelPage() {
     setFormError("");
     try {
       const body: Record<string, unknown> = {
-        staff_id: Number(form.staff_id),
+        staff_id: form.staff_id,
         specialization: form.specialization,
       };
       if (form.phone_extension) body.phone_extension = form.phone_extension;
@@ -378,6 +385,34 @@ export default function IctPersonnelPage() {
       showToast("Technician deactivated.");
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Deactivation failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (!reactivateTarget) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API}/ict-personnel/${reactivateTarget.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { detail?: string }).detail ??
+            (err as { message?: string }).message ??
+            "Reactivation failed.",
+        );
+      }
+      setReactivateTarget(null);
+      await fetchPersonnel();
+      showToast("Technician reactivated.");
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Reactivation failed.");
     } finally {
       setSubmitting(false);
     }
@@ -685,7 +720,7 @@ export default function IctPersonnelPage() {
                     <th>Name</th>
                     <th>Specialization</th>
                     <th>Availability</th>
-                    <th>Active</th>
+                    <th>Assignable</th>
                     {isAdmin && <th style={{ textAlign: "right" }}>Actions</th>}
                   </tr>
                 </thead>
@@ -700,7 +735,7 @@ export default function IctPersonnelPage() {
                         </td>
                         <td><SpecializationBadge spec={p.specialization} /></td>
                         <td><AvailabilityBadge status={p.availability} /></td>
-                        <td><ActiveIndicator active={p.is_active} /></td>
+                        <td><ActiveBadge active={p.is_active && p.availability === "available"} /></td>
                         {isAdmin && (
                           <td>
                             <div className="ip-actions">
@@ -718,7 +753,7 @@ export default function IctPersonnelPage() {
                               >
                                 Set Duty
                               </button>
-                              {p.is_active && (
+                              {p.is_active ? (
                                 <>
                                   <span className="ip-action-sep">|</span>
                                   <button
@@ -726,6 +761,17 @@ export default function IctPersonnelPage() {
                                     onClick={() => setDeactivateTarget(p)}
                                   >
                                     Deactivate
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="ip-action-sep">|</span>
+                                  <button
+                                    className="ip-action-link"
+                                    style={{ color: "#2D6B0F" }}
+                                    onClick={() => setReactivateTarget(p)}
+                                  >
+                                    Reactivate
                                   </button>
                                 </>
                               )}
@@ -905,7 +951,42 @@ export default function IctPersonnelPage() {
           </div>
         </div>
       )}
-
+      {/* Reactivate Confirmation */}
+      {reactivateTarget && (
+        <div className="ip-overlay" onClick={(e) => { if (e.target === e.currentTarget) setReactivateTarget(null); }}>
+          <div className="ip-modal" style={{ maxWidth: 420 }}>
+            <div className="ip-modal-header">
+              <p className="ip-modal-title">Reactivate Technician</p>
+              <button className="ip-modal-close" onClick={() => setReactivateTarget(null)}><X size={14} /></button>
+            </div>
+            <div className="ip-modal-body" style={{ textAlign: "center" }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: "50%",
+                background: "#E8F5E9", display: "flex",
+                alignItems: "center", justifyContent: "center",
+                color: "#2D6B0F", margin: "0 auto",
+              }}>
+                <UserCheck size={24} />
+              </div>
+              <p style={{ fontSize: 14, color: "var(--text-sub)" }}>
+                Reactivate ICT profile for
+              </p>
+              <p style={{ fontWeight: 700, color: "var(--brown)", fontSize: 15 }}>
+                {getStaffName(reactivateTarget.staff_id)}
+              </p>
+              <p style={{ fontSize: 12.5, color: "var(--text-sub)", lineHeight: 1.6 }}>
+                This technician will be included in ticket assignment triage again.
+              </p>
+            </div>
+            <div className="ip-modal-footer">
+              <button className="ip-btn-ghost" onClick={() => setReactivateTarget(null)}>Cancel</button>
+              <button className="ip-btn-submit" onClick={handleReactivate} disabled={submitting}>
+                {submitting ? "Reactivating…" : "Yes, Reactivate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {toast && <div className="ip-toast">{toast}</div>}
     </>
   );

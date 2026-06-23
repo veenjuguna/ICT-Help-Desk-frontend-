@@ -8,8 +8,8 @@ import {
 } from "lucide-react";
 
 // ── Types — match real backend exactly ───────────────────────────────────────
-type TicketStatus = "OPEN" | "IN_PROGRESS" | "CLOSED";
-type TicketCategory = "HARDWARE" | "SOFTWARE" | "NETWORK" | "SECURITY" | "OTHER";
+type TicketStatus =  "open" | "in_progress" | "closed";
+type TicketCategory = "hardware" | "software_and_systems" | "network" | "security_incidents" | "access_permissions" | "other";
 
 interface Ticket {
   id: number;
@@ -36,7 +36,7 @@ interface IctPersonnel {
   staff_id: string;
   specialization: string | null;
   phone_extension: string | null;
-  availability: "AVAILABLE" | "BUSY" | "OFF_DUTY" | "ON_LEAVE";
+  availability: "available" | "busy" | "off_duty" | "on_leave";
   is_active: boolean;
   full_name?: string; // enriched client-side from staff lookup
 }
@@ -45,35 +45,33 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-neon.onren
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  OPEN:        { label: "Open",        color: "#B91C1C", bg: "#FEF2F2", icon: AlertCircle  },
-  IN_PROGRESS: { label: "In Progress", color: "#8B4513", bg: "#FDF6EE", icon: Clock        },
-  CLOSED:      { label: "Closed",      color: "#7A5C44", bg: "#FDF8F2", icon: XCircle      },
+  open:        { label: "Open",        color: "#B91C1C", bg: "#FEF2F2", icon: AlertCircle  },
+  in_progress: { label: "In Progress", color: "#8B4513", bg: "#FDF6EE", icon: Clock        },
+  closed:      { label: "Closed",      color: "#7A5C44", bg: "#FDF8F2", icon: XCircle      },
 };
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
-  HARDWARE: HardDrive,
-  NETWORK:  Wifi,
-  SOFTWARE: Monitor,
-  SECURITY: Mail,
-  OTHER:    Settings,
-};
-
-// Maps ICT specialization -> ticket category, so we know which technicians can take which tickets
-const SPEC_TO_CATEGORY: Record<string, TicketCategory> = {
-  hardware:             "HARDWARE",
-  networking:           "NETWORK",
-  software_and_systems: "SOFTWARE",
-  security:             "SECURITY",
-  other:                "OTHER",
+  hardware: HardDrive,
+  network:  Wifi,
+  software_and_systems: Monitor,
+  security_incidents: Mail,
+  access_permissions: Settings,
+  other:                Settings,
 };
 
 const AVAIL_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
-  AVAILABLE: { label: "Available", color: "#166534", dot: "#16A34A" },
-  BUSY:      { label: "Busy",      color: "#8B4513", dot: "#C8962E" },
-  OFF_DUTY:  { label: "Off Duty",  color: "#7A5C44", dot: "#C4A882" },
-  ON_LEAVE:  { label: "On Leave",  color: "#6B21A8", dot: "#A855F7" },
+  available: { label: "Available", color: "#166534", dot: "#16A34A" },
+  busy:      { label: "Busy",      color: "#8B4513", dot: "#C8962E" },
+  off_duty:  { label: "Off Duty",  color: "#7A5C44", dot: "#C4A882" },
+  on_leave:  { label: "On Leave",  color: "#6B21A8", dot: "#A855F7" },
 };
-
+const SPEC_TO_CATEGORY: Record<string, TicketCategory> = {
+    hardware:             "hardware",
+    networking:           "network",
+    software_and_systems: "software_and_systems",
+    security:             "security_incidents",
+    other:                "other",
+   };
 function fmt(iso: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" });
@@ -180,15 +178,16 @@ export default function AdminTicketsPage() {
     return matchQ && (statusFilter === "all" || t.status === statusFilter);
   });
 
+  
   const ticketsByCategory = (cat: string) => filteredTickets.filter(t => t.category === cat);
   const personnelByCategory = (cat: string) =>
     personnel.filter(p => p.specialization && SPEC_TO_CATEGORY[p.specialization] === cat);
 
-  const totalOpen       = tickets.filter(t => t.status === "OPEN").length;
-  const totalInProgress = tickets.filter(t => t.status === "IN_PROGRESS").length;
-  const totalClosed     = tickets.filter(t => t.status === "CLOSED").length;
-  const totalUnassigned = tickets.filter(t => !t.assigned_to_id && t.status !== "CLOSED").length;
-  const totalUnresolved = tickets.filter(t => t.status === "CLOSED" && !!t.comment).length;
+  const totalOpen       = tickets.filter(t => t.status === "open").length;
+  const totalInProgress = tickets.filter(t => t.status === "in_progress").length;
+  const totalClosed     = tickets.filter(t => t.status === "closed").length;
+  const totalUnassigned = tickets.filter(t => !t.assigned_to_id && t.status !== "closed").length;
+  const totalUnresolved = tickets.filter(t => t.status === "closed" && !!t.comment).length;
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const toggleCollapse = (cat: string) => setCollapsed(prev => ({ ...prev, [cat]: !prev[cat] }));
@@ -199,7 +198,7 @@ export default function AdminTicketsPage() {
     setSavingS(true);
     try {
       const body: Record<string, unknown> = { status: newStatus };
-      if (newStatus === "CLOSED" && statusComment.trim()) body.comment = statusComment.trim();
+      if (newStatus === "closed" && statusComment.trim()) body.comment = statusComment.trim();
       const res = await fetch(`${API}/tickets/${changingStatus.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -411,9 +410,9 @@ export default function AdminTicketsPage() {
           <div className="tkt-select-wrap">
             <select className="tkt-select" value={statusFilter} onChange={e => setStatus(e.target.value)}>
               <option value="all">All Statuses</option>
-              <option value="OPEN">Open</option>
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="CLOSED">Closed</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="closed">Closed</option>
             </select>
             <ChevronDown size={13} />
           </div>
@@ -424,8 +423,8 @@ export default function AdminTicketsPage() {
         {!loading && allCategories.map(cat => {
           const catTickets   = ticketsByCategory(cat);
           const catPersonnel = personnelByCategory(cat);
-          const openCount    = catTickets.filter(t => t.status === "OPEN").length;
-          const inProgCount  = catTickets.filter(t => t.status === "IN_PROGRESS").length;
+          const openCount    = catTickets.filter(t => t.status === "open").length;
+          const inProgCount  = catTickets.filter(t => t.status === "in_progress").length;
           const isCollapsed  = collapsed[cat] ?? false;
           const CatIcon      = CATEGORY_ICONS[cat] ?? Settings;
 
@@ -456,7 +455,7 @@ export default function AdminTicketsPage() {
                     {catPersonnel.length === 0
                       ? <span className="tkt-no-tech">No technician with this specialization</span>
                       : catPersonnel.map(p => {
-                          const av = AVAIL_CONFIG[p.availability] ?? AVAIL_CONFIG.OFF_DUTY;
+                          const av = AVAIL_CONFIG[p.availability] ?? AVAIL_CONFIG.off_duty;
                           return (
                             <div className="tkt-tech-chip" key={p.id}>
                               <span className="tkt-tech-dot" style={{ background: av.dot }} />
@@ -480,11 +479,11 @@ export default function AdminTicketsPage() {
                         </thead>
                         <tbody>
                           {catTickets.map(t => {
-                            const sc = STATUS_CONFIG[t.status] ?? STATUS_CONFIG.OPEN;
+                            const sc = STATUS_CONFIG[t.status] ?? STATUS_CONFIG.open;
                             const StatusIcon = sc.icon;
                             const staff = staffMap[t.staff_id];
                             const assignedTech = personnel.find(p => p.id === t.assigned_to_id);
-                            const isUnresolved = t.status === "CLOSED" && !!t.comment;
+                            const isUnresolved = t.status === "closed" && !!t.comment;
                             return (
                               <tr key={t.id} onClick={() => openDetail(t)}>
                                 <td><div className="tkt-ticket-no">#{t.id}</div></td>
@@ -518,7 +517,7 @@ export default function AdminTicketsPage() {
                                 <td onClick={e => e.stopPropagation()}>
                                   <div className="tkt-actions">
                                     <button className="tkt-btn-icon" title="View" onClick={() => openDetail(t)}><Eye size={13} /></button>
-                                    {!t.assigned_to_id && t.status !== "CLOSED" && (
+                                    {!t.assigned_to_id && t.status !== "closed" && (
                                       <button className="tkt-btn-icon" title="Reassign" onClick={() => setReassigning(t)}><RotateCw size={13} /></button>
                                     )}
                                     <button className="tkt-btn-icon" title="Change Status" onClick={() => { setChangingStatus(t); setNewStatus(t.status); setStatusComment(t.comment ?? ""); }}><RefreshCw size={13} /></button>
@@ -542,7 +541,7 @@ export default function AdminTicketsPage() {
       {selected && (() => {
         const staff = staffMap[selected.staff_id];
         const assignedTech = personnel.find(p => p.id === selected.assigned_to_id);
-        const sc = STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.OPEN;
+        const sc = STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.open;
         const SI = sc.icon;
         return (
           <div className="tkt-overlay" onClick={() => setSelected(null)}>
@@ -558,7 +557,7 @@ export default function AdminTicketsPage() {
                 <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
                   <span className="tkt-badge" style={{ color: sc.color, background: sc.bg }}><SI size={11} /> {sc.label}</span>
                   <span className="tkt-badge" style={{ color: "#6B2D0F", background: "#F5EDE3" }}>{selected.category}</span>
-                  {selected.status === "CLOSED" && selected.comment && (
+                  {selected.status === "closed" && selected.comment && (
                     <span className="tkt-badge" style={{ color: "#B91C1C", background: "#FEF2F2" }}><MessageSquare size={11} /> Unresolved</span>
                   )}
                 </div>
@@ -589,7 +588,7 @@ export default function AdminTicketsPage() {
                 <div className="tkt-drawer-actions">
                   <button
                     className="tkt-action-btn primary"
-                    disabled={!!selected.assigned_to_id || selected.status === "CLOSED"}
+                    disabled={!!selected.assigned_to_id || selected.status === "closed"}
                     onClick={() => setReassigning(selected)}
                   >
                     <RotateCw size={13} /> Reassign
@@ -615,7 +614,7 @@ export default function AdminTicketsPage() {
             <h3>Change Status</h3>
             <p>#{changingStatus.id} — {changingStatus.title}</p>
             <div className="tkt-status-options">
-              {(["OPEN", "IN_PROGRESS", "CLOSED"] as TicketStatus[]).map(s => {
+              {(["open", "in_progress", "closed"] as TicketStatus[]).map(s => {
                 const sc = STATUS_CONFIG[s]; const I = sc.icon;
                 return (
                   <div key={s} className={`tkt-status-opt${newStatus === s ? " selected" : ""}`} onClick={() => setNewStatus(s)}>
@@ -625,7 +624,7 @@ export default function AdminTicketsPage() {
                 );
               })}
             </div>
-            {newStatus === "CLOSED" && (
+            {newStatus === "closed" && (
               <textarea
                 className="tkt-modal-textarea"
                 rows={3}
