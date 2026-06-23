@@ -1,3 +1,4 @@
+//ict-sidebar
 "use client";
 
 import Link from "next/link";
@@ -48,6 +49,7 @@ const NAV_LINKS = [
     icon: CheckCircle,
   },
   { href: "/ict-dashboard/tickets/all", label: "All Tickets", icon: Ticket },
+  { href: "/ict-dashboard/my-tickets", label: "My Tickets", icon: Ticket },
   { href: "/ict-dashboard/team", label: "Team", icon: Users },
   { href: "/ict-dashboard/profile", label: "Profile", icon: User },
 ];

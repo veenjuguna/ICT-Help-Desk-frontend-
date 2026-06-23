@@ -1,9 +1,9 @@
+//teams
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
-
 
 interface TeamMember {
   id: string;
@@ -71,7 +71,6 @@ function mapAvailability(availability: string): TeamMember["status"] {
   if (val === "busy") return "Busy";
   return "Offline"; // covers off_duty, on_leave
 }
-
 
 async function fetchTeamMembers(): Promise<TeamMember[]> {
   const cleanBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(
@@ -142,7 +141,6 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
       };
     });
 }
-
 
 function IconTeam() {
   return (
@@ -222,10 +220,12 @@ function StatCard({
           <p className="text-[13px] font-bold uppercase tracking-wider text-[#6b5a4e]">
             {label}
           </p>
-          {sublabel && <p className="mt-0.5 text-xs text-[#9c8576]">{sublabel}</p>}
+          {sublabel && (
+            <p className="mt-0.5 text-xs text-[#9c8576]">{sublabel}</p>
+          )}
         </div>
       </div>
-      
+
       {/* Right Side: The Number */}
       <p className="text-[32px] font-bold leading-none text-[#1c1410]">
         {value}
@@ -282,8 +282,6 @@ function MemberCard({ member }: { member: TeamMember }) {
     </div>
   );
 }
-
-
 
 export default function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
