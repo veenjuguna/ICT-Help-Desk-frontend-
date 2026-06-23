@@ -323,10 +323,6 @@ export default function TeamPage() {
   const totalMembers = members.length;
   const activeTickets = members.reduce((sum, m) => sum + m.active, 0);
   const completedToday = members.reduce((sum, m) => sum + m.completed, 0);
-  const avgRating =
-    totalMembers > 0
-      ? Math.round(members.reduce((sum, m) => sum + m.rating, 0) / totalMembers)
-      : 0;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f3f0] font-sans">
@@ -400,7 +396,7 @@ export default function TeamPage() {
                 value={totalMembers}
                 label="Team Members"
               />
-              {/* <StatCard
+              <StatCard
                 icon={<IconTrend />}
                 value={activeTickets}
                 label="Active Tickets"
@@ -409,7 +405,7 @@ export default function TeamPage() {
                 icon={<IconUser />}
                 value={completedToday}
                 label="Completed Today"
-              /> */}
+              />
             </div>
 
             {/* Personnel Roster */}
