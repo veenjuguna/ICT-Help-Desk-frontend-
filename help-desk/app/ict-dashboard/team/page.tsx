@@ -214,7 +214,7 @@ function StatCard({
       {/* Left Side: Icon and Label */}
       <div className="flex items-center gap-4">
         {icon && (
-          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[#f7f3f0] text-[#8a6a56]">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f7f3f0] text-[#8a6a56]">
             {icon}
           </div>
         )}
@@ -309,8 +309,14 @@ export default function TeamPage() {
   }, []);
 
   useEffect(() => {
-    loadData();
-    const intervalId = setInterval(() => loadData(true), 30000);
+    const fetchInitialData = async () => {
+      await loadData();
+    };
+
+    void fetchInitialData();
+    const intervalId = setInterval(() => {
+      void loadData(true);
+    }, 30000);
     return () => clearInterval(intervalId);
   }, [loadData]);
 
