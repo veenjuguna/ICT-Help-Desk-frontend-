@@ -14,6 +14,9 @@ interface Department {
   name: string;
 }
 
+// policyConsent removed — ISP acknowledgement is now covered by the terms
+// checkbox. Ticking "Terms & Conditions" implies the user has also read
+// and agreed to the Information Security Policy linked within it.
 interface FormState {
   personalNumber: string;
   fullName: string;
@@ -31,7 +34,7 @@ interface FormState {
 
 const EMPTY: FormState = {
   personalNumber: "",
-  fullName: "", // ← was "   fullName"
+  fullName: "",
   phone: "",
   email: "",
   password: "",
@@ -69,18 +72,12 @@ const FALLBACK_DEPTS: Record<string, Department[]> = {
   "3": [
     { id: 301, name: "Government Accounting Services Department" },
     { id: 302, name: "Internal Audit Department" },
-    {
-      id: 303,
-      name: "Financial Management Information Services (IFMIS) Department",
-    },
+    { id: 303, name: "Financial Management Information Services (IFMIS) Department" },
     { id: 304, name: "National Sub-County Treasuries Department" },
     { id: 305, name: "Government Digital Payment Unit" },
   ],
   "4": [
-    {
-      id: 401,
-      name: "Government Investment and Public Enterprises Department",
-    },
+    { id: 401, name: "Government Investment and Public Enterprises Department" },
     { id: 402, name: "Public Investment Management (PIM) Unit" },
     { id: 403, name: "Pensions Department" },
     { id: 404, name: "National Assets and Liabilities Management Department" },
@@ -108,13 +105,11 @@ export default function SignupPage() {
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Load directorates once
+  // Load directorates once on mount
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/directorates/`,
-        );
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/directorates/`);
         if (!res.ok) throw new Error();
         setDirectorates(await res.json());
       } catch {
@@ -125,7 +120,7 @@ export default function SignupPage() {
     })();
   }, []);
 
-  // Load departments when directorate changes — all setState inside async
+  // Load departments whenever selected directorate changes
   useEffect(() => {
     (async () => {
       if (!form.directorateId) {
@@ -136,7 +131,7 @@ export default function SignupPage() {
       setLoadingDepts(true);
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/directorates/${form.directorateId}/departments`,
+          `${process.env.NEXT_PUBLIC_API_URL}/directorates/${form.directorateId}/departments`
         );
         if (!res.ok) throw new Error();
         setDepartments(await res.json());
@@ -151,6 +146,7 @@ export default function SignupPage() {
   const set = (key: keyof FormState, val: string | boolean) =>
     setForm((f) => ({ ...f, [key]: val }));
 
+  // Password strength meter
   const pwStrength = (() => {
     const p = form.password;
     if (!p) return 0;
@@ -167,6 +163,7 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
     if (form.password !== form.confirmPw) {
       setError("Passwords do not match.");
       return;
@@ -176,9 +173,10 @@ export default function SignupPage() {
       return;
     }
     if (!form.terms || !form.dataConsent) {
-      setError("Please accept the Terms & Conditions and Data Access Consent.");
+      setError("Please accept the Terms and Conditions and the Data Access Consent to continue.");
       return;
     }
+
     setLoading(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/`, {
@@ -196,21 +194,25 @@ export default function SignupPage() {
           role: "staff",
           password: form.password,
           confirm_password: form.confirmPw,
+          // Ticking Terms & Conditions implies reading and accepting the ISP.
+          // The policy link is embedded in the checkbox label below.
+          policy_acknowledged: form.terms,
         }),
         credentials: "include",
       });
+
       const data = await res.json();
       if (!res.ok) {
         const detail = data?.detail;
         setError(
           Array.isArray(detail)
-            ? detail.map((e: { msg: string }) => e.msg).join(".")
+            ? detail.map((e: { msg: string }) => e.msg).join(". ")
             : detail ?? "Registration failed. Please try again."
         );
         return;
       }
-    
-     router.push(`/auth/verify?email=${encodeURIComponent(form.email)}`); // ← updated
+
+      router.push(`/auth/verify?email=${encodeURIComponent(form.email)}`);
     } catch {
       setError("Network error. Please check your connection and try again.");
     } finally {
@@ -237,22 +239,15 @@ export default function SignupPage() {
         }
 
         .su-root {
-          display: flex;
-          width: 100%;
-          height: 100vh;
+          display: flex; width: 100%; height: 100vh;
           font-family: 'Plus Jakarta Sans', sans-serif;
           overflow: hidden;
         }
 
-        /* LEFT — sticky, centered, never scrolls */
         .su-left {
-          width: 42%;
-          flex-shrink: 0;
-          position: relative;
-          height: 100vh;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
+          width: 42%; flex-shrink: 0;
+          position: relative; height: 100vh;
+          display: flex; flex-direction: column; justify-content: center;
           overflow: hidden;
         }
 
@@ -271,8 +266,7 @@ export default function SignupPage() {
           display: inline-flex; align-items: center;
           background: rgba(255,255,255,0.95);
           padding: 7px 14px; border-radius: 9px;
-          border-left: 4px solid var(--gold);
-          width: fit-content;
+          border-left: 4px solid var(--gold); width: fit-content;
         }
 
         .su-tagline {
@@ -288,7 +282,6 @@ export default function SignupPage() {
         }
 
         .su-title span { color: var(--gold-light); }
-
         .su-divider { width: 48px; height: 3px; background: var(--gold); border-radius: 2px; }
 
         .su-desc {
@@ -315,14 +308,10 @@ export default function SignupPage() {
           flex-shrink: 0; margin-top: 1px;
         }
 
-        /* RIGHT — only this scrolls */
         .su-right {
-          flex: 1; min-width: 0;
-          height: 100vh;
-          overflow-y: auto;
+          flex: 1; min-width: 0; height: 100vh; overflow-y: auto;
           background: var(--cream);
-          display: flex; flex-direction: column;
-          align-items: center;
+          display: flex; flex-direction: column; align-items: center;
           padding: 2.5rem 2rem 3rem;
         }
 
@@ -355,9 +344,7 @@ export default function SignupPage() {
         }
 
         .su-section:first-of-type { margin-top: 0; }
-
         .su-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
-
         .su-field { display: flex; flex-direction: column; gap: 0.3rem; }
         .su-field.full { grid-column: 1 / -1; }
 
@@ -367,7 +354,6 @@ export default function SignupPage() {
         }
 
         .su-field label span { color: #c0392b; margin-left: 2px; }
-
         .su-input-wrap { position: relative; }
 
         .su-input-wrap input,
@@ -484,7 +470,8 @@ export default function SignupPage() {
       `}</style>
 
       <div className="su-root">
-        {/* LEFT */}
+
+        {/* LEFT panel */}
         <div className="su-left">
           <Image
             src="/treasury-building.jpeg"
@@ -516,8 +503,7 @@ export default function SignupPage() {
             <div className="su-divider" />
             <p className="su-desc">
               Register for IT support access. For National Treasury &amp;
-              Economic Planning staff only — your account will be verified by
-              ICT.
+              Economic Planning staff only — your account will be verified by ICT.
             </p>
             <div className="su-steps">
               {[
@@ -534,24 +520,22 @@ export default function SignupPage() {
           </div>
         </div>
 
-        {/* RIGHT */}
+        {/* RIGHT panel */}
         <div className="su-right">
           <div className="su-card">
             <p className="su-eyebrow">Staff Registration</p>
             <h2 className="su-card-title">Create Account</h2>
             <p className="su-card-sub">
-              All fields marked <span style={{ color: "#c0392b" }}>*</span> are
-              required
+              All fields marked <span style={{ color: "#c0392b" }}>*</span> are required
             </p>
 
             <form onSubmit={handleSubmit}>
-              {/* PERSONAL */}
+
+              {/* Personal Information */}
               <div className="su-section">Personal Information</div>
               <div className="su-grid">
                 <div className="su-field">
-                  <label>
-                    Personal Number <span>*</span>
-                  </label>
+                  <label>Personal Number <span>*</span></label>
                   <div className="su-input-wrap">
                     <input
                       type="text"
@@ -563,9 +547,7 @@ export default function SignupPage() {
                   </div>
                 </div>
                 <div className="su-field">
-                  <label>
-                    Phone Number <span>*</span>
-                  </label>
+                  <label>Phone Number <span>*</span></label>
                   <div className="su-input-wrap">
                     <input
                       type="tel"
@@ -577,9 +559,7 @@ export default function SignupPage() {
                   </div>
                 </div>
                 <div className="su-field full">
-                  <label>
-                    Full Name <span>*</span>
-                  </label>
+                  <label>Full Name <span>*</span></label>
                   <div className="su-input-wrap">
                     <input
                       type="text"
@@ -590,11 +570,8 @@ export default function SignupPage() {
                     />
                   </div>
                 </div>
-
                 <div className="su-field full">
-                  <label>
-                    Work Email <span>*</span>
-                  </label>
+                  <label>Work Email <span>*</span></label>
                   <div className="su-input-wrap">
                     <input
                       type="email"
@@ -607,13 +584,11 @@ export default function SignupPage() {
                 </div>
               </div>
 
-              {/* OFFICE */}
+              {/* Office Information */}
               <div className="su-section">Office Information</div>
               <div className="su-grid">
                 <div className="su-field full">
-                  <label>
-                    Directorate <span>*</span>
-                  </label>
+                  <label>Directorate <span>*</span></label>
                   <div className="su-input-wrap">
                     <select
                       value={form.directorateId}
@@ -625,12 +600,10 @@ export default function SignupPage() {
                       disabled={loadingDirs}
                     >
                       <option value="">
-                        {loadingDirs ? "Loading..." : "— Select Directorate —"}
+                        {loadingDirs ? "Loading..." : "Select your directorate"}
                       </option>
                       {directorates.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
+                        <option key={d.id} value={d.id}>{d.name}</option>
                       ))}
                     </select>
                     <span className="su-arrow">▼</span>
@@ -646,17 +619,15 @@ export default function SignupPage() {
                     >
                       <option value="">
                         {!form.directorateId
-                          ? "Select directorate first"
+                          ? "Select a directorate first"
                           : loadingDepts
                             ? "Loading departments..."
                             : departments.length === 0
-                              ? "No departments"
-                              : "— Select Department —"}
+                              ? "No departments available"
+                              : "Select your department"}
                       </option>
                       {departments.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
+                        <option key={d.id} value={d.id}>{d.name}</option>
                       ))}
                     </select>
                     <span className="su-arrow">▼</span>
@@ -686,13 +657,11 @@ export default function SignupPage() {
                 </div>
               </div>
 
-              {/* SECURITY */}
+              {/* Security */}
               <div className="su-section">Security</div>
               <div className="su-grid">
                 <div className="su-field">
-                  <label>
-                    Password <span>*</span>
-                  </label>
+                  <label>Password <span>*</span></label>
                   <div className="su-input-wrap">
                     <input
                       type={showPw ? "text" : "password"}
@@ -716,24 +685,17 @@ export default function SignupPage() {
                         <div
                           key={n}
                           className="su-bar"
-                          style={{
-                            background: n <= pwStrength ? pwColor : undefined,
-                          }}
+                          style={{ background: n <= pwStrength ? pwColor : undefined }}
                         />
                       ))}
-                      <span
-                        className="su-strength-label"
-                        style={{ color: pwColor }}
-                      >
+                      <span className="su-strength-label" style={{ color: pwColor }}>
                         {pwLabel}
                       </span>
                     </div>
                   )}
                 </div>
                 <div className="su-field">
-                  <label>
-                    Confirm Password <span>*</span>
-                  </label>
+                  <label>Confirm Password <span>*</span></label>
                   <div className="su-input-wrap">
                     <input
                       type={showConfirm ? "text" : "password"}
@@ -754,12 +716,7 @@ export default function SignupPage() {
                   {form.confirmPw && (
                     <p
                       className="su-match"
-                      style={{
-                        color:
-                          form.password === form.confirmPw
-                            ? "#27ae60"
-                            : "#c0392b",
-                      }}
+                      style={{ color: form.password === form.confirmPw ? "#27ae60" : "#c0392b" }}
                     >
                       {form.password === form.confirmPw
                         ? "✓ Passwords match"
@@ -769,7 +726,9 @@ export default function SignupPage() {
                 </div>
               </div>
 
-              {/* CHECKBOXES */}
+              {/* Consents — two checkboxes only.
+                  The Terms checkbox embeds the ISP link so ticking it
+                  covers policy_acknowledged without a separate checkbox. */}
               <div className="su-checks">
                 <label className="su-check">
                   <input
@@ -777,36 +736,27 @@ export default function SignupPage() {
                     checked={form.terms}
                     onChange={(e) => set("terms", e.target.checked)}
                   />
-                  I agree to the{" "}
-                  <a href="/terms" target="_blank">
-                    Terms &amp; Conditions
-                  </a>{" "}
-                  of the National Treasury ICT Helpdesk
+                  I have read and agree to the{" "}
+                  <a href="/terms" target="_blank">Terms and Conditions</a>
+                  {" "}and the{" "}
+                  <a href="/policy" target="_blank">Information Security Policy</a>
+                  {" "}of the National Treasury ICT Helpdesk
                 </label>
+
                 <label className="su-check">
                   <input
                     type="checkbox"
                     checked={form.dataConsent}
                     onChange={(e) => set("dataConsent", e.target.checked)}
                   />
-                  I consent to processing of my personal data in accordance with
-                  the{" "}
-                  <a href="/privacy" target="_blank">
-                    Kenya Data Protection Act 2019
-                  </a>
+                  I consent to my personal data being processed in accordance with the{" "}
+                  <a href="/privacy" target="_blank">Kenya Data Protection Act 2019</a>
                 </label>
               </div>
 
               {error && (
                 <div className="su-error">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="8" x2="12" y2="12" />
                     <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -824,14 +774,7 @@ export default function SignupPage() {
                 ) : (
                   <>
                     Create Account
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M5 12h14M12 5l7 7-7 7" />
                     </svg>
                   </>
@@ -841,12 +784,12 @@ export default function SignupPage() {
               <div className="su-signin">
                 Already have an account?&nbsp;<Link href="/login">Sign in</Link>
               </div>
+
             </form>
           </div>
 
           <p className="su-footer">
-            © {new Date().getFullYear()} National Treasury &amp; Economic
-            Planning · Government of Kenya
+            © {new Date().getFullYear()} National Treasury &amp; Economic Planning · Government of Kenya
           </p>
         </div>
       </div>
