@@ -6,42 +6,58 @@ import {
   AlertCircle, X, UserCheck, RotateCcw,
 } from "lucide-react";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-interface Allocation {
+// ── Types (matching backend schemas exactly) ───────────────────────────────────
+
+type DeviceType = "laptop" | "desktop" | "printer" | "monitor" | "other";
+
+interface AssetDetail {
   id: number;
-  asset: {
-    id: number;
-    asset_tag: string;
-    name: string;
-    device_type: string;
-  };
-  staff: {
-    id: number;
-    first_name: string;
-    last_name: string;
-    department: string;
-    email: string;
-  };
-  allocated_at: string;
-  returned_at: string | null;
-  allocated_by: string;
+  asset_tag: string;
+  serial_number: string;
+  device_type: DeviceType;
+  brand: string;
+  model: string;
+}
+
+interface StaffDetail {
+  id: string; // UUID
+  first_name: string;
+  last_name: string;
+  department: string;
+  email: string;
+}
+
+// Raw shape from GET /assets/allocations (AssetAllocationResponse)
+interface AllocationRaw {
+  id: number;
+  asset_id: number;
+  staff_id: string; // UUID
+  allocation_date: string; // date, "YYYY-MM-DD"
+  return_date: string | null;
   notes: string | null;
+}
+
+// Enriched shape used by the UI after joining asset + staff
+interface Allocation extends AllocationRaw {
   status: "active" | "returned";
+  asset?: AssetDetail;
+  staff?: StaffDetail;
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-neon.onrender.com";
 
-// ── Mock fallback ─────────────────────────────────────────────────────────────
-const MOCK: Allocation[] = [
-  { id: 1, asset: { id: 1, asset_tag: "TNT-LAP-001", name: "Dell Latitude 5520",   device_type: "Laptop"  }, staff: { id: 10, first_name: "Grace",  last_name: "Mwangi",  department: "Budget",      email: "grace.mwangi@treasury.go.ke"  }, allocated_at: "2025-01-15T09:00:00Z", returned_at: null,                   allocated_by: "Admin", notes: null,                   status: "active"   },
-  { id: 2, asset: { id: 3, asset_tag: "TNT-DES-001", name: "Dell OptiPlex 7090",   device_type: "Desktop" }, staff: { id: 11, first_name: "James",  last_name: "Kariuki", department: "Procurement", email: "james.kariuki@treasury.go.ke" }, allocated_at: "2025-02-10T10:30:00Z", returned_at: null,                   allocated_by: "Admin", notes: null,                   status: "active"   },
-  { id: 3, asset: { id: 5, asset_tag: "TNT-PRT-001", name: "HP LaserJet Pro M404", device_type: "Printer" }, staff: { id: 12, first_name: "Faith",  last_name: "Njoroge", department: "Debt Mgmt",   email: "faith.njoroge@treasury.go.ke" }, allocated_at: "2025-03-05T08:15:00Z", returned_at: null,                   allocated_by: "Admin", notes: "3rd floor",            status: "active"   },
-  { id: 4, asset: { id: 2, asset_tag: "TNT-LAP-002", name: "HP EliteBook 840",     device_type: "Laptop"  }, staff: { id: 14, first_name: "Susan",  last_name: "Achieng", department: "Accounts",    email: "susan.achieng@treasury.go.ke" }, allocated_at: "2024-06-01T09:00:00Z", returned_at: "2025-01-10T14:00:00Z", allocated_by: "Admin", notes: "Returned — resigned", status: "returned" },
-];
+const DEVICE_LABEL: Record<DeviceType, string> = {
+  laptop: "Laptop",
+  desktop: "Desktop",
+  printer: "Printer",
+  monitor: "Monitor",
+  other: "Other",
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmt(iso: string | null) {
   if (!iso) return "—";
+  // handles both "YYYY-MM-DD" and full ISO datetimes
   return new Date(iso).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" });
 }
 
@@ -52,46 +68,16 @@ function daysSince(iso: string) {
   return `${d} days ago`;
 }
 
-// Normalize whatever shape the backend returns into our Allocation type
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === "object" && value !== null ? value as Record<string, unknown> : undefined;
+function toDateOnly(d: Date) {
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD for the `date` columns
 }
 
-function getString(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function getNumber(value: unknown, fallback = 0): number {
-  return typeof value === "number" ? value : fallback;
-}
-
-function normalize(raw: unknown): Allocation {
-  const data = asRecord(raw) ?? {};
-  const assetRaw = asRecord(data.asset);
-  const staffRaw = asRecord(data.staff);
-  const returnedAt = data.returned_at;
-  const notes = data.notes;
-
+function enrich(raw: AllocationRaw, assetMap: Map<number, AssetDetail>, staffMap: Map<string, StaffDetail>): Allocation {
   return {
-    id: getNumber(data.id),
-    asset: {
-      id: getNumber(assetRaw?.id ?? data.asset_id),
-      asset_tag: getString(assetRaw?.asset_tag ?? data.asset_tag, "—"),
-      name: getString(assetRaw?.name ?? data.asset_name, "Unknown Asset"),
-      device_type: getString(assetRaw?.device_type ?? data.device_type, "Other"),
-    },
-    staff: {
-      id: getNumber(staffRaw?.id ?? data.staff_id),
-      first_name: getString(staffRaw?.first_name ?? data.staff_first_name, "Unknown"),
-      last_name: getString(staffRaw?.last_name ?? data.staff_last_name, ""),
-      department: getString(staffRaw?.department ?? data.department, "—"),
-      email: getString(staffRaw?.email ?? data.staff_email, "—"),
-    },
-    allocated_at: getString(data.allocated_at ?? data.created_at, new Date().toISOString()),
-    returned_at: returnedAt === null ? null : (typeof returnedAt === "string" ? returnedAt : null),
-    allocated_by: getString(data.allocated_by, "Admin"),
-    notes: notes === null ? null : (typeof notes === "string" ? notes : null),
-    status: returnedAt !== null ? "returned" : (data.status === "returned" ? "returned" : "active"),
+    ...raw,
+    status: raw.return_date === null ? "active" : "returned",
+    asset: assetMap.get(raw.asset_id),
+    staff: staffMap.get(raw.staff_id),
   };
 }
 
@@ -109,7 +95,7 @@ function Toast({ msg, type, onClose }: { msg: string; type: "success" | "error";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AdminAllocationsPage() {
-  const [allocations, setAllocations] = useState<Allocation[]>(MOCK);
+  const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
   const [search, setSearch]           = useState("");
@@ -125,44 +111,57 @@ export default function AdminAllocationsPage() {
 
   const showToast = (msg: string, type: "success" | "error") => setToast({ msg, type });
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  // ── Fetch (allocations + assets + staff, then join client-side) ────────────
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/assets/allocations`, { credentials: "include" });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? `Error ${res.status}`);
+      const [allocRes, assetRes, staffRes] = await Promise.all([
+        fetch(`${API}/assets/allocations`, { credentials: "include" }),
+        fetch(`${API}/assets/`, { credentials: "include" }),
+        fetch(`${API}/staff/`, { credentials: "include" }),
+      ]);
+
+      for (const [label, res] of [["allocations", allocRes], ["assets", assetRes], ["staff", staffRes]] as const) {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail ?? `Failed to load ${label} (${res.status})`);
+        }
       }
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : data.allocations ?? [];
-      setAllocations(list.map(normalize));
+
+      const allocData: AllocationRaw[] = await allocRes.json();
+      const assetData: AssetDetail[] = await assetRes.json();
+      const staffData: StaffDetail[] = await staffRes.json();
+
+      const assetMap = new Map(assetData.map(a => [a.id, a]));
+      const staffMap = new Map(staffData.map(s => [s.id, s]));
+
+      setAllocations(allocData.map(a => enrich(a, assetMap, staffMap)));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load allocations.");
-      setAllocations(MOCK);
+      setAllocations([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const load = async () => { await fetchAll(); };
-    load();
+    fetchAll();
   }, [fetchAll]);
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const deviceTypes = Array.from(new Set(allocations.map(a => a.asset.device_type))).sort();
+  const deviceTypes = Array.from(new Set(allocations.map(a => a.asset?.device_type).filter(Boolean))) as DeviceType[];
 
   const filtered = allocations.filter(a => {
     const q = search.toLowerCase();
+    const staffName = `${a.staff?.first_name ?? ""} ${a.staff?.last_name ?? ""}`.toLowerCase();
     const matchQ = !q
-      || a.asset.asset_tag.toLowerCase().includes(q)
-      || a.asset.name.toLowerCase().includes(q)
-      || `${a.staff.first_name} ${a.staff.last_name}`.toLowerCase().includes(q)
-      || a.staff.department.toLowerCase().includes(q);
+      || (a.asset?.asset_tag ?? "").toLowerCase().includes(q)
+      || (a.asset?.model ?? "").toLowerCase().includes(q)
+      || staffName.includes(q)
+      || (a.staff?.department ?? "").toLowerCase().includes(q);
     const matchS = statusFilter === "all" || a.status === statusFilter;
-    const matchT = typeFilter === "all" || a.asset.device_type === typeFilter;
+    const matchT = typeFilter === "all" || a.asset?.device_type === typeFilter;
     return matchQ && matchS && matchT;
   });
 
@@ -178,15 +177,21 @@ export default function AdminAllocationsPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ returned_at: new Date().toISOString(), notes: returnNote || returning.notes }),
+        body: JSON.stringify({
+          return_date: toDateOnly(new Date()),
+          notes: returnNote || returning.notes,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail ?? `Error ${res.status}`);
       }
-      const updatedRaw = await res.json();
-      const updated = normalize(updatedRaw);
-      setAllocations(prev => prev.map(a => a.id === returning.id ? updated : a));
+      const updatedRaw: AllocationRaw = await res.json();
+      setAllocations(prev => prev.map(a =>
+        a.id === returning.id
+          ? { ...updatedRaw, status: updatedRaw.return_date === null ? "active" : "returned", asset: a.asset, staff: a.staff }
+          : a
+      ));
       showToast("Asset marked as returned.", "success");
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Failed to mark as returned.", "error");
@@ -301,7 +306,7 @@ export default function AdminAllocationsPage() {
 
         {error && (
           <div className="alc-error-banner">
-            <AlertCircle size={15} /> {error} — showing fallback data.
+            <AlertCircle size={15} /> {error}
           </div>
         )}
 
@@ -314,7 +319,7 @@ export default function AdminAllocationsPage() {
         <div className="alc-filters">
           <div className="alc-search-wrap">
             <Search size={14} />
-            <input className="alc-search" placeholder="Search by tag, name, staff or department…" value={search} onChange={e => setSearch(e.target.value)} />
+            <input className="alc-search" placeholder="Search by tag, model, staff or department…" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <div className="alc-select-wrap">
             <select className="alc-select" value={statusFilter} onChange={e => setStatus(e.target.value)}>
@@ -327,7 +332,7 @@ export default function AdminAllocationsPage() {
           <div className="alc-select-wrap">
             <select className="alc-select" value={typeFilter} onChange={e => setType(e.target.value)}>
               <option value="all">All Types</option>
-              {deviceTypes.map(t => <option key={t} value={t}>{t}</option>)}
+              {deviceTypes.map(t => <option key={t} value={t}>{DEVICE_LABEL[t]}</option>)}
             </select>
             <ChevronDown size={13} />
           </div>
@@ -356,21 +361,21 @@ export default function AdminAllocationsPage() {
                   {filtered.map(a => (
                     <tr key={a.id} onClick={() => setSelected(a)}>
                       <td>
-                        <div className="alc-tag">{a.asset.asset_tag}</div>
-                        <div className="alc-sub">{a.asset.name}</div>
+                        <div className="alc-tag">{a.asset?.asset_tag ?? `#${a.asset_id}`}</div>
+                        <div className="alc-sub">{a.asset ? `${a.asset.brand} ${a.asset.model}` : "Unknown Asset"}</div>
                       </td>
-                      <td style={{ fontSize: "0.82rem" }}>{a.asset.device_type}</td>
+                      <td style={{ fontSize: "0.82rem" }}>{a.asset ? DEVICE_LABEL[a.asset.device_type] : "—"}</td>
                       <td>
-                        <div style={{ fontSize: "0.83rem", fontWeight: 500 }}>{a.staff.first_name} {a.staff.last_name}</div>
-                        <div className="alc-sub">{a.staff.email}</div>
+                        <div style={{ fontSize: "0.83rem", fontWeight: 500 }}>{a.staff ? `${a.staff.first_name} ${a.staff.last_name}` : "Unknown Staff"}</div>
+                        <div className="alc-sub">{a.staff?.email ?? "—"}</div>
                       </td>
-                      <td style={{ fontSize: "0.82rem" }}>{a.staff.department}</td>
+                      <td style={{ fontSize: "0.82rem" }}>{a.staff?.department ?? "—"}</td>
                       <td>
-                        <div style={{ fontSize: "0.82rem" }}>{fmt(a.allocated_at)}</div>
-                        <div className="alc-sub">{daysSince(a.allocated_at)}</div>
+                        <div style={{ fontSize: "0.82rem" }}>{fmt(a.allocation_date)}</div>
+                        <div className="alc-sub">{daysSince(a.allocation_date)}</div>
                       </td>
-                      <td style={{ fontSize: "0.82rem", color: a.returned_at ? "#166534" : "var(--text-sub)" }}>
-                        {fmt(a.returned_at)}
+                      <td style={{ fontSize: "0.82rem", color: a.return_date ? "#166534" : "var(--text-sub)" }}>
+                        {fmt(a.return_date)}
                       </td>
                       <td>
                         <span className="alc-badge" style={{
@@ -404,8 +409,8 @@ export default function AdminAllocationsPage() {
           <div className="alc-drawer" onClick={e => e.stopPropagation()}>
             <div className="alc-drawer-header">
               <div>
-                <h2>{selected.asset.asset_tag} — {selected.asset.name}</h2>
-                <p>Allocated to {selected.staff.first_name} {selected.staff.last_name}</p>
+                <h2>{selected.asset?.asset_tag ?? `#${selected.asset_id}`} — {selected.asset ? `${selected.asset.brand} ${selected.asset.model}` : "Unknown Asset"}</h2>
+                <p>Allocated to {selected.staff ? `${selected.staff.first_name} ${selected.staff.last_name}` : "Unknown Staff"}</p>
               </div>
               <button className="alc-close-btn" onClick={() => setSelected(null)}><X size={15} /></button>
             </div>
@@ -414,9 +419,9 @@ export default function AdminAllocationsPage() {
                 <div className="alc-section-lbl">Asset</div>
                 <div className="alc-detail-card">
                   <div className="alc-detail-grid">
-                    <div className="alc-detail-item"><label>Tag</label><span>{selected.asset.asset_tag}</span></div>
-                    <div className="alc-detail-item"><label>Type</label><span>{selected.asset.device_type}</span></div>
-                    <div className="alc-detail-item" style={{ gridColumn: "1/-1" }}><label>Name</label><span>{selected.asset.name}</span></div>
+                    <div className="alc-detail-item"><label>Tag</label><span>{selected.asset?.asset_tag ?? "—"}</span></div>
+                    <div className="alc-detail-item"><label>Type</label><span>{selected.asset ? DEVICE_LABEL[selected.asset.device_type] : "—"}</span></div>
+                    <div className="alc-detail-item" style={{ gridColumn: "1/-1" }}><label>Model</label><span>{selected.asset ? `${selected.asset.brand} ${selected.asset.model}` : "—"}</span></div>
                   </div>
                 </div>
               </div>
@@ -425,9 +430,9 @@ export default function AdminAllocationsPage() {
                 <div className="alc-section-lbl">Staff Member</div>
                 <div className="alc-detail-card">
                   <div className="alc-detail-grid">
-                    <div className="alc-detail-item"><label>Name</label><span>{selected.staff.first_name} {selected.staff.last_name}</span></div>
-                    <div className="alc-detail-item"><label>Department</label><span>{selected.staff.department}</span></div>
-                    <div className="alc-detail-item" style={{ gridColumn: "1/-1" }}><label>Email</label><span>{selected.staff.email}</span></div>
+                    <div className="alc-detail-item"><label>Name</label><span>{selected.staff ? `${selected.staff.first_name} ${selected.staff.last_name}` : "—"}</span></div>
+                    <div className="alc-detail-item"><label>Department</label><span>{selected.staff?.department ?? "—"}</span></div>
+                    <div className="alc-detail-item" style={{ gridColumn: "1/-1" }}><label>Email</label><span>{selected.staff?.email ?? "—"}</span></div>
                   </div>
                 </div>
               </div>
@@ -436,9 +441,8 @@ export default function AdminAllocationsPage() {
                 <div className="alc-section-lbl">Allocation Details</div>
                 <div className="alc-detail-card">
                   <div className="alc-detail-grid">
-                    <div className="alc-detail-item"><label>Allocated On</label><span>{fmt(selected.allocated_at)}</span></div>
-                    <div className="alc-detail-item"><label>Returned On</label><span>{fmt(selected.returned_at)}</span></div>
-                    <div className="alc-detail-item"><label>Allocated By</label><span>{selected.allocated_by}</span></div>
+                    <div className="alc-detail-item"><label>Allocated On</label><span>{fmt(selected.allocation_date)}</span></div>
+                    <div className="alc-detail-item"><label>Returned On</label><span>{fmt(selected.return_date)}</span></div>
                     <div className="alc-detail-item"><label>Status</label>
                       <span className="alc-badge" style={{ color: selected.status === "active" ? "#8B4513" : "#166534", background: selected.status === "active" ? "#FDF6EE" : "#F0FDF4" }}>
                         {selected.status === "active" ? "Active" : "Returned"}
@@ -468,7 +472,7 @@ export default function AdminAllocationsPage() {
         <div className="alc-modal-overlay" onClick={() => setReturning(null)}>
           <div className="alc-modal" onClick={e => e.stopPropagation()}>
             <h3>Mark as Returned</h3>
-            <p><strong>{returning.asset.asset_tag} — {returning.asset.name}</strong> from {returning.staff.first_name} {returning.staff.last_name}</p>
+            <p><strong>{returning.asset?.asset_tag ?? `#${returning.asset_id}`}</strong> from {returning.staff ? `${returning.staff.first_name} ${returning.staff.last_name}` : "Unknown Staff"}</p>
             <textarea
               className="alc-modal-input"
               rows={3}
