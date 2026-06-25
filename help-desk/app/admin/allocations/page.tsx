@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Search, ChevronDown, RefreshCw, Loader2, CheckCircle2,
-  AlertCircle, X, UserCheck, RotateCcw,
+  AlertCircle, X, UserCheck, RotateCcw, Plus,
 } from "lucide-react";
 
 // ── Types (matching backend schemas exactly) ───────────────────────────────────
@@ -21,10 +21,9 @@ interface AssetDetail {
 
 interface StaffDetail {
   id: string; // UUID
-  first_name: string;
-  last_name: string;
-  department: string;
+  full_name: string;
   email: string;
+  department: { id: number; name: string } | null;
 }
 
 // Raw shape from GET /assets/allocations (AssetAllocationResponse)
@@ -96,6 +95,8 @@ function Toast({ msg, type, onClose }: { msg: string; type: "success" | "error";
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AdminAllocationsPage() {
   const [allocations, setAllocations] = useState<Allocation[]>([]);
+  const [assets, setAssets]           = useState<AssetDetail[]>([]);
+  const [staffList, setStaffList]     = useState<StaffDetail[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
   const [search, setSearch]           = useState("");
@@ -108,6 +109,14 @@ export default function AdminAllocationsPage() {
   const [savingRet, setSavingRet]   = useState(false);
 
   const [selected, setSelected] = useState<Allocation | null>(null);
+
+  // New allocation modal
+  const [creating, setCreating]           = useState(false);
+  const [createAssetId, setCreateAssetId] = useState<number | null>(null);
+  const [createStaffId, setCreateStaffId] = useState<string | null>(null);
+  const [createDate, setCreateDate]       = useState(toDateOnly(new Date()));
+  const [createNotes, setCreateNotes]     = useState("");
+  const [savingCreate, setSavingCreate]   = useState(false);
 
   const showToast = (msg: string, type: "success" | "error") => setToast({ msg, type });
 
@@ -133,6 +142,9 @@ export default function AdminAllocationsPage() {
       const assetData: AssetDetail[] = await assetRes.json();
       const staffData: StaffDetail[] = await staffRes.json();
 
+      setAssets(assetData);
+      setStaffList(staffData);
+
       const assetMap = new Map(assetData.map(a => [a.id, a]));
       const staffMap = new Map(staffData.map(s => [s.id, s]));
 
@@ -146,6 +158,7 @@ export default function AdminAllocationsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch-on-mount; setLoading/setError run before the await in fetchAll
     fetchAll();
   }, [fetchAll]);
 
@@ -154,12 +167,12 @@ export default function AdminAllocationsPage() {
 
   const filtered = allocations.filter(a => {
     const q = search.toLowerCase();
-    const staffName = `${a.staff?.first_name ?? ""} ${a.staff?.last_name ?? ""}`.toLowerCase();
+    const staffName = (a.staff?.full_name ?? "").toLowerCase();
     const matchQ = !q
       || (a.asset?.asset_tag ?? "").toLowerCase().includes(q)
       || (a.asset?.model ?? "").toLowerCase().includes(q)
       || staffName.includes(q)
-      || (a.staff?.department ?? "").toLowerCase().includes(q);
+      || (a.staff?.department?.name ?? "").toLowerCase().includes(q);
     const matchS = statusFilter === "all" || a.status === statusFilter;
     const matchT = typeFilter === "all" || a.asset?.device_type === typeFilter;
     return matchQ && matchS && matchT;
@@ -167,6 +180,9 @@ export default function AdminAllocationsPage() {
 
   const activeCount   = allocations.filter(a => a.status === "active").length;
   const returnedCount = allocations.filter(a => a.status === "returned").length;
+
+  const allocatedAssetIds = new Set(allocations.filter(a => a.status === "active").map(a => a.asset_id));
+  const availableAssets = assets.filter(a => !allocatedAssetIds.has(a.id));
 
   // ── Return handler ─────────────────────────────────────────────────────────
   const handleReturn = async () => {
@@ -203,6 +219,44 @@ export default function AdminAllocationsPage() {
     }
   };
 
+  // ── Create (new allocation) handler ─────────────────────────────────────────
+  const openCreate = () => {
+    setCreateAssetId(null);
+    setCreateStaffId(null);
+    setCreateDate(toDateOnly(new Date()));
+    setCreateNotes("");
+    setCreating(true);
+  };
+
+  const handleCreate = async () => {
+    if (!createAssetId || !createStaffId) return;
+    setSavingCreate(true);
+    try {
+      const res = await fetch(`${API}/assets/allocate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          asset_id: createAssetId,
+          staff_id: createStaffId,
+          allocation_date: createDate,
+          notes: createNotes || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? `Error ${res.status}`);
+      }
+      showToast("Asset allocated successfully.", "success");
+      setCreating(false);
+      await fetchAll();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Allocation failed.", "error");
+    } finally {
+      setSavingCreate(false);
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
@@ -224,8 +278,11 @@ export default function AdminAllocationsPage() {
         .alc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         .alc-header h1 { font-size: 1.35rem; font-weight: 700; color: var(--brown-dark); margin: 0 0 2px; }
         .alc-header p  { font-size: 0.82rem; color: var(--text-sub); margin: 0; }
+        .alc-header-btns { display: flex; gap: 8px; }
         .alc-refresh-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: #fff; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.82rem; font-weight: 600; color: var(--brown-main); cursor: pointer; transition: all 0.15s; }
         .alc-refresh-btn:hover { border-color: var(--gold); color: var(--gold); }
+        .alc-add-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--brown-dark); border: none; border-radius: 8px; font-size: 0.84rem; font-weight: 600; color: #fff; cursor: pointer; transition: background 0.15s; }
+        .alc-add-btn:hover { background: var(--brown-main); }
 
         .alc-error-banner { background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px; padding: 10px 14px; color: #B91C1C; font-size: 0.84rem; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
 
@@ -277,12 +334,14 @@ export default function AdminAllocationsPage() {
         .alc-section-lbl { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--brown-mid); margin-bottom: 6px; border-left: 3px solid var(--gold); padding-left: 8px; }
 
         .alc-modal-overlay { position: fixed; inset: 0; background: rgba(74,30,10,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; }
-        .alc-modal { background: #fff; border-radius: 14px; width: 400px; max-width: 95vw; padding: 24px; animation: fadeUp 0.2s ease; border-top: 4px solid var(--brown-main); }
+        .alc-modal { background: #fff; border-radius: 14px; width: 400px; max-width: 95vw; max-height: 90vh; overflow-y: auto; padding: 24px; animation: fadeUp 0.2s ease; border-top: 4px solid var(--brown-main); }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
         .alc-modal h3 { font-size: 1rem; font-weight: 700; color: var(--brown-dark); margin: 0 0 4px; }
         .alc-modal p  { font-size: 0.81rem; color: var(--text-sub); margin: 0 0 14px; }
         .alc-modal-input { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.84rem; color: var(--text-main); background: #fff; outline: none; font-family: inherit; resize: none; margin-bottom: 16px; box-sizing: border-box; }
         .alc-modal-input:focus { border-color: var(--gold); }
+        .alc-modal-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+        .alc-modal-field label { font-size: 0.71rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--gold); }
         .alc-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
         .alc-modal-cancel { padding: 8px 18px; border: 1.5px solid var(--border); background: #fff; border-radius: 8px; font-size: 0.84rem; font-weight: 600; color: var(--text-sub); cursor: pointer; }
         .alc-modal-confirm { padding: 8px 18px; background: var(--brown-dark); color: #fff; border: none; border-radius: 8px; font-size: 0.84rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
@@ -301,7 +360,10 @@ export default function AdminAllocationsPage() {
             <h1>Allocations</h1>
             <p>Track device assignments and returns</p>
           </div>
-          <button className="alc-refresh-btn" onClick={() => fetchAll()}><RefreshCw size={14} /> Refresh</button>
+          <div className="alc-header-btns">
+            <button className="alc-refresh-btn" onClick={() => fetchAll()}><RefreshCw size={14} /> Refresh</button>
+            <button className="alc-add-btn" onClick={openCreate}><Plus size={14} /> New Allocation</button>
+          </div>
         </div>
 
         {error && (
@@ -366,10 +428,10 @@ export default function AdminAllocationsPage() {
                       </td>
                       <td style={{ fontSize: "0.82rem" }}>{a.asset ? DEVICE_LABEL[a.asset.device_type] : "—"}</td>
                       <td>
-                        <div style={{ fontSize: "0.83rem", fontWeight: 500 }}>{a.staff ? `${a.staff.first_name} ${a.staff.last_name}` : "Unknown Staff"}</div>
+                        <div style={{ fontSize: "0.83rem", fontWeight: 500 }}>{a.staff?.full_name ?? "Unknown Staff"}</div>
                         <div className="alc-sub">{a.staff?.email ?? "—"}</div>
                       </td>
-                      <td style={{ fontSize: "0.82rem" }}>{a.staff?.department ?? "—"}</td>
+                      <td style={{ fontSize: "0.82rem" }}>{a.staff?.department?.name ?? "—"}</td>
                       <td>
                         <div style={{ fontSize: "0.82rem" }}>{fmt(a.allocation_date)}</div>
                         <div className="alc-sub">{daysSince(a.allocation_date)}</div>
@@ -410,7 +472,7 @@ export default function AdminAllocationsPage() {
             <div className="alc-drawer-header">
               <div>
                 <h2>{selected.asset?.asset_tag ?? `#${selected.asset_id}`} — {selected.asset ? `${selected.asset.brand} ${selected.asset.model}` : "Unknown Asset"}</h2>
-                <p>Allocated to {selected.staff ? `${selected.staff.first_name} ${selected.staff.last_name}` : "Unknown Staff"}</p>
+                <p>Allocated to {selected.staff?.full_name ?? "Unknown Staff"}</p>
               </div>
               <button className="alc-close-btn" onClick={() => setSelected(null)}><X size={15} /></button>
             </div>
@@ -430,8 +492,8 @@ export default function AdminAllocationsPage() {
                 <div className="alc-section-lbl">Staff Member</div>
                 <div className="alc-detail-card">
                   <div className="alc-detail-grid">
-                    <div className="alc-detail-item"><label>Name</label><span>{selected.staff ? `${selected.staff.first_name} ${selected.staff.last_name}` : "—"}</span></div>
-                    <div className="alc-detail-item"><label>Department</label><span>{selected.staff?.department ?? "—"}</span></div>
+                    <div className="alc-detail-item"><label>Name</label><span>{selected.staff?.full_name ?? "—"}</span></div>
+                    <div className="alc-detail-item"><label>Department</label><span>{selected.staff?.department?.name ?? "—"}</span></div>
                     <div className="alc-detail-item" style={{ gridColumn: "1/-1" }}><label>Email</label><span>{selected.staff?.email ?? "—"}</span></div>
                   </div>
                 </div>
@@ -472,7 +534,7 @@ export default function AdminAllocationsPage() {
         <div className="alc-modal-overlay" onClick={() => setReturning(null)}>
           <div className="alc-modal" onClick={e => e.stopPropagation()}>
             <h3>Mark as Returned</h3>
-            <p><strong>{returning.asset?.asset_tag ?? `#${returning.asset_id}`}</strong> from {returning.staff ? `${returning.staff.first_name} ${returning.staff.last_name}` : "Unknown Staff"}</p>
+            <p><strong>{returning.asset?.asset_tag ?? `#${returning.asset_id}`}</strong> from {returning.staff?.full_name ?? "Unknown Staff"}</p>
             <textarea
               className="alc-modal-input"
               rows={3}
@@ -484,6 +546,55 @@ export default function AdminAllocationsPage() {
               <button className="alc-modal-cancel" onClick={() => setReturning(null)}>Cancel</button>
               <button className="alc-modal-confirm" disabled={savingRet} onClick={handleReturn}>
                 {savingRet ? <Loader2 size={13} /> : <RotateCcw size={13} />} Confirm Return
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {creating && (
+        <div className="alc-modal-overlay" onClick={() => setCreating(false)}>
+          <div className="alc-modal" onClick={e => e.stopPropagation()}>
+            <h3>New Allocation</h3>
+            <p>Assign a device to a staff member</p>
+
+            <div className="alc-modal-field">
+              <label>Asset</label>
+              <select className="alc-modal-input" style={{ marginBottom: 0 }} value={createAssetId ?? ""} onChange={e => setCreateAssetId(e.target.value ? Number(e.target.value) : null)}>
+                <option value="">Select an available asset…</option>
+                {availableAssets.map(a => (
+                  <option key={a.id} value={a.id}>{a.asset_tag} — {a.brand} {a.model}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="alc-modal-field">
+              <label>Staff Member</label>
+              <select className="alc-modal-input" style={{ marginBottom: 0 }} value={createStaffId ?? ""} onChange={e => setCreateStaffId(e.target.value || null)}>
+                <option value="">Select staff…</option>
+                {staffList.map(s => (
+                  <option key={s.id} value={s.id}>{s.full_name} — {s.department?.name ?? "No dept"}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="alc-modal-field">
+              <label>Allocation Date</label>
+              <input className="alc-modal-input" style={{ marginBottom: 0 }} type="date" value={createDate} onChange={e => setCreateDate(e.target.value)} />
+            </div>
+
+            <textarea
+              className="alc-modal-input"
+              rows={2}
+              placeholder="Optional note…"
+              value={createNotes}
+              onChange={e => setCreateNotes(e.target.value)}
+            />
+
+            <div className="alc-modal-actions">
+              <button className="alc-modal-cancel" onClick={() => setCreating(false)}>Cancel</button>
+              <button className="alc-modal-confirm" disabled={!createAssetId || !createStaffId || savingCreate} onClick={handleCreate}>
+                {savingCreate ? <Loader2 size={13} /> : <UserCheck size={13} />} Allocate
               </button>
             </div>
           </div>
