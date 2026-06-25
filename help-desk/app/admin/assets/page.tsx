@@ -78,12 +78,6 @@ interface AssetFormState {
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-neon.onrender.com";
 
-// TODO: wire this up to whoever is actually logged in (e.g. an auth/session
-// context or a "/staff/me" call). AssetAllocationCreate.allocated_by_id is a
-// plain int on the backend, distinct from the UUID staff_id used elsewhere —
-// it must be a real staff/admin id or the /assets/allocate call will fail.
-const CURRENT_STAFF_ID = 1;
-
 // ── Config ────────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<UiStatus, { label: string; color: string; bg: string }> = {
   available: { label: "Available", color: "#166534", bg: "#F0FDF4" },
@@ -359,7 +353,6 @@ export default function AdminAssetsPage() {
         body: JSON.stringify({
           asset_id: allocating.id,
           staff_id: allocTarget,
-          allocated_by_id: CURRENT_STAFF_ID,
           allocation_date: allocDate,
           notes: allocNotes || null,
         }),
