@@ -1,9 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Users, Ticket, Package, Monitor,
-  AlertCircle, Wifi, WifiOff,
+  AlertCircle, Wifi, WifiOff, RefreshCw,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────
@@ -138,8 +138,45 @@ export default function AdminDashboardPage() {
   const [assets, setAssets]           = useState<AssetItem[]>([]);
   const [sessions, setSessions]       = useState<SessionItem[]>([]);
   const [loading, setLoading]         = useState(true);
+  const [refreshingSessions, setRefreshingSessions] = useState(false);
 
   const API = process.env.NEXT_PUBLIC_API_URL;
+
+  // Refresh Active Sessions comprehensively: sessions list + staff map,
+  // so newly logged-in staff resolve to names instead of raw IDs, and
+  // the Total Staff stat stays current too.
+  const fetchSessions = useCallback(async (silent = false) => {
+    if (silent) setRefreshingSessions(true);
+    try {
+      const [sessionsRes, staffRes] = await Promise.all([
+        fetch(`${API}/auth/sessions?active_only=true&limit=10`, { credentials: "include" }),
+        fetch(`${API}/staff/?limit=200`,                        { credentials: "include" }),
+      ]);
+
+      if (sessionsRes.ok) {
+        setSessions(await sessionsRes.json());
+      } else {
+        console.log("SESSIONS REFRESH FAILED:", sessionsRes.status, await sessionsRes.text());
+      }
+
+      if (staffRes.ok) {
+        const raw = await staffRes.json();
+        const staffArray: StaffItem[] = Array.isArray(raw) ? raw : raw.staff ?? [];
+        const staffLookup = staffArray.reduce<Record<string, StaffItem>>((acc, staff) => {
+          acc[staff.id] = staff;
+          return acc;
+        }, {});
+        setStaffMap(staffLookup);
+        setTotalStaff(staffArray.length);
+      } else {
+        console.log("STAFF REFRESH FAILED:", staffRes.status, await staffRes.text());
+      }
+    } catch (e) {
+      console.error("Sessions refresh error:", e);
+    } finally {
+      if (silent) setRefreshingSessions(false);
+    }
+  }, [API]);
 
   useEffect(() => {
     (async () => {
@@ -398,6 +435,7 @@ if (meRes.ok) setUser(await meRes.json());
         .section-header {
           padding: 1.1rem 1.5rem; border-bottom: 1px solid var(--border);
           display: flex; align-items: center; justify-content: space-between;
+          gap: 0.75rem;
         }
         .section-title { font-size: 14px; font-weight: 700; color: var(--text); }
         .section-link {
@@ -405,6 +443,18 @@ if (meRes.ok) setUser(await meRes.json());
           text-decoration: none; font-weight: 600;
         }
         .section-link:hover { text-decoration: underline; }
+
+        .refresh-btn {
+          display: flex; align-items: center; gap: 6px;
+          padding: 0.35rem 0.8rem; border: 1px solid var(--gold);
+          border-radius: 8px; background: transparent; color: var(--brown);
+          font-size: 12px; font-weight: 600; cursor: pointer;
+          transition: background 0.15s; font-family: inherit; flex-shrink: 0;
+        }
+        .refresh-btn:hover:not(:disabled) { background: #FFF3E0; }
+        .refresh-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .refresh-btn.spinning svg { animation: rspin 0.8s linear infinite; }
+        @keyframes rspin { to { transform: rotate(360deg); } }
 
         .ticket-table-wrap { overflow-x: auto; width: 100%; }
         .ticket-table {
@@ -760,6 +810,14 @@ if (meRes.ok) setUser(await meRes.json());
           <div className="section-card">
             <div className="section-header">
               <p className="section-title">Active Sessions</p>
+              <button
+                className={`refresh-btn${refreshingSessions ? " spinning" : ""}`}
+                onClick={() => fetchSessions(true)}
+                disabled={refreshingSessions}
+              >
+                <RefreshCw size={13} />
+                {refreshingSessions ? "Refreshing…" : "Refresh"}
+              </button>
             </div>
             <div className="sessions-list">
               {sessions.length === 0 ? (
