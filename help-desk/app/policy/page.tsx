@@ -417,7 +417,7 @@ export default function PolicyPage() {
               <div className="pol-header-sub">National Treasury &amp; Economic Planning</div>
             </div>
           </div>
-          <Link href="/auth/signup" className="pol-back">
+          <Link href="/app/signup" className="pol-back">
             ← Back to Registration
           </Link>
         </div>
