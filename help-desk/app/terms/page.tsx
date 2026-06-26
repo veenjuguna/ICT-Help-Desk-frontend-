@@ -656,7 +656,7 @@ export default function TermsPage() {
               <div className="tc-header-sub">National Treasury &amp; Economic Planning</div>
             </div>
           </div>
-          <Link href="/auth/signup" className="tc-back">
+          <Link href="/signup" className="tc-back">
             ← Back to Registration
           </Link>
         </div>
