@@ -297,10 +297,10 @@ export default function MyTicketsPage() {
     try {
       const url = baseUrl();
 
-      // Fetch staff profile + tickets in parallel
+// Fetch staff profile + tickets I raised (mine_only=true)
       const [staffRes, ticketsRes] = await Promise.all([
         fetch(`${url}/staff/me`, { credentials: "include" }),
-        fetch(`${url}/tickets/`, { credentials: "include" }),
+        fetch(`${url}/tickets/?mine_only=true`, { credentials: "include" }),
       ]);
 
       if (!staffRes.ok)
@@ -312,15 +312,13 @@ export default function MyTicketsPage() {
       const allTickets: StaffTicket[] = await ticketsRes.json();
 
       setStaff(staffData);
-      // Filter to only THIS staff member's tickets
+      // Backend already filters to this staff member's raised tickets
       setTickets(
-        allTickets
-          .filter((t) => t.staff_id === staffData.id)
-          .sort(
-            (a, b) =>
-              new Date(b.created_at).getTime() -
-              new Date(a.created_at).getTime(),
-          ),
+        allTickets.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime(),
+        ),
       );
     } catch (err) {
       console.error("Failed to load tickets:", err);
@@ -334,6 +332,7 @@ export default function MyTicketsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadData is async, setState runs after await
     loadData();
     const id = setInterval(() => loadData(true), 30_000);
     return () => clearInterval(id);
