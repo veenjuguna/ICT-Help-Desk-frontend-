@@ -737,9 +737,9 @@ export default function SignupPage() {
                     onChange={(e) => set("terms", e.target.checked)}
                   />
                   I have read and agree to the{" "}
-                  <a href="/terms" target="_blank">Terms and Conditions</a>
+                  <a href="/terms" >Terms and Conditions</a>
                   {" "}and the{" "}
-                  <a href="/policy" target="_blank">Information Security Policy</a>
+                  <a href="/policy" >Information Security Policy</a>
                   {" "}of the National Treasury ICT Helpdesk
                 </label>
 
@@ -750,7 +750,7 @@ export default function SignupPage() {
                     onChange={(e) => set("dataConsent", e.target.checked)}
                   />
                   I consent to my personal data being processed in accordance with the{" "}
-                  <a href="/privacy" target="_blank">Kenya Data Protection Act 2019</a>
+                  <a href="/privacy" >Kenya Data Protection Act 2019</a>
                 </label>
               </div>
 
