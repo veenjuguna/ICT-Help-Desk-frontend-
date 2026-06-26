@@ -217,11 +217,12 @@ export default function PrivacyPage() {
         }
 
         .priv-root {
-          min-height: 100vh;
-          background: var(--cream);
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          color: var(--text-main);
-        }
+         min-height: 100vh;
+         width: 100%;          /* add this */
+         background: var(--cream);
+         font-family: 'Plus Jakarta Sans', sans-serif;
+        color: var(--text-main);
+         }
 
         .priv-header {
           background: var(--brown-main);
