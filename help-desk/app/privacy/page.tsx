@@ -559,7 +559,7 @@ export default function PrivacyPage() {
               of the Data Protection Commissioner (ODPC) at www.odpc.go.ke if
               you believe your rights have been infringed.
             </p>
-            <Link href="/auth/signup" className="priv-ack-cta">
+            <Link href="/signup" className="priv-ack-cta">
               ← Return to Registration
             </Link>
           </div>

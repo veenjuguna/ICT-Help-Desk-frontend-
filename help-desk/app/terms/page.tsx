@@ -732,7 +732,7 @@ export default function TermsPage() {
             <p className="tc-ack-warning">
               Failure to comply with these policies may result in disciplinary action up to and including termination of your employment or contract, and where applicable, referral to the relevant authorities.
             </p>
-            <Link href="/auth/signup" className="tc-ack-cta">
+            <Link href="/signup" className="tc-ack-cta">
               ← Return to Registration
             </Link>
           </div>
