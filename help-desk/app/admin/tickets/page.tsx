@@ -9,7 +9,7 @@ import {
 
 // ── Types — match real backend exactly ───────────────────────────────────────
 type TicketStatus =  "open" | "in_progress" | "closed";
-type TicketCategory = "hardware" | "software_and_systems" | "network" | "security_incidents" | "access_permissions" | "other";
+type TicketCategory = "hardware" | "software" | "network" | "security_incidents" | "access_permissions" | "other";
 
 interface Ticket {
   id: number;
@@ -53,7 +53,7 @@ const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; bg: st
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
   hardware: HardDrive,
   network:  Wifi,
-  software_and_systems: Monitor,
+  software: Monitor,
   security_incidents: Mail,
   access_permissions: Settings,
   other:                Settings,
@@ -68,7 +68,7 @@ const AVAIL_CONFIG: Record<string, { label: string; color: string; dot: string }
 const SPEC_TO_CATEGORY: Record<string, TicketCategory> = {
     hardware:             "hardware",
     networking:           "network",
-    software_and_systems: "software_and_systems",
+    software_and_systems: "software",
     security:             "security_incidents",
     other:                "other",
    };
