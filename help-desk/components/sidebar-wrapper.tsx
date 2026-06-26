@@ -25,6 +25,7 @@ const publicPrefix = [
   "/verify",
   "/auth",
   "/forgot-password",
+  "/policy"
 ];
 
 const hideSidebar =
@@ -48,7 +49,7 @@ useEffect(() => {
       router.push("/login");
     }
   })();
-}, [pathname]); 
+}, [pathname, isPublic, router]); 
 
   if (hideSidebar) {
     return (
