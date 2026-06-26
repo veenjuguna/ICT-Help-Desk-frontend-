@@ -330,11 +330,12 @@ export default function TermsPage() {
         }
 
         .tc-root {
-          min-height: 100vh;
-          background: var(--cream);
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          color: var(--text-main);
-        }
+         min-height: 100vh;
+         width: 100%;          /* add this */
+         background: var(--cream);
+         font-family: 'Plus Jakarta Sans', sans-serif;
+         color: var(--text-main);
+         }
 
         /* Header */
         .tc-header {
@@ -457,10 +458,10 @@ export default function TermsPage() {
 
         /* Body */
         .tc-body {
-          max-width: 860px;
-          margin: 0 auto;
-          padding: 2.5rem 2rem 4rem;
-        }
+        width: 100%;
+        padding: 2.5rem 3rem 4rem;
+       box-sizing: border-box;
+       }
 
         /* Notice */
         .tc-notice {
