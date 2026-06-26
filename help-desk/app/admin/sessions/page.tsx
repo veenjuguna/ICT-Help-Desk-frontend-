@@ -16,15 +16,11 @@ interface StaffMember {
 }
 
 interface RawSession {
-  id: string | number;
+  id: number;
   staff_id: string;
   ip_address?: string;
-  device?: string;
-  created_at: string;
-  last_active?: string;
-  staff_email?: string;
-  staff_name?: string;
-  role?: string;
+  login_at: string;
+  is_active: boolean;
 }
 
 interface Session extends RawSession {
@@ -51,14 +47,21 @@ function formatTime(ts: string) {
   });
 }
 
+function normalizeRole(role?: string): "ADMIN" | "ICT" | "STAFF" {
+  const r = (role ?? "staff").toLowerCase();
+  if (r === "admin") return "ADMIN";
+  if (r === "ict_personnel") return "ICT";
+  return "STAFF";
+}
+
 function RoleBadge({ role }: { role?: string }) {
-  const r = (role ?? "STAFF").toUpperCase();
+  const r = normalizeRole(role);
   const colors: Record<string, { color: string; bg: string }> = {
     ADMIN: { color: "#6B2D0F", bg: "#fef3e2" },
     ICT:   { color: "#0e7490", bg: "#cffafe" },
     STAFF: { color: "#374151", bg: "#f3f4f6" },
   };
-  const c = colors[r] ?? colors.STAFF;
+  const c = colors[r];
   return (
     <span style={{
       padding: "0.18rem 0.6rem", borderRadius: "999px",
@@ -92,7 +95,7 @@ export default function SessionsPage() {
     setError(null);
     try {
       const [sessRes, staffRes] = await Promise.all([
-        fetch(`${API}/auth/sessions`, { credentials: "include" }),
+        fetch(`${API}/auth/sessions?active_only=true`, { credentials: "include" }),
         fetch(`${API}/staff/`,        { credentials: "include" }),
       ]);
 
@@ -117,9 +120,9 @@ export default function SessionsPage() {
         const staff = staffMap[s.staff_id];
         return {
           ...s,
-          staff_name:  s.staff_name  ?? staff?.full_name ?? "Unknown",
-          staff_email: s.staff_email ?? staff?.email     ?? s.staff_id,
-          role:        s.role        ?? staff?.role       ?? "staff",
+          staff_name:  staff?.full_name ?? "Unknown",
+          staff_email: staff?.email     ?? s.staff_id,
+          role:        staff?.role      ?? "staff",
           department:  staff?.department?.name,
         };
       });
@@ -133,10 +136,11 @@ export default function SessionsPage() {
     }
   }, []);
 
-      useEffect(() => {
-      const load = async () => { await fetchData(); };
-      load();
-     }, [fetchData]);
+  useEffect(() => {
+    const load = async () => { await fetchData(); };
+    load();
+  }, [fetchData]);
+
   const handleForceLogout = async (session: Session) => {
     setConfirmTarget(null);
     setForceLoggingOut(prev => new Set(prev).add(session.staff_id));
@@ -164,12 +168,12 @@ export default function SessionsPage() {
       s.staff_email?.toLowerCase().includes(q) ||
       s.ip_address?.includes(q) ||
       s.department?.toLowerCase().includes(q);
-    const matchR = !roleFilter || (s.role ?? "").toUpperCase() === roleFilter;
+    const matchR = !roleFilter || normalizeRole(s.role) === roleFilter;
     return matchQ && matchR;
   });
 
   const countByRole = (r: string) =>
-    sessions.filter(s => (s.role ?? "").toUpperCase() === r).length;
+    sessions.filter(s => normalizeRole(s.role) === r).length;
 
   return (
     <>
@@ -362,7 +366,6 @@ export default function SessionsPage() {
                     <th>Role</th>
                     <th>IP Address</th>
                     <th><span style={{ display:"flex", alignItems:"center", gap:"0.3rem" }}><Clock size={11} /> Session Started</span></th>
-                    <th>Last Active</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -382,24 +385,13 @@ export default function SessionsPage() {
                       <td>
                         <div className="ss-ip">
                           <span className="ss-ip-addr">{session.ip_address ?? "—"}</span>
-                          {session.device && <span className="ss-ip-device">{session.device}</span>}
                         </div>
                       </td>
                       <td>
                         <div className="ss-time">
-                          <span className="ss-time-main">{formatTime(session.created_at)}</span>
-                          <span className="ss-time-ago">{timeAgo(session.created_at)}</span>
+                          <span className="ss-time-main">{formatTime(session.login_at)}</span>
+                          <span className="ss-time-ago">{timeAgo(session.login_at)}</span>
                         </div>
-                      </td>
-                      <td>
-                        {session.last_active ? (
-                          <div className="ss-time">
-                            <span className="ss-time-main">{formatTime(session.last_active)}</span>
-                            <span className="ss-time-ago">{timeAgo(session.last_active)}</span>
-                          </div>
-                        ) : (
-                          <span style={{ color:"#d1d5db", fontSize:"0.75rem" }}>—</span>
-                        )}
                       </td>
                       <td>
                         <button
