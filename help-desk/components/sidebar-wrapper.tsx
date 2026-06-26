@@ -25,7 +25,9 @@ const publicPrefix = [
   "/verify",
   "/auth",
   "/forgot-password",
-  "/policy"
+  "/policy",
+  "/terms",
+  "/privacy",
 ];
 
 const hideSidebar =
