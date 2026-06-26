@@ -483,7 +483,7 @@ export default function PrivacyPage() {
               </div>
             </div>
           </div>
-          <Link href="/auth/signup" className="priv-back">
+          <Link href="/signup" className="priv-back">
             ← Back to Registration
           </Link>
         </div>
