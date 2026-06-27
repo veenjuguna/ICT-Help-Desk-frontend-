@@ -21,6 +21,13 @@ const COLORS = {
   unresolved: { bg: "#FCE4EC", color: "#C62828" },
 };
 
+const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
+  open: COLORS.open,
+  in_progress: COLORS.in_progress,
+  resolved: COLORS.resolved,
+  unresolved: COLORS.unresolved,
+};
+
 const STATUS_LABEL: Record<string, string> = {
   open: "Open",
   in_progress: "In Progress",
@@ -42,8 +49,7 @@ type Ticket = {
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const map = COLORS as Record<string, { bg: string; color: string }>;
-  const s = map[status] ?? { bg: "#eee", color: "#333" };
+  const s = STATUS_COLORS[status] ?? { bg: "#eee", color: "#333" };
   return (
     <span
       style={{
@@ -58,29 +64,6 @@ function StatusBadge({ status }: { status: string }) {
     >
       {STATUS_LABEL[status] ?? status}
     </span>
-  );
-}
-
-function EmployeeAvatar({ id }: { id: string }) {
-  const short = id.slice(0, 2).toUpperCase();
-  return (
-    <div
-      style={{
-        width: 32,
-        height: 32,
-        borderRadius: "50%",
-        background: "#f0f0f0",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "12px",
-        fontWeight: 600,
-        color: "#666",
-        flexShrink: 0,
-      }}
-    >
-      {short}
-    </div>
   );
 }
 
@@ -242,8 +225,8 @@ export default function PendingTicketsPage() {
         {/* HEADER */}
         <div style={{ marginBottom: "24px" }}>
           <h1
+            className={playfair.className}
             style={{
-              fontFamily: "Playfair Display, serif",
               fontSize: "32px",
               fontWeight: 700,
               marginBottom: "6px",
