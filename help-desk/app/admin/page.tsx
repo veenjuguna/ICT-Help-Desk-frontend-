@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import {
   Users, Ticket, Package, Monitor,
   AlertCircle, Wifi, WifiOff, RefreshCw,
@@ -81,8 +81,6 @@ function formatTime(iso: string) {
 }
 
 function StatusBadge({ status, comment }: { status: string; comment?: string | null }) {
-  // RESOLVED and UNRESOLVED are transient — never stored in DB
-  // CLOSED with a comment = was marked unresolved by ICT
   const isUnresolved = status === "closed" && !!comment;
 
   const map: Record<string, { bg: string; color: string }> = {
@@ -127,139 +125,117 @@ const categoryLabel: Record<string, string> = {
 
 // ── Component ─────────────────────────────────────────────────
 
-export default function AdminDashboardPage() {
-  const [user, setUser]               = useState<AdminUser | null>(null);
-  const [summary, setSummary]         = useState<TicketSummary>({});
-  const [personnel, setPersonnel]     = useState<IctPersonnel[]>([]);
-  const [staffMap, setStaffMap]       = useState<Record<string, StaffItem>>({});
-  const [recentTickets, setRecentTickets] = useState<TicketItem[]>([]);
-  const [queuedCount, setQueuedCount] = useState(0);
-  const [totalStaff, setTotalStaff]   = useState(0);
-  const [assets, setAssets]           = useState<AssetItem[]>([]);
-  const [sessions, setSessions]       = useState<SessionItem[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [refreshingSessions, setRefreshingSessions] = useState(false);
+const STALE = 60 * 1000; // 1 minute
 
+export default function AdminDashboardPage() {
   const API = process.env.NEXT_PUBLIC_API_URL;
 
-  // Refresh Active Sessions comprehensively: sessions list + staff map,
-  // so newly logged-in staff resolve to names instead of raw IDs, and
-  // the Total Staff stat stays current too.
-  const fetchSessions = useCallback(async (silent = false) => {
-    if (silent) setRefreshingSessions(true);
-    try {
-      const [sessionsRes, staffRes] = await Promise.all([
-        fetch(`${API}/auth/sessions?active_only=true&limit=10`, { credentials: "include" }),
-        fetch(`${API}/staff/?limit=200`,                        { credentials: "include" }),
-      ]);
+  // ── Queries ──────────────────────────────────────────────────
 
-      if (sessionsRes.ok) {
-        setSessions(await sessionsRes.json());
-      } else {
-        console.log("SESSIONS REFRESH FAILED:", sessionsRes.status, await sessionsRes.text());
-      }
+  const { data: user } = useQuery<AdminUser>({
+    queryKey: ["admin-me"],
+    queryFn: async () => {
+      const res = await fetch(`${API}/staff/me`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch user");
+      return res.json();
+    },
+    staleTime: STALE,
+  });
 
-      if (staffRes.ok) {
-        const raw = await staffRes.json();
-        const staffArray: StaffItem[] = Array.isArray(raw) ? raw : raw.staff ?? [];
-        const staffLookup = staffArray.reduce<Record<string, StaffItem>>((acc, staff) => {
-          acc[staff.id] = staff;
-          return acc;
-        }, {});
-        setStaffMap(staffLookup);
-        setTotalStaff(staffArray.length);
-      } else {
-        console.log("STAFF REFRESH FAILED:", staffRes.status, await staffRes.text());
-      }
-    } catch (e) {
-      console.error("Sessions refresh error:", e);
-    } finally {
-      if (silent) setRefreshingSessions(false);
-    }
-  }, [API]);
+  const { data: summary = {} } = useQuery<TicketSummary>({
+    queryKey: ["admin-ticket-summary"],
+    queryFn: async () => {
+      const res = await fetch(`${API}/tickets/admin/summary`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch summary");
+      return res.json();
+    },
+    staleTime: STALE,
+  });
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [
-          meRes, summaryRes, personnelRes,
-          ticketsRes, queuedRes, assetsRes,
-          sessionsRes, staffRes,
-        ] = await Promise.all([
-          fetch(`${API}/staff/me`,                              { credentials: "include" }),
-          fetch(`${API}/tickets/admin/summary`,                 { credentials: "include" }),
-          fetch(`${API}/ict-personnel/`,                        { credentials: "include" }),
-          fetch(`${API}/tickets/?limit=5`,                      { credentials: "include" }),
-          fetch(`${API}/tickets/admin/queued`,                  { credentials: "include" }),
-          fetch(`${API}/assets/`,                               { credentials: "include" }),
-          fetch(`${API}/auth/sessions?active_only=true&limit=10`, { credentials: "include" }),
-          fetch(`${API}/staff/?limit=200`,                      { credentials: "include" }),
-        ]);
-if (meRes.ok) setUser(await meRes.json());
+  const { data: personnel = [] } = useQuery<IctPersonnel[]>({
+    queryKey: ["admin-personnel"],
+    queryFn: async () => {
+      const res = await fetch(`${API}/ict-personnel/`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch personnel");
+      const raw = await res.json();
+      return Array.isArray(raw) ? raw : raw.personnel ?? [];
+    },
+    staleTime: STALE,
+  });
 
-        if (summaryRes.ok) {
-          const raw = await summaryRes.json();
-          console.log("SUMMARY RAW:", raw);
-          setSummary(raw);
-        } else {
-          console.log("SUMMARY FAILED:", summaryRes.status, await summaryRes.text());
-        }
+  const { data: recentTickets = [] } = useQuery<TicketItem[]>({
+    queryKey: ["admin-recent-tickets"],
+    queryFn: async () => {
+      const res = await fetch(`${API}/tickets/?limit=5`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch tickets");
+      const raw = await res.json();
+      return Array.isArray(raw) ? raw : raw.tickets ?? [];
+    },
+    staleTime: STALE,
+  });
 
-        if (assetsRes.ok) {
-          const raw = await assetsRes.json();
-          console.log("ASSETS RAW:", raw);
-          setAssets(Array.isArray(raw) ? raw : raw.assets ?? []);
-        } else {
-          console.log("ASSETS FAILED:", assetsRes.status, await assetsRes.text());
-        }
+  const { data: queuedCount = 0 } = useQuery<number>({
+    queryKey: ["admin-queued-count"],
+    queryFn: async () => {
+      const res = await fetch(`${API}/tickets/admin/queued`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch queued");
+      const queued: TicketItem[] = await res.json();
+      return Array.isArray(queued) ? queued.length : 0;
+    },
+    staleTime: STALE,
+  });
 
-        if (sessionsRes.ok) setSessions(await sessionsRes.json());
+  const { data: assets = [] } = useQuery<AssetItem[]>({
+    queryKey: ["admin-assets"],
+    queryFn: async () => {
+      const res = await fetch(`${API}/assets/`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch assets");
+      const raw = await res.json();
+      return Array.isArray(raw) ? raw : raw.assets ?? [];
+    },
+    staleTime: STALE,
+  });
 
-        if (personnelRes.ok) {
-          const raw = await personnelRes.json();
-          console.log("PERSONNEL RAW:", raw);
-          setPersonnel(Array.isArray(raw) ? raw : raw.personnel ?? []);
-        } else {
-          console.log("PERSONNEL FAILED:", personnelRes.status, await personnelRes.text());
-        }
+  // Staff query — also derives staffMap and totalStaff in one place
+  const { data: staffData = { staffMap: {}, totalStaff: 0 } } = useQuery({
+    queryKey: ["admin-staff"],
+    queryFn: async () => {
+      const res = await fetch(`${API}/staff/?limit=200`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch staff");
+      const raw = await res.json();
+      const staffArray: StaffItem[] = Array.isArray(raw) ? raw : raw.staff ?? [];
+      const staffMap = staffArray.reduce<Record<string, StaffItem>>((acc, s) => {
+        acc[s.id] = s;
+        return acc;
+      }, {});
+      return { staffMap, totalStaff: staffArray.length };
+    },
+    staleTime: STALE,
+  });
 
-        if (ticketsRes.ok) {
-          const raw = await ticketsRes.json();
-          console.log("TICKETS RAW:", raw);
-          setRecentTickets(Array.isArray(raw) ? raw : raw.tickets ?? []);
-        } else {
-          console.log("TICKETS FAILED:", ticketsRes.status, await ticketsRes.text());
-        }
+  const { staffMap, totalStaff } = staffData;
 
-        if (queuedRes.ok) {
-          const queued: TicketItem[] = await queuedRes.json();
-          console.log("QUEUED RAW:", queued);
-          setQueuedCount(Array.isArray(queued) ? queued.length : 0);
-        } else {
-          console.log("QUEUED FAILED:", queuedRes.status, await queuedRes.text());
-        }
+  // Sessions — separate so Refresh button only refetches this one query
+  const {
+    data: sessions = [],
+    isFetching: refreshingSessions,
+    refetch: refetchSessions,
+  } = useQuery<SessionItem[]>({
+    queryKey: ["admin-sessions"],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API}/auth/sessions?active_only=true&limit=10`,
+        { credentials: "include" }
+      );
+      if (!res.ok) throw new Error("Failed to fetch sessions");
+      return res.json();
+    },
+    staleTime: STALE,
+  });
 
-        // Build staff lookup map for resolving names from IDs
-        if (staffRes.ok) {
-          const raw = await staffRes.json();
-          console.log("STAFF RAW:", raw);
-          const staffArray: StaffItem[] = Array.isArray(raw) ? raw : raw.staff ?? [];
-          const staffLookup = staffArray.reduce<Record<string, StaffItem>>((acc, staff) => {
-            acc[staff.id] = staff;
-            return acc;
-          }, {});
-          setStaffMap(staffLookup);
-          setTotalStaff(staffArray.length);
-        } else {
-          console.log("STAFF FAILED:", staffRes.status, await staffRes.text());
-        }
-      } catch (e) {
-        console.error("Dashboard fetch error:", e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [API]);
+  // ── Derived values ────────────────────────────────────────────
+
+  const loading = !user; // first meaningful check — user is the fastest fetch
 
   const fullName   = user?.full_name ?? "Loading...";
   const department = user?.department?.name ?? "National Treasury";
@@ -274,33 +250,12 @@ if (meRes.ok) setUser(await meRes.json());
   });
 
   const STATS = [
-    {
-      label: "Total Staff",
-      value: loading ? "—" : String(totalStaff),
-      icon: Users,
-      color: "#C8962E",
-    },
-    {
-      label: "Open Tickets",
-      value: loading ? "—" : String(summary.open ?? 0),
-      icon: Ticket,
-      color: "#6B2D0F",
-    },
-    {
-      label: "Total Assets",
-      value: loading ? "—" : String(assets.length),
-      icon: Package,
-      color: "#C8962E",
-    },
-    {
-      label: "ICT Available",
-      value: loading ? "—" : String(availableCount),
-      icon: Monitor,
-      color: "#2D6B0F",
-    },
+    { label: "Total Staff",   value: loading ? "—" : String(totalStaff),          icon: Users,   color: "#C8962E" },
+    { label: "Open Tickets",  value: loading ? "—" : String(summary.open ?? 0),   icon: Ticket,  color: "#6B2D0F" },
+    { label: "Total Assets",  value: loading ? "—" : String(assets.length),        icon: Package, color: "#C8962E" },
+    { label: "ICT Available", value: loading ? "—" : String(availableCount),       icon: Monitor, color: "#2D6B0F" },
   ];
 
-  // Asset breakdown by device type
   const assetGroups = assets.reduce<Record<string, number>>((acc, a) => {
     const key = a.device_type
       .replace(/_/g, " ")
@@ -309,6 +264,8 @@ if (meRes.ok) setUser(await meRes.json());
     acc[key] = (acc[key] ?? 0) + 1;
     return acc;
   }, {});
+
+  // ── Render ────────────────────────────────────────────────────
 
   return (
     <>
@@ -596,7 +553,7 @@ if (meRes.ok) setUser(await meRes.json());
             </div>
           </div>
 
-          {/* QUEUED TICKETS ALERT — only show when there are queued tickets */}
+          {/* QUEUED ALERT */}
           {queuedCount > 0 && (
             <div className="adm-alert">
               <AlertCircle size={17} />
@@ -616,10 +573,7 @@ if (meRes.ok) setUser(await meRes.json());
               const Icon = s.icon;
               return (
                 <div className="stat-card" key={s.label}>
-                  <div
-                    className="stat-icon"
-                    style={{ background: `${s.color}18` }}
-                  >
+                  <div className="stat-icon" style={{ background: `${s.color}18` }}>
                     <Icon size={20} color={s.color} />
                   </div>
                   <div>
@@ -638,9 +592,7 @@ if (meRes.ok) setUser(await meRes.json());
             <div className="section-card">
               <div className="section-header">
                 <p className="section-title">Recent Tickets</p>
-                <Link href="/admin/tickets" className="section-link">
-                  View all
-                </Link>
+                <Link href="/admin/tickets" className="section-link">View all</Link>
               </div>
               <div className="ticket-table-wrap">
                 <table className="ticket-table">
@@ -656,14 +608,7 @@ if (meRes.ok) setUser(await meRes.json());
                   <tbody>
                     {recentTickets.length === 0 ? (
                       <tr>
-                        <td
-                          colSpan={5}
-                          style={{
-                            textAlign: "center",
-                            color: "var(--text-sub)",
-                            padding: "1.5rem",
-                          }}
-                        >
+                        <td colSpan={5} style={{ textAlign: "center", color: "var(--text-sub)", padding: "1.5rem" }}>
                           No tickets yet.
                         </td>
                       </tr>
@@ -698,21 +643,14 @@ if (meRes.ok) setUser(await meRes.json());
                             ) : assignedStaff ? (
                               assignedStaff.full_name
                                 .split(" ")
-                                .map((n, i, arr) =>
-                                  i === arr.length - 1
-                                    ? n[0] + "."
-                                    : n
-                                )
+                                .map((n, i, arr) => i === arr.length - 1 ? n[0] + "." : n)
                                 .join(" ")
                             ) : (
                               `Tech #${t.assigned_to_id}`
                             )}
                           </td>
                           <td>
-                            <StatusBadge
-                              status={t.status}
-                              comment={t.comment}
-                            />
+                            <StatusBadge status={t.status} comment={t.comment} />
                           </td>
                         </tr>
                       );
@@ -729,9 +667,7 @@ if (meRes.ok) setUser(await meRes.json());
               <div className="section-card">
                 <div className="section-header">
                   <p className="section-title">ICT Personnel</p>
-                  <Link href="/admin/ict-personnel" className="section-link">
-                    Manage
-                  </Link>
+                  <Link href="/admin/ict-personnel" className="section-link">Manage</Link>
                 </div>
                 <div className="staff-list">
                   {personnel.length === 0 ? (
@@ -746,10 +682,7 @@ if (meRes.ok) setUser(await meRes.json());
 
                     return (
                       <div key={p.id} className="staff-row">
-                        <span
-                          className="staff-dot"
-                          style={{ background: availDot }}
-                        />
+                        <span className="staff-dot" style={{ background: availDot }} />
                         <span className="staff-name">{name}</span>
                         {!p.is_active && !p.specialization ? (
                           <span className="setup-badge">Setup pending</span>
@@ -772,9 +705,7 @@ if (meRes.ok) setUser(await meRes.json());
               <div className="section-card">
                 <div className="section-header">
                   <p className="section-title">Asset Breakdown</p>
-                  <Link href="/admin/assets" className="section-link">
-                    View all
-                  </Link>
+                  <Link href="/admin/assets" className="section-link">View all</Link>
                 </div>
                 <div className="asset-list">
                   {assets.length === 0 ? (
@@ -786,15 +717,10 @@ if (meRes.ok) setUser(await meRes.json());
                         <div key={type}>
                           <div className="asset-meta">
                             <span className="asset-name">{type}</span>
-                            <span className="asset-count">
-                              {count} of {assets.length}
-                            </span>
+                            <span className="asset-count">{count} of {assets.length}</span>
                           </div>
                           <div className="bar-track">
-                            <div
-                              className="bar-fill"
-                              style={{ width: `${pct}%` }}
-                            />
+                            <div className="bar-fill" style={{ width: `${pct}%` }} />
                           </div>
                         </div>
                       );
@@ -812,7 +738,7 @@ if (meRes.ok) setUser(await meRes.json());
               <p className="section-title">Active Sessions</p>
               <button
                 className={`refresh-btn${refreshingSessions ? " spinning" : ""}`}
-                onClick={() => fetchSessions(true)}
+                onClick={() => refetchSessions()}
                 disabled={refreshingSessions}
               >
                 <RefreshCw size={13} />
@@ -833,9 +759,7 @@ if (meRes.ok) setUser(await meRes.json());
                     <span className="session-user">
                       {staffMember?.full_name ?? staffMember?.email ?? s.ip_address ?? s.staff_id}
                     </span>
-                    <span className="session-time">
-                      Started {formatTime(s.login_at)}
-                    </span>
+                    <span className="session-time">Started {formatTime(s.login_at)}</span>
                     {s.is_active ? (
                       <span className="session-live">
                         <span className="live-dot" /> Live

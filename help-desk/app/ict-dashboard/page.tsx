@@ -449,7 +449,7 @@ export default function TechnicianDashboard() {
             </div>
 
             {/* Right Panel */}
-            <div className="xl:w-[240px] flex-shrink-0 flex flex-row xl:flex-col gap-3">
+            <div className="xl:w-60 shrink-0 flex flex-row xl:flex-col gap-3">
 
               {/* Recent Activity */}
               <div className="flex-1 xl:flex-none bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
@@ -465,7 +465,7 @@ export default function TechnicianDashboard() {
                     {audit.map((a) => (
                       <div key={a.id} className="flex gap-3 items-start">
                         <div
-                          className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                          className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0"
                           style={{ border: "2px solid #C8922A" }}
                         >
                           <span className="w-2 h-2 rounded-full block"
