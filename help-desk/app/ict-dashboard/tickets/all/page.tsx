@@ -4,14 +4,10 @@
 import { useEffect, useState } from "react";
 import {
   Search,
-  Clock,
   CheckCircle,
-  AlertTriangle,
   ChevronDown,
   X,
-  MessageSquare,
 } from "lucide-react";
-import TicketTable from "@/components/ticket-table";
 
 interface StaffProfile {
   id: string;
@@ -28,15 +24,6 @@ interface IctProfile {
   is_active: boolean;
 }
 
-type TicketStatus = "open" | "in_progress" | "resolved" | "escalated";
-type TicketPriority = "High" | "Medium" | "Low";
-
-interface Note {
-  id: string;
-  author: string;
-  content: string;
-  timestamp: string;
-}
 
 interface Ticket {
   id: number;
@@ -50,21 +37,6 @@ interface Ticket {
   assigned_to_id: number;
 }
 
-const STATUS_CONFIG: Record<
-  TicketStatus,
-  { label: string; bg: string; color: string }
-> = {
-  open: { label: "Open", bg: "#FEF2F2", color: "#BB0000" },
-  in_progress: { label: "In Progress", bg: "#FFF8E0", color: "#C8962E" },
-  resolved: { label: "Resolved", bg: "#F0FFF4", color: "#1E6B33" },
-  escalated: { label: "Escalated", bg: "#F5F0FF", color: "#6B35B5" },
-};
-
-const PRIORITY_COLORS: Record<TicketPriority, { bg: string; color: string }> = {
-  High: { bg: "#FFF0F0", color: "#BB0000" },
-  Medium: { bg: "#FFF8E0", color: "#C8962E" },
-  Low: { bg: "#F0FFF4", color: "#1E6B33" },
-};
 
 const CATEGORIES = [
   "All Categories",
@@ -83,53 +55,8 @@ const STATUS_FILTERS = [
   { value: "escalated", label: "Escalated" },
 ];
 
-const STATUS_OPTIONS: TicketStatus[] = [
-  "open",
-  "in_progress",
-  "resolved",
-  "escalated",
-];
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: TicketStatus }) {
-  const s = STATUS_CONFIG[status];
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        background: s.bg,
-        color: s.color,
-        padding: "3px 10px",
-        borderRadius: 20,
-        fontSize: 12,
-        fontWeight: 600,
-      }}
-    >
-      {s.label}
-    </span>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: TicketPriority }) {
-  const p = PRIORITY_COLORS[priority];
-  return (
-    <span
-      style={{
-        background: p.bg,
-        color: p.color,
-        padding: "3px 10px",
-        borderRadius: 20,
-        fontSize: 12,
-        fontWeight: 600,
-      }}
-    >
-      {priority}
-    </span>
-  );
-}
 
 // ─── Ticket Detail Panel ─────────────────────────────────────────────────────
 function TicketDetail({
@@ -141,23 +68,7 @@ function TicketDetail({
   onClose: () => void;
   onStatusChange: (id: number, status: string) => void;
 }) {
-  const [noteText, setNoteText] = useState("");
   const [statusDropdown, setStatusDropdown] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const handleStatusChange = (newStatus: TicketStatus) => {
-    setStatusDropdown(false);
-    onStatusChange(ticket.id, newStatus);
-  };
-
-  const handleAddNote = async () => {
-    if (!noteText.trim()) return;
-    setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    // onAddNote(ticket.id, noteText.trim());
-    setNoteText("");
-    setSaving(false);
-  };
 
   return (
     <div
@@ -385,7 +296,7 @@ function TicketDetail({
                       key={s}
                       onClick={() => {
                         setStatusDropdown(false);
-                        onStatusChange(ticket.id, s as any);
+                        onStatusChange(ticket.id, s);
                       }}
                       style={{
                         display: "flex",
@@ -422,7 +333,7 @@ function TicketDetail({
             <button
               onClick={() => {
                 setStatusDropdown(false);
-                onStatusChange(ticket.id, "closed" as any);
+                onStatusChange(ticket.id, "closed");
               }}
               style={{
                 width: "100%",
@@ -803,7 +714,7 @@ export default function AllTicketsPage() {
                       <tr
                         key={t.id}
                         className="ticket-row"
-                        onClick={() => setSelectedTicket(t as any)}
+                        onClick={() => setSelectedTicket(t)}
                       >
                         <td>
                           <div
