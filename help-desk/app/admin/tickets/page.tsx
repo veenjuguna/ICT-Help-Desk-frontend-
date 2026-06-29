@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search, ChevronDown, Clock, AlertCircle, CheckCircle2, XCircle,
   Eye, RefreshCw, X, Loader2, MessageSquare, Calendar, ChevronUp,
@@ -9,7 +10,7 @@ import {
 
 // ── Types — match real backend exactly ───────────────────────────────────────
 type TicketStatus =  "open" | "in_progress" | "closed";
-type TicketCategory = "hardware" | "software_and_systems" | "network" | "security_incidents" | "access_permissions" | "other";
+type TicketCategory = "hardware" | "software" | "network" | "security_incidents" | "access_permissions" | "other";
 
 interface Ticket {
   id: number;
@@ -53,7 +54,7 @@ const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; bg: st
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
   hardware: HardDrive,
   network:  Wifi,
-  software_and_systems: Monitor,
+  software: Monitor,
   security_incidents: Mail,
   access_permissions: Settings,
   other:                Settings,
@@ -68,7 +69,7 @@ const AVAIL_CONFIG: Record<string, { label: string; color: string; dot: string }
 const SPEC_TO_CATEGORY: Record<string, TicketCategory> = {
     hardware:             "hardware",
     networking:           "network",
-    software_and_systems: "software_and_systems",
+    software_and_systems: "software",
     security:             "security_incidents",
     other:                "other",
    };
@@ -98,11 +99,6 @@ function Toast({ msg, type, onClose }: { msg: string; type: "success" | "error";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AdminTicketsPage() {
-  const [tickets, setTickets]       = useState<Ticket[]>([]);
-  const [staffMap, setStaffMap]     = useState<Record<string, StaffMember>>({});
-  const [personnel, setPersonnel]   = useState<IctPersonnel[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
   const [search, setSearch]         = useState("");
   const [statusFilter, setStatus]   = useState("all");
   const [collapsed, setCollapsed]   = useState<Record<string, boolean>>({});
@@ -121,46 +117,42 @@ export default function AdminTicketsPage() {
   const showToast = (msg: string, type: "success" | "error") => setToast({ msg, type });
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [tRes, sRes, pRes] = await Promise.all([
-        fetch(`${API}/tickets/`,        { credentials: "include" }),
-        fetch(`${API}/staff/`,         { credentials: "include" }),
-        fetch(`${API}/ict-personnel/`,  { credentials: "include" }),
-      ]);
+   const queryClient = useQueryClient();
 
+  const { data, isLoading: loading, error: queryError } = useQuery({
+    queryKey: ["admin-tickets-page"],
+    queryFn: async () => {
+      const [tRes, sRes, pRes] = await Promise.all([
+        fetch(`${API}/tickets/`,       { credentials: "include" }),
+        fetch(`${API}/staff/`,         { credentials: "include" }),
+        fetch(`${API}/ict-personnel/`, { credentials: "include" }),
+      ]);
       if (!tRes.ok) {
         const err = await tRes.json().catch(() => ({}));
         throw new Error(err.detail ?? `Tickets error ${tRes.status}`);
       }
       const ticketData = await tRes.json();
-      setTickets(Array.isArray(ticketData) ? ticketData : ticketData.tickets ?? []);
+      const tickets: Ticket[] = Array.isArray(ticketData) ? ticketData : ticketData.tickets ?? [];
 
+      const staffMap: Record<string, StaffMember> = {};
       if (sRes.ok) {
         const staffData = await sRes.json();
         const list: StaffMember[] = Array.isArray(staffData) ? staffData : staffData.staff ?? [];
-        const map: Record<string, StaffMember> = {};
-        list.forEach(s => { map[s.id] = s; });
-        setStaffMap(map);
+        list.forEach(s => { staffMap[s.id] = s; });
       }
 
-      if (pRes.ok) {
-        const personnelData = await pRes.json();
-        setPersonnel(Array.isArray(personnelData) ? personnelData : personnelData.personnel ?? []);
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load tickets.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      const personnelData = pRes.ok ? await pRes.json() : [];
+      const personnel: IctPersonnel[] = Array.isArray(personnelData) ? personnelData : personnelData.personnel ?? [];
 
-  useEffect(() => {
-    const load = async () => { await fetchAll(); };
-    load();
-  }, [fetchAll]);
+      return { tickets, staffMap, personnel };
+    },
+    staleTime: 60 * 1000,
+  });
+
+  const tickets: Ticket[]                        = data?.tickets   ?? [];
+  const staffMap: Record<string, StaffMember>    = data?.staffMap  ?? {};
+  const personnel: IctPersonnel[]                = data?.personnel ?? [];
+  const error = queryError instanceof Error ? queryError.message : queryError ? "Failed to load tickets." : null;
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const allCategories = Array.from(new Set([
@@ -210,8 +202,8 @@ export default function AdminTicketsPage() {
         throw new Error(err.detail ?? `Error ${res.status}`);
       }
       const updated: Ticket = await res.json();
-      setTickets(prev => prev.map(t => t.id === changingStatus.id ? updated : t));
       if (selected?.id === changingStatus.id) setSelected(updated);
+      await queryClient.invalidateQueries({ queryKey: ["admin-tickets-page"] });
       showToast("Ticket status updated.", "success");
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Failed to update status.", "error");
@@ -239,8 +231,8 @@ export default function AdminTicketsPage() {
         throw new Error(err.detail ?? `Error ${res.status}`);
       }
       const updated: Ticket = await res.json();
-      setTickets(prev => prev.map(t => t.id === reassigning.id ? updated : t));
       if (selected?.id === reassigning.id) setSelected(updated);
+      await queryClient.invalidateQueries({ queryKey: ["admin-tickets-page"] });
       showToast("Ticket reassigned.", "success");
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Reassignment failed.", "error");
@@ -386,7 +378,7 @@ export default function AdminTicketsPage() {
             <h1>Tickets by Category</h1>
             <p>Auto-assigned by specialization — reassign if no one is available</p>
           </div>
-          <button className="tkt-refresh-btn" onClick={() => fetchAll()}><RefreshCw size={14} /> Refresh</button>
+          <button className="tkt-refresh-btn" onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-tickets-page"] })}><RefreshCw size={14} /> Refresh</button>
         </div>
 
         {error && (

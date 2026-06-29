@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
 
 type TicketStatus = "open" | "in_progress" | "closed";
@@ -116,8 +115,8 @@ function SetupModal({
       }
       const profile: IctProfile = await res.json();
       onComplete(profile);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Setup failed.");
     } finally {
       setSubmitting(false);
     }
@@ -182,7 +181,7 @@ function SetupModal({
           maxLength={10}
           className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm
                      focus:outline-none focus:ring-2 mb-5"
-          style={{ focusRingColor: "#7A3100" } as any}
+          style={{ "--tw-ring-color": "#7A3100" } as React.CSSProperties}
         />
 
         {error && (
@@ -204,8 +203,6 @@ function SetupModal({
 }
 
 export default function TechnicianDashboard() {
-  const router = useRouter();
-
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
   const [staff, setStaff]               = useState<StaffProfile | null>(null);
   const [ictProfile, setIctProfile]     = useState<IctProfile | null>(null);
@@ -452,7 +449,7 @@ export default function TechnicianDashboard() {
             </div>
 
             {/* Right Panel */}
-            <div className="xl:w-[240px] flex-shrink-0 flex flex-row xl:flex-col gap-3">
+            <div className="xl:w-60 shrink-0 flex flex-row xl:flex-col gap-3">
 
               {/* Recent Activity */}
               <div className="flex-1 xl:flex-none bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
@@ -468,7 +465,7 @@ export default function TechnicianDashboard() {
                     {audit.map((a) => (
                       <div key={a.id} className="flex gap-3 items-start">
                         <div
-                          className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                          className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0"
                           style={{ border: "2px solid #C8922A" }}
                         >
                           <span className="w-2 h-2 rounded-full block"

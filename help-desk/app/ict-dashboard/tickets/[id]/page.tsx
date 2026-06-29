@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Inter, Playfair_Display } from "next/font/google";
 import { ArrowLeft, Send, User, Clock, Check, Loader2 } from "lucide-react";
@@ -178,16 +178,26 @@ export default function TicketDetailPage() {
     }
   };
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  const assignedAgo = (() => {
-    if (!ticket) return "";
-    const diff = Date.now() - new Date(ticket.created_at).getTime();
+  // ── Live "time ago" clock ────────────────────────────────────────────────
+  // Date.now() must never be called during render (impure — breaks React's
+  // purity rules for components/hooks). Instead, we track "now" in state,
+  // seeded and updated only inside an effect, and re-derive assignedAgo from it.
+  const [now, setNow] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000); // tick every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  const assignedAgo = useMemo(() => {
+    if (!ticket || now === null) return "";
+    const diff = now - new Date(ticket.created_at).getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 60) return `${mins}m ago`;
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `${hrs}h ago`;
     return `${Math.floor(hrs / 24)}d ago`;
-  })();
+  }, [ticket, now]);
 
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
@@ -260,8 +270,8 @@ export default function TicketDetailPage() {
             </button>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                <h1 style={{
-                  fontFamily: "Playfair Display, serif", fontSize: "26px",
+                <h1 className={playfair.className} style={{
+                  fontSize: "26px",
                   fontWeight: 700, margin: 0, color: "#1a1a1a",
                 }}>
                   Ticket #{ticket.id}

@@ -50,9 +50,6 @@ export default function ProfilePage() {
   const fullName = user?.full_name ?? "";
   const email = user?.email ?? "";
   const personalNumber = user?.personal_number ?? "";
-  const phone = user?.phone_number ?? "";
-  const officeLocation = user?.office_location ?? "";
-  const officeNumber = user?.office_number ?? "";
   const dept = user?.department?.name ?? "";
   const initials =
     fullName
@@ -141,7 +138,9 @@ export default function ProfilePage() {
           typeof data.detail === "string"
             ? data.detail
             : Array.isArray(data.detail)
-              ? data.detail.map((d: any) => d.msg).join(", ")
+              ? data.detail
+                  .map((d: { msg?: string }) => d.msg)
+                  .join(", ")
               : "Failed to change password.";
         throw new Error(message);
       }
@@ -150,9 +149,13 @@ export default function ProfilePage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (e: any) {
+    } catch (e: unknown) {
       setPasswordError(
-        typeof e === "string" ? e : (e?.message ?? "Something went wrong."),
+        typeof e === "string"
+          ? e
+          : e instanceof Error
+            ? e.message
+            : "Something went wrong.",
       );
     } finally {
       setPasswordLoading(false);

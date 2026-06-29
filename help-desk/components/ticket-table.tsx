@@ -11,6 +11,18 @@ type Ticket = {
   created_at: string;
 };
 
+function toStatusLabel(status: string): "Open" | "Resolved" | "In Progress" {
+  switch (status.toLowerCase()) {
+    case "open":
+      return "Open";
+    case "resolved":
+    case "closed":
+      return "Resolved";
+    default:
+      return "In Progress";
+  }
+}
+
 export default function TicketTable() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,7 +196,7 @@ export default function TicketTable() {
                       verticalAlign: "middle",
                     }}
                   >
-                    <StatusBadge status={ticket.status as any} />
+                    <StatusBadge status={toStatusLabel(ticket.status)} />
                   </td>
                 </tr>
               ))

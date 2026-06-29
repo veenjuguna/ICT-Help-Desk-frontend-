@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search, ChevronDown, RefreshCw, Loader2, CheckCircle2,
   AlertCircle, X, UserCheck, RotateCcw, Plus,
 } from "lucide-react";
 
-// ── Types (matching backend schemas exactly) ───────────────────────────────────
+// ── Types (matching backend schemas exactly) ────────────────────
 
 type DeviceType = "laptop" | "desktop" | "printer" | "monitor" | "other";
 
@@ -94,11 +95,6 @@ function Toast({ msg, type, onClose }: { msg: string; type: "success" | "error";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AdminAllocationsPage() {
-  const [allocations, setAllocations] = useState<Allocation[]>([]);
-  const [assets, setAssets]           = useState<AssetDetail[]>([]);
-  const [staffList, setStaffList]     = useState<StaffDetail[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
   const [search, setSearch]           = useState("");
   const [statusFilter, setStatus]     = useState("all");
   const [typeFilter, setType]         = useState("all");
@@ -121,51 +117,45 @@ export default function AdminAllocationsPage() {
   const showToast = (msg: string, type: "success" | "error") => setToast({ msg, type });
 
   // ── Fetch (allocations + assets + staff, then join client-side) ────────────
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
+  const queryClient = useQueryClient();
+
+  const { data: allocations, isFetching: loading, error: queryError } = useQuery({
+    queryKey: ["allocations"],
+    queryFn: async () => {
       const [allocRes, assetRes, staffRes] = await Promise.all([
         fetch(`${API}/assets/allocations`, { credentials: "include" }),
         fetch(`${API}/assets/`, { credentials: "include" }),
         fetch(`${API}/staff/`, { credentials: "include" }),
       ]);
-
       for (const [label, res] of [["allocations", allocRes], ["assets", assetRes], ["staff", staffRes]] as const) {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error(err.detail ?? `Failed to load ${label} (${res.status})`);
         }
       }
-
       const allocData: AllocationRaw[] = await allocRes.json();
       const assetData: AssetDetail[] = await assetRes.json();
       const staffData: StaffDetail[] = await staffRes.json();
-
-      setAssets(assetData);
-      setStaffList(staffData);
-
       const assetMap = new Map(assetData.map(a => [a.id, a]));
       const staffMap = new Map(staffData.map(s => [s.id, s]));
+      return {
+        allocations: allocData.map(a => enrich(a, assetMap, staffMap)),
+        assets: assetData,
+        staffList: staffData,
+      };
+    },
+    staleTime: 60 * 1000,
+  });
 
-      setAllocations(allocData.map(a => enrich(a, assetMap, staffMap)));
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load allocations.");
-      setAllocations([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch-on-mount; setLoading/setError run before the await in fetchAll
-    fetchAll();
-  }, [fetchAll]);
+  const error = queryError instanceof Error ? queryError.message : queryError ? "Failed to load allocations." : null;
+  const assets: AssetDetail[] = allocations?.assets ?? [];
+  const staffList: StaffDetail[] = allocations?.staffList ?? [];
+  const allocationList: Allocation[] = allocations?.allocations ?? [];
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const deviceTypes = Array.from(new Set(allocations.map(a => a.asset?.device_type).filter(Boolean))) as DeviceType[];
+  const deviceTypes = Array.from(new Set(allocationList.map(a => a.asset?.device_type).filter(Boolean))) as DeviceType[];
 
-  const filtered = allocations.filter(a => {
+  const filtered = allocationList.filter(a => {
     const q = search.toLowerCase();
     const staffName = (a.staff?.full_name ?? "").toLowerCase();
     const matchQ = !q
@@ -178,10 +168,10 @@ export default function AdminAllocationsPage() {
     return matchQ && matchS && matchT;
   });
 
-  const activeCount   = allocations.filter(a => a.status === "active").length;
-  const returnedCount = allocations.filter(a => a.status === "returned").length;
+  const activeCount   = allocationList.filter(a => a.status === "active").length;
+  const returnedCount = allocationList.filter(a => a.status === "returned").length;
 
-  const allocatedAssetIds = new Set(allocations.filter(a => a.status === "active").map(a => a.asset_id));
+  const allocatedAssetIds = new Set(allocationList.filter(a => a.status === "active").map(a => a.asset_id));
   const availableAssets = assets.filter(a => !allocatedAssetIds.has(a.id));
 
   // ── Return handler ─────────────────────────────────────────────────────────
@@ -202,12 +192,8 @@ export default function AdminAllocationsPage() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail ?? `Error ${res.status}`);
       }
-      const updatedRaw: AllocationRaw = await res.json();
-      setAllocations(prev => prev.map(a =>
-        a.id === returning.id
-          ? { ...updatedRaw, status: updatedRaw.return_date === null ? "active" : "returned", asset: a.asset, staff: a.staff }
-          : a
-      ));
+      await res.json(); // consume body
+      await queryClient.invalidateQueries({ queryKey: ["allocations"] });
       showToast("Asset marked as returned.", "success");
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Failed to mark as returned.", "error");
@@ -247,9 +233,9 @@ export default function AdminAllocationsPage() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail ?? `Error ${res.status}`);
       }
+      await queryClient.invalidateQueries({ queryKey: ["allocations"] });
       showToast("Asset allocated successfully.", "success");
       setCreating(false);
-      await fetchAll();
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Allocation failed.", "error");
     } finally {
@@ -361,7 +347,7 @@ export default function AdminAllocationsPage() {
             <p>Track device assignments and returns</p>
           </div>
           <div className="alc-header-btns">
-            <button className="alc-refresh-btn" onClick={() => fetchAll()}><RefreshCw size={14} /> Refresh</button>
+            <button className="alc-refresh-btn" onClick={() => queryClient.invalidateQueries({ queryKey: ["allocations"] })}><RefreshCw size={14} /> Refresh</button>
             <button className="alc-add-btn" onClick={openCreate}><Plus size={14} /> New Allocation</button>
           </div>
         </div>
@@ -373,7 +359,7 @@ export default function AdminAllocationsPage() {
         )}
 
         <div className="alc-stats">
-          <div className="alc-stat"><div className="alc-stat-val">{allocations.length}</div><div className="alc-stat-label">Total</div></div>
+          <div className="alc-stat"><div className="alc-stat-val">{allocationList.length}</div><div className="alc-stat-label">Total</div></div>
           <div className="alc-stat gold"><div className="alc-stat-val">{activeCount}</div><div className="alc-stat-label">Active</div></div>
           <div className="alc-stat green"><div className="alc-stat-val">{returnedCount}</div><div className="alc-stat-label">Returned</div></div>
         </div>

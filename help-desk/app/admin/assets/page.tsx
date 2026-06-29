@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search, ChevronDown, Plus, Edit2, Trash2, Package,
   Monitor, Printer, Cpu, RefreshCw, X, Loader2,
@@ -164,10 +165,6 @@ function Toast({ msg, type, onClose }: { msg: string; type: "success" | "error";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AdminAssetsPage() {
-  const [assets, setAssets]       = useState<UiAsset[]>([]);
-  const [staff, setStaff]         = useState<BackendStaff[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch]       = useState("");
   const [typeFilter, setType]     = useState("all");
   const [statusFilter, setStatus] = useState("all");
@@ -198,47 +195,30 @@ export default function AdminAssetsPage() {
   const showToast = (msg: string, type: "success" | "error") => setToast({ msg, type });
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
-  const fetchAll = useCallback(async () => {
-    try {
+  const queryClient = useQueryClient();
+
+  const { data, isFetching: loading, error: queryError } = useQuery({
+    queryKey: ["assets-page"],
+    queryFn: async () => {
       const [assetsRes, allocRes, staffRes] = await Promise.all([
         fetch(`${API}/assets/`, { credentials: "include" }),
         fetch(`${API}/assets/allocations`, { credentials: "include" }),
         fetch(`${API}/staff/`, { credentials: "include" }),
       ]);
       if (!assetsRes.ok) throw new Error(`Failed to load assets (${assetsRes.status})`);
-
       const rawAssets: BackendAsset[] = await assetsRes.json();
       const rawAllocations: BackendAllocation[] = allocRes.ok ? await allocRes.json() : [];
       const rawStaff: BackendStaff[] = staffRes.ok ? await staffRes.json() : [];
+      return { assets: toUiAssets(rawAssets, rawAllocations, rawStaff), staff: rawStaff };
+    },
+    staleTime: 60 * 1000,
+  });
 
-      setStaff(rawStaff);
-      setAssets(toUiAssets(rawAssets, rawAllocations, rawStaff));
-      setLoadError(null);
-    } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Failed to load data from the server.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const assets: UiAsset[] = data?.assets ?? [];
+  const staff: BackendStaff[] = data?.staff ?? [];
+  const loadError = queryError instanceof Error ? queryError.message : queryError ? "Failed to load data from the server." : null;
 
-  // Manual re-fetch (Refresh button, error banner retry). This runs from an
-  // event handler, not an effect, so flipping `loading`/`loadError` here
-  // synchronously is fine — the lint rule only targets effects.
-  const handleRefresh = useCallback(() => {
-    setLoading(true);
-    setLoadError(null);
-    fetchAll();
-  }, [fetchAll]);
-
-  // This is the standard "fetch data in an effect" pattern from React's own
-  // docs (react.dev/learn/synchronizing-with-effects#fetching-data). The
-  // react-hooks/set-state-in-effect rule has a known false positive here: it
-  // statically flags any setState reachable from a function called in an
-  // effect, regardless of whether that call actually happens after an
-  // internal `await` — see facebook/react#34743, acknowledged by the React
-  // Compiler team as overly strict and not yet resolved upstream.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  const handleRefresh = () => queryClient.invalidateQueries({ queryKey: ["assets-page"] });
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const filtered = assets.filter(a => {
@@ -315,7 +295,7 @@ export default function AdminAssetsPage() {
       showToast(isEdit ? "Asset updated." : "Asset created.", "success");
       setAdding(false);
       setEditing(null);
-      await fetchAll();
+      await queryClient.invalidateQueries({ queryKey: ["assets-page"] });
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Failed to save asset.", "error");
     } finally {
@@ -332,7 +312,7 @@ export default function AdminAssetsPage() {
         const body = await res.json().catch(() => null);
         throw new Error(body?.detail ?? "Failed to delete asset.");
       }
-      setAssets(prev => prev.filter(a => a.id !== deleting.id));
+      await queryClient.invalidateQueries({ queryKey: ["assets-page"] });
       showToast("Asset deleted.", "success");
       setDeleting(null);
     } catch (e) {
@@ -366,7 +346,7 @@ export default function AdminAssetsPage() {
       setAllocTarget(null);
       setAllocNotes("");
       setAllocDate(todayIso());
-      await fetchAll();
+      await queryClient.invalidateQueries({ queryKey: ["assets-page"] });
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Allocation failed.", "error");
     } finally {
@@ -390,7 +370,7 @@ export default function AdminAssetsPage() {
       }
       showToast("Asset returned.", "success");
       setReturning(null);
-      await fetchAll();
+      await queryClient.invalidateQueries({ queryKey: ["assets-page"] });
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Failed to return asset.", "error");
     } finally {
