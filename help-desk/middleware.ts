@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 // Middleware is intentionally minimal.
 // Session verification is handled inside each dashboard page via
@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 // A middleware cookie check causes redirect loops because the
 // cross-origin session_id (secure + samesite=none) may not be
 // visible to the Next.js edge runtime on the first navigation.
-export function middleware(req: NextRequest) {
+export function middleware() {
   return NextResponse.next();
 }
 

@@ -217,11 +217,12 @@ export default function PrivacyPage() {
         }
 
         .priv-root {
-          min-height: 100vh;
-          background: var(--cream);
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          color: var(--text-main);
-        }
+         min-height: 100vh;
+         width: 100%;          /* add this */
+         background: var(--cream);
+         font-family: 'Plus Jakarta Sans', sans-serif;
+        color: var(--text-main);
+         }
 
         .priv-header {
           background: var(--brown-main);
@@ -482,7 +483,7 @@ export default function PrivacyPage() {
               </div>
             </div>
           </div>
-          <Link href="/auth/signup" className="priv-back">
+          <Link href="/signup" className="priv-back">
             ← Back to Registration
           </Link>
         </div>

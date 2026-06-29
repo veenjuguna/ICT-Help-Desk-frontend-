@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, RefreshCw, Shield, LogIn, LogOut, Ticket, UserPlus, Package, AlertCircle } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-neon.onrender.com";
@@ -84,40 +85,30 @@ function timeAgo(ts: string) {
 }
 
 export default function AuditLogsPage() {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<AuditAction | "">("");
   const [page, setPage] = useState(1);
-  const [refreshing, setRefreshing] = useState(false);
 
   const PAGE_SIZE = 20;
 
-  const fetchLogs = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    else setRefreshing(true);
-    setError(null);
-    try {
+   const queryClient = useQueryClient();
+
+  const { data: logs = [], isFetching, isLoading: loading, error: queryError } = useQuery<AuditLog[]>({
+    queryKey: ["audit-logs"],
+    queryFn: async () => {
       const res = await fetch(`${API}/audit/?limit=500`, { credentials: "include" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail ?? `Error ${res.status}`);
       }
       const data = await res.json();
-      setLogs(Array.isArray(data) ? data : data.logs ?? []);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load audit logs.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+      return Array.isArray(data) ? data : data.logs ?? [];
+    },
+    staleTime: 60 * 1000,
+  });
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => { void fetchLogs(); }, 0);
-    return () => window.clearTimeout(timer);
-  }, [fetchLogs]);
+  const refreshing = isFetching && !loading;
+  const error = queryError instanceof Error ? queryError.message : queryError ? "Failed to load audit logs." : null;
 
   // Filter
 const filtered = logs.filter((l) => {
@@ -409,7 +400,7 @@ const filtered = logs.filter((l) => {
           </div>
           <button
             className={`al-refresh-btn${refreshing ? " spinning" : ""}`}
-            onClick={() => fetchLogs(true)}
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["audit-logs"] })}
             disabled={refreshing}
           >
             <RefreshCw size={14} />
@@ -430,7 +421,7 @@ const filtered = logs.filter((l) => {
           {!loading && !error && (
             <div className="al-stats">
               {ALL_ACTIONS.map((action) => {
-                const count = logs.filter((l) => l.action === action).length;
+                const count = logs.filter((l: AuditLog) => l.action === action).length;
                 if (count === 0) return null;
                 const meta = ACTION_META[action];
                 return (
@@ -495,7 +486,7 @@ const filtered = logs.filter((l) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginated.map((log) => {
+                  {paginated.map((log: AuditLog) => {
                     const { date, time } = formatTimestamp(log.created_at);
                     const ago = timeAgo(log.created_at);
                     const email = log.staff?.email ?? "";

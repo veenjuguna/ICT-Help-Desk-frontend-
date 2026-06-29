@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, Plus, Pencil, Trash2, X, Eye, EyeOff } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -80,9 +81,6 @@ function StatusDot({ active }: { active: boolean }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function StaffPage() {
-  const [staff, setStaff]               = useState<Staff[]>([]);
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState("");
   const [search, setSearch]             = useState("");
   const [roleFilter, setRoleFilter]     = useState("all");
   const [showModal, setShowModal]       = useState(false);
@@ -92,45 +90,36 @@ export default function StaffPage() {
   const [formError, setFormError]       = useState("");
   const [submitting, setSubmitting]     = useState(false);
   const [showPw, setShowPw]             = useState(false);
-  const [directorates, setDirectorates] = useState<Directorate[]>([]);
   const [departments, setDepartments]   = useState<Department[]>([]);
   const [loadingDepts, setLoadingDepts] = useState(false);
   const [toast, setToast]               = useState("");
 
   // ── Fetch staff ──────────────────────────────────────────────────────────────
-  const fetchStaff = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(`${API}/staff/`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to load staff.");
-      const data = await res.json();
-      if (Array.isArray(data)) setStaff(data);
-      else if (Array.isArray(data?.results)) setStaff(data.results);
-      else if (Array.isArray(data?.data)) setStaff(data.data);
-      else if (Array.isArray(data?.staff)) setStaff(data.staff);
-      else setStaff([]);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load staff.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const queryClient = useQueryClient();
 
-  // ── Fetch directorates ───────────────────────────────────────────────────────
-  useEffect(() => {
-    void Promise.resolve().then(() => fetchStaff());
-    fetch(`${API}/directorates/`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setDirectorates(data);
-        else if (Array.isArray(data?.results)) setDirectorates(data.results);
-        else if (Array.isArray(data?.data)) setDirectorates(data.data);
-        else if (Array.isArray(data?.directorates)) setDirectorates(data.directorates);
-        else setDirectorates([]);
-      })
-      .catch(() => setDirectorates([]));
-  }, [fetchStaff]);
+  const { data: staffData, isLoading: loading, error: queryError } = useQuery({
+    queryKey: ["staff-page"],
+    queryFn: async () => {
+      const [staffRes, dirRes] = await Promise.all([
+        fetch(`${API}/staff/`, { credentials: "include" }),
+        fetch(`${API}/directorates/`, { credentials: "include" }),
+      ]);
+      if (!staffRes.ok) throw new Error("Failed to load staff.");
+      const staffRaw = await staffRes.json();
+      const staff: Staff[] = Array.isArray(staffRaw) ? staffRaw
+        : staffRaw?.results ?? staffRaw?.data ?? staffRaw?.staff ?? [];
+      const dirRaw = dirRes.ok ? await dirRes.json() : [];
+      const directorates: Directorate[] = Array.isArray(dirRaw) ? dirRaw
+        : dirRaw?.results ?? dirRaw?.data ?? dirRaw?.directorates ?? [];
+      return { staff, directorates };
+    },
+    staleTime: 60 * 1000,
+  });
+
+  const staff: Staff[] = staffData?.staff ?? [];
+  const directorates: Directorate[] = staffData?.directorates ?? [];
+  const error = queryError instanceof Error ? queryError.message : queryError ? "Failed to load staff." : "";
+
 
   // ── Fetch departments when directorate changes ───────────────────────────────
   useEffect(() => {
@@ -226,7 +215,7 @@ export default function StaffPage() {
         throw new Error(err.detail ?? err.message ?? "Something went wrong.");
       }
       setShowModal(false);
-      await fetchStaff();
+      await queryClient.invalidateQueries({ queryKey: ["staff-page"] });
       showToast(editTarget ? "Staff member updated." : "Staff member created.");
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : "Something went wrong.");
@@ -246,7 +235,7 @@ export default function StaffPage() {
       });
       if (!res.ok) throw new Error("Delete failed.");
       setDeleteTarget(null);
-      await fetchStaff();
+      await queryClient.invalidateQueries({ queryKey: ["staff-page"] });
       showToast("Staff member deleted.");
     } catch {
       showToast("Delete failed. Try again.");

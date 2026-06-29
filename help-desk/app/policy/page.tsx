@@ -150,6 +150,8 @@ export default function PolicyPage() {
 
         .pol-root {
           min-height: 100vh;
+          
+          width: 100%; 
           background: var(--cream);
           font-family: 'Plus Jakarta Sans', sans-serif;
           color: var(--text-main);
@@ -273,9 +275,10 @@ export default function PolicyPage() {
         }
 
         .pol-body {
-          max-width: 860px;
-          margin: 0 auto;
+          width: 100%;
+         
           padding: 2.5rem 2rem 4rem;
+          box-sizing : border-box;
         }
 
         .pol-notice {
