@@ -1,8 +1,8 @@
 //pending tickets page
 "use client";
 
-import { useState, useEffect } from "react";
-import { ticketStatusStore } from "../ticketStore";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Search, Eye, Loader2 } from "lucide-react";
 import { Inter, Playfair_Display } from "next/font/google";
 import { useRouter } from "next/navigation";
@@ -17,22 +17,20 @@ const COLORS = {
   primaryDark: "#b08326",
   open: { bg: "#E3F2FD", color: "#1976D2" },
   in_progress: { bg: "#FFF8E0", color: "#C8962E" },
-  resolved: { bg: "#E8F5E9", color: "#2D6B0F" },
+  closed: { bg: "#E8F5E9", color: "#2D6B0F" },
   unresolved: { bg: "#FCE4EC", color: "#C62828" },
 };
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   open: COLORS.open,
   in_progress: COLORS.in_progress,
-  resolved: COLORS.resolved,
-  unresolved: COLORS.unresolved,
+  closed: COLORS.closed,
 };
 
 const STATUS_LABEL: Record<string, string> = {
   open: "Open",
   in_progress: "In Progress",
-  resolved: "Resolved",
-  unresolved: "Unresolved",
+  closed: "Resolved",
 };
 
 type Ticket = {
@@ -48,8 +46,14 @@ type Ticket = {
   comment: string | null;
 };
 
-function StatusBadge({ status }: { status: string }) {
-  const s = STATUS_COLORS[status] ?? { bg: "#eee", color: "#333" };
+function StatusBadge({ status, comment }: { status: string; comment: string | null }) {
+  // closed + comment present means the tech marked it unresolved
+  const isUnresolved = status === "closed" && !!comment;
+  const s = isUnresolved
+    ? COLORS.unresolved
+    : STATUS_COLORS[status] ?? { bg: "#eee", color: "#333" };
+  const label = isUnresolved ? "Unresolved" : STATUS_LABEL[status] ?? status;
+
   return (
     <span
       style={{
@@ -62,54 +66,56 @@ function StatusBadge({ status }: { status: string }) {
         display: "inline-block",
       }}
     >
-      {STATUS_LABEL[status] ?? status}
+      {label}
     </span>
   );
 }
 
+async function fetchTickets(): Promise<Ticket[]> {
+  const res = await fetch(`${API}/tickets/`, {
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(
+        `Authentication error (${res.status}) — session may not be set or cookie is blocked cross-origin`,
+      );
+    }
+    throw new Error(`Failed to load tickets (${res.status})`);
+  }
+  return res.json();
+}
+
 export default function PendingTicketsPage() {
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [, forceUpdate] = useState(0);
   const router = useRouter();
 
-  useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await fetch(`${API}/tickets/`, {
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-        if (!res.ok) {
-          if (res.status === 401 || res.status === 403) {
-            setError(
-              `Authentication error (${res.status}) — session may not be set or cookie is blocked cross-origin`,
-            );
-            return;
-          }
-          throw new Error(`Failed to load tickets (${res.status})`);
-        }
-        const data: Ticket[] = await res.json();
-        setTickets(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
-      } finally {
-        setLoading(false);
-        forceUpdate((n) => n + 1);
-      }
-    };
+  const {
+    data: tickets = [],
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: ["ict-tickets"],
+    queryFn: fetchTickets,
+    refetchInterval: 30_000,
+  });
 
-    fetchTickets();
-  }, [router]);
+  const error =
+    queryError instanceof Error
+      ? queryError.message
+      : queryError
+        ? "Something went wrong"
+        : null;
 
-  const getStatus = (ticket: Ticket) =>
-    ticketStatusStore[ticket.id] ?? ticket.status;
+ // True pending queue: assigned to a technician, but that technician
+// hasn't opened it yet (still "open", not "in_progress" or "closed").
+  const pendingTickets = tickets.filter(
+  (t) => t.status === "open" && t.assigned_to_id !== null
+);
 
   const stats = [
     { label: "Total Tickets", value: tickets.length },
@@ -119,19 +125,18 @@ export default function PendingTicketsPage() {
       value: tickets.filter((t) => t.status === "in_progress").length,
     },
     {
-      label: "Resolved",
-      value: tickets.filter((t) => t.status === "resolved").length,
+      label: "Closed",
+      value: tickets.filter((t) => t.status === "closed").length,
     },
   ];
 
-  const filteredTickets = tickets.filter((ticket) => {
+  const filteredTickets = pendingTickets.filter((ticket) => {
     const term = searchTerm.toLowerCase();
-    const liveStatus = getStatus(ticket);
     return (
       String(ticket.id).includes(term) ||
       ticket.title.toLowerCase().includes(term) ||
       ticket.category.toLowerCase().includes(term) ||
-      (STATUS_LABEL[liveStatus] ?? liveStatus).toLowerCase().includes(term)
+      (STATUS_LABEL[ticket.status] ?? ticket.status).toLowerCase().includes(term)
     );
   });
 
@@ -194,7 +199,7 @@ export default function PendingTicketsPage() {
           {error}
         </p>
         <button
-          onClick={() => window.location.reload()}
+          onClick={() => refetch()}
           style={{
             background: COLORS.primary,
             color: "#fff",
@@ -236,7 +241,7 @@ export default function PendingTicketsPage() {
             Pending Tickets
           </h1>
           <p style={{ color: "#666", marginBottom: "0", fontSize: "14px" }}>
-            Technician work queue — Manage active and blocked issues
+            Technician work queue —Assigned tickets awaiting pickup
           </p>
         </div>
 
@@ -305,7 +310,7 @@ export default function PendingTicketsPage() {
           <Search size={18} color="#666" />
           <input
             type="text"
-            placeholder="Search tickets by ID, title, category, or status..."
+            placeholder="Search pending tickets by ID, title, or category..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -344,10 +349,10 @@ export default function PendingTicketsPage() {
                   fontWeight: 600,
                 }}
               >
-                No tickets found
+                No pending tickets
               </h3>
               <p style={{ margin: 0, fontSize: "14px" }}>
-                Try adjusting your search terms
+                All caught up — nothing waiting in the queue right now
               </p>
             </div>
           ) : (
@@ -370,111 +375,105 @@ export default function PendingTicketsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTickets.map((t) => {
-                    const liveStatus = getStatus(t);
-                    return (
-                      <tr
-                        key={t.id}
-                        style={{
-                          transition: "background 0.15s ease",
-                          borderBottom: "1px solid #f5f5f5",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "#fffaf3";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "transparent";
-                        }}
-                      >
-                        <td style={td}>
-                          <span
-                            style={{
-                              fontWeight: 600,
-                              color: "#6B2D0F",
-                              fontSize: "13px",
-                            }}
-                          >
-                            #{t.id}
-                          </span>
-                        </td>
-                        <td
+                  {filteredTickets.map((t) => (
+                    <tr
+                      key={t.id}
+                      style={{
+                        transition: "background 0.15s ease",
+                        borderBottom: "1px solid #f5f5f5",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "#fffaf3";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "transparent";
+                      }}
+                    >
+                      <td style={td}>
+                        <span
                           style={{
-                            ...td,
-                            maxWidth: "260px",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
+                            fontWeight: 600,
+                            color: "#6B2D0F",
+                            fontSize: "13px",
                           }}
                         >
-                          <span
-                            title={t.title}
-                            style={{
-                              fontSize: "13px",
-                              color: "#1a1a1a",
-                              fontWeight: 500,
-                            }}
-                          >
-                            {t.title}
-                          </span>
-                        </td>
-                        <td style={td}>
-                          <span
-                            style={{
-                              fontSize: "13px",
-                              color: "#444",
-                              textTransform: "capitalize",
-                            }}
-                          >
-                            {t.category.replace(/_/g, " ")}
-                          </span>
-                        </td>
-                        <td style={td}>
-                          <StatusBadge status={liveStatus} />
-                        </td>
-                        <td style={td}>
-                          <span style={{ fontSize: "12px", color: "#888" }}>
-                            {new Date(t.created_at).toLocaleDateString(
-                              "en-KE",
-                              {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              },
-                            )}
-                          </span>
-                        </td>
-                        <td style={td}>
-                          <button
-                            onClick={() => handleView(t.id)}
-                            style={{
-                              background: COLORS.primary,
-                              color: "#fff",
-                              border: "none",
-                              padding: "8px 16px",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              fontSize: "13px",
-                              fontWeight: 500,
-                              transition: "background 0.15s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background =
-                                COLORS.primaryDark;
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = COLORS.primary;
-                            }}
-                          >
-                            <Eye size={14} />
-                            View
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          #{t.id}
+                        </span>
+                      </td>
+                      <td
+                        style={{
+                          ...td,
+                          maxWidth: "260px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <span
+                          title={t.title}
+                          style={{
+                            fontSize: "13px",
+                            color: "#1a1a1a",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {t.title}
+                        </span>
+                      </td>
+                      <td style={td}>
+                        <span
+                          style={{
+                            fontSize: "13px",
+                            color: "#444",
+                            textTransform: "capitalize",
+                          }}
+                        >
+                          {t.category.replace(/_/g, " ")}
+                        </span>
+                      </td>
+                      <td style={td}>
+                        <StatusBadge status={t.status} comment={t.comment} />
+                      </td>
+                      <td style={td}>
+                        <span style={{ fontSize: "12px", color: "#888" }}>
+                          {new Date(t.created_at).toLocaleDateString("en-KE", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </td>
+                      <td style={td}>
+                        <button
+                          onClick={() => handleView(t.id)}
+                          style={{
+                            background: COLORS.primary,
+                            color: "#fff",
+                            border: "none",
+                            padding: "8px 16px",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            fontSize: "13px",
+                            fontWeight: 500,
+                            transition: "background 0.15s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background =
+                              COLORS.primaryDark;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = COLORS.primary;
+                          }}
+                        >
+                          <Eye size={14} />
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -489,7 +488,7 @@ export default function PendingTicketsPage() {
             textAlign: "right",
           }}
         >
-          Showing {filteredTickets.length} of {tickets.length} tickets
+          Showing {filteredTickets.length} of {pendingTickets.length} pending tickets
         </div>
       </div>
     </div>
