@@ -1,10 +1,10 @@
+//teams
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 
-// ── Types ────────────────────────────────────────────────────────────────────
 interface TeamMember {
   id: string;
   initials: string;
@@ -18,7 +18,6 @@ interface TeamMember {
   avgResolution: string;
 }
 
-// ── API Types ─────────────────────────────────────────────────────────────────
 interface IctPersonnelAPI {
   id: number;
   staff_id: string;
@@ -49,7 +48,6 @@ interface TicketsByPersonnelAPI {
   };
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -74,7 +72,6 @@ function mapAvailability(availability: string): TeamMember["status"] {
   return "Offline"; // covers off_duty, on_leave
 }
 
-// ── API Fetch ─────────────────────────────────────────────────────────────────
 async function fetchTeamMembers(): Promise<TeamMember[]> {
   const cleanBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(
     /\/$/,
@@ -145,7 +142,6 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
     });
 }
 
-// ── Icons ────────────────────────────────────────────────────────────────────
 function IconTeam() {
   return (
     <svg
@@ -200,7 +196,6 @@ function IconUser() {
   );
 }
 
-// ── Shared UI Components ─────────────────────────────────────────────────────
 function StatCard({
   icon,
   value,
@@ -213,13 +208,28 @@ function StatCard({
   sublabel?: string;
 }) {
   return (
-    <div className="rounded-xl border border-[#e8e0d8] bg-white px-6 py-5 shadow-sm">
-      {icon && <div className="mb-3 text-[#8a6a56]">{icon}</div>}
-      <p className="text-[28px] font-bold leading-tight text-[#1c1410]">
+    <div className="flex items-center justify-between rounded-xl border border-[#e8e0d8] bg-white px-6 py-5 shadow-sm transition-all hover:shadow-md">
+      {/* Left Side: Icon and Label */}
+      <div className="flex items-center gap-4">
+        {icon && (
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f7f3f0] text-[#8a6a56]">
+            {icon}
+          </div>
+        )}
+        <div>
+          <p className="text-[13px] font-bold uppercase tracking-wider text-[#6b5a4e]">
+            {label}
+          </p>
+          {sublabel && (
+            <p className="mt-0.5 text-xs text-[#9c8576]">{sublabel}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Right Side: The Number */}
+      <p className="text-[32px] font-bold leading-none text-[#1c1410]">
         {value}
       </p>
-      <p className="mt-0.5 text-sm text-[#6b5a4e]">{label}</p>
-      {sublabel && <p className="text-xs text-[#9c8576]">{sublabel}</p>}
     </div>
   );
 }
@@ -273,7 +283,6 @@ function MemberCard({ member }: { member: TeamMember }) {
   );
 }
 
-// ── Page Component ────────────────────────────────────────────────────────────
 export default function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -298,18 +307,20 @@ export default function TeamPage() {
   }, []);
 
   useEffect(() => {
-    loadData();
-    const intervalId = setInterval(() => loadData(true), 30000);
+    const fetchInitialData = async () => {
+      await loadData();
+    };
+
+    void fetchInitialData();
+    const intervalId = setInterval(() => {
+      void loadData(true);
+    }, 30000);
     return () => clearInterval(intervalId);
   }, [loadData]);
 
   const totalMembers = members.length;
   const activeTickets = members.reduce((sum, m) => sum + m.active, 0);
   const completedToday = members.reduce((sum, m) => sum + m.completed, 0);
-  const avgRating =
-    totalMembers > 0
-      ? Math.round(members.reduce((sum, m) => sum + m.rating, 0) / totalMembers)
-      : 0;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f3f0] font-sans">
@@ -383,7 +394,7 @@ export default function TeamPage() {
                 value={totalMembers}
                 label="Team Members"
               />
-              {/* <StatCard
+              <StatCard
                 icon={<IconTrend />}
                 value={activeTickets}
                 label="Active Tickets"
@@ -392,7 +403,7 @@ export default function TeamPage() {
                 icon={<IconUser />}
                 value={completedToday}
                 label="Completed Today"
-              /> */}
+              />
             </div>
 
             {/* Personnel Roster */}

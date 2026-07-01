@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 type Ticket = {
   id: number;
   title: string;
@@ -32,6 +34,8 @@ interface Props {
 }
 
 export default function AssignedTicketTable({ tickets, fifoTicketId }: Props) {
+  const router = useRouter();
+
   return (
     <div className="overflow-x-auto">
       <table
@@ -123,7 +127,10 @@ export default function AssignedTicketTable({ tickets, fifoTicketId }: Props) {
 
                   {/* Action */}
                   <td className="px-3 py-3.5">
-                    <button className="text-[#7A3100] font-semibold hover:underline text-sm">
+                    <button
+                      onClick={() => router.push(`/ict-dashboard/tickets/${t.id}`)}
+                      className="text-[#7A3100] font-semibold hover:underline text-sm"
+                    >
                       View
                     </button>
                   </td>

@@ -1,13 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
 
-// ── Ticket Status ─────────────────────────────────────────────────────────────
 type TicketStatus = "open" | "in_progress" | "closed";
 
-// ── Core Data Shapes ──────────────────────────────────────────────────────────
 interface Ticket {
   id: number;
   title: string;
@@ -19,7 +16,6 @@ interface Ticket {
   comment: string | null;
   staff_id: string;
   assigned_to_id: number;
-  // NEW: enriched field resolved from GET /staff/{staff_id}/basic
   raised_by?: string;
 }
 
@@ -46,7 +42,6 @@ interface IctProfile {
   is_active: boolean;
 }
 
-// ── Utility: Human-readable relative time ────────────────────────────────────
 function timeAgo(dateStr: string): string {
   const diff = Math.floor(
     (Date.now() - new Date(dateStr).getTime()) / 1000
@@ -57,7 +52,13 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-// ── Specialization display labels (maps backend enum → UI string) ─────────────
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "GOOD MORNING";
+  if (hour < 18) return "GOOD AFTERNOON";
+  return "GOOD EVENING";
+}
+
 const specializationLabel: Record<string, string> = {
   hardware:             "Hardware",
   networking:           "Networking",
@@ -66,25 +67,18 @@ const specializationLabel: Record<string, string> = {
   other:                "Other",
 };
 
-// ── Ticket filter options ─────────────────────────────────────────────────────
 type Filter = "All" | "open" | "in_progress";
 
-// ── Setup / Edit Profile Modal ────────────────────────────────────────────────
-// Handles two modes:
-//   • First-time setup  → POST /ict-personnel/me/setup
-//   • Edit existing     → PATCH /ict-personnel/me (self-service, no admin needed)
+// ── Setup Modal — first time only, no edit mode ───────────────
+// Once specialization is set the modal never shows again.
+// Changes to specialization must go through admin via PATCH /ict-personnel/{id}.
 function SetupModal({
   onComplete,
-  existing,
 }: {
   onComplete: (profile: IctProfile) => void;
-  existing: IctProfile | null;
 }) {
-  // isEdit is true when the technician already has a specialization set
-  const isEdit = !!existing?.specialization;
-
-  const [specialization, setSpecialization] = useState(existing?.specialization ?? "");
-  const [phoneExtension, setPhoneExtension] = useState(existing?.phone_extension ?? "");
+  const [specialization, setSpecialization] = useState("");
+  const [phoneExtension, setPhoneExtension] = useState("");
   const [submitting, setSubmitting]         = useState(false);
   const [error, setError]                   = useState<string | null>(null);
 
@@ -106,30 +100,23 @@ function SetupModal({
     setSubmitting(true);
     setError(null);
     try {
-      // Edit mode → PATCH /ict-personnel/me (self-service endpoint, no admin needed)
-      // Setup mode → POST /ict-personnel/me/setup (first-time only)
-      const res = await fetch(
-        isEdit
-          ? `${API}/ict-personnel/me`
-          : `${API}/ict-personnel/me/setup`,
-        {
-          method: isEdit ? "PATCH" : "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            specialization,
-            phone_extension: phoneExtension || null,
-          }),
-        }
-      );
+      const res = await fetch(`${API}/ict-personnel/me/setup`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          specialization,
+          phone_extension: phoneExtension || null,
+        }),
+      });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.detail ?? (isEdit ? "Update failed." : "Setup failed."));
+        throw new Error(data.detail ?? "Setup failed.");
       }
       const profile: IctProfile = await res.json();
       onComplete(profile);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Setup failed.");
     } finally {
       setSubmitting(false);
     }
@@ -152,12 +139,11 @@ function SetupModal({
         </div>
 
         <h2 className="text-xl font-bold text-gray-800 mb-1">
-          {isEdit ? "Edit Your Profile" : "Complete Your Profile"}
+          Complete Your Profile
         </h2>
         <p className="text-sm text-gray-500 mb-6">
-          {isEdit
-            ? "Update your specialization or phone extension."
-            : "Select your specialization so the system can assign you the right tickets."}
+          Select your specialization so the system can assign you the right
+          tickets. This can only be set once — contact admin to change it.
         </p>
 
         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -195,42 +181,28 @@ function SetupModal({
           maxLength={10}
           className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm
                      focus:outline-none focus:ring-2 mb-5"
-          style={{ focusRingColor: "#7A3100" } as any}
+          style={{ "--tw-ring-color": "#7A3100" } as React.CSSProperties}
         />
 
         {error && (
           <p className="text-sm text-red-600 mb-4">{error}</p>
         )}
 
-        <div className="flex gap-3">
-          {/* Cancel only shown in edit mode — first-time setup has no cancel */}
-          {isEdit && (
-            <button
-              onClick={() => onComplete(existing!)}
-              className="flex-1 py-3 rounded-lg text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="flex-1 py-3 rounded-lg text-white font-semibold text-sm
-                       transition-opacity disabled:opacity-60"
-            style={{ backgroundColor: "#7A3100" }}
-          >
-            {submitting ? "Saving..." : isEdit ? "Save Changes" : "Complete Setup"}
-          </button>
-        </div>
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="w-full py-3 rounded-lg text-white font-semibold text-sm
+                     transition-opacity disabled:opacity-60"
+          style={{ backgroundColor: "#7A3100" }}
+        >
+          {submitting ? "Saving..." : "Complete Setup"}
+        </button>
       </div>
     </div>
   );
 }
 
-// ── Main Dashboard Component ──────────────────────────────────────────────────
 export default function TechnicianDashboard() {
-  const router = useRouter();
-
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
   const [staff, setStaff]               = useState<StaffProfile | null>(null);
   const [ictProfile, setIctProfile]     = useState<IctProfile | null>(null);
@@ -244,9 +216,6 @@ export default function TechnicianDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        // Fetch staff profile, tickets, audit log, and ICT profile in parallel.
-        // staffMap + allStaffRes removed — raised_by is now resolved per-ticket
-        // via GET /staff/{staff_id}/basic to avoid the admin-only GET /staff/ endpoint.
         const [staffRes, ticketRes, auditRes, ictRes] = await Promise.all([
           fetch(`${API}/staff/me`,         { credentials: "include" }),
           fetch(`${API}/tickets/`,         { credentials: "include" }),
@@ -254,15 +223,11 @@ export default function TechnicianDashboard() {
           fetch(`${API}/ict-personnel/me`, { credentials: "include" }),
         ]);
 
-        if (staffRes.ok)  setStaff(await staffRes.json());
-        if (auditRes.ok)  setAudit(await auditRes.json());
+        if (staffRes.ok) setStaff(await staffRes.json());
+        if (auditRes.ok) setAudit(await auditRes.json());
 
         if (ticketRes.ok) {
           const rawTickets: Ticket[] = await ticketRes.json();
-
-          // Resolve raised_by for each ticket in parallel using /staff/{id}/basic.
-          // This endpoint is accessible by any authenticated staff member (not admin-only).
-          // Falls back to "—" silently if any individual lookup fails.
           const enriched = await Promise.all(
             rawTickets.map(async (t) => {
               try {
@@ -284,11 +249,10 @@ export default function TechnicianDashboard() {
         if (ictRes.ok) {
           const myProfile: IctProfile = await ictRes.json();
           setIctProfile(myProfile);
-          // Show setup modal if specialization hasn't been set yet
+          // Only show setup if specialization has never been set
           if (!myProfile.specialization) setShowSetup(true);
         } else {
-          // If GET /ict-personnel/me returns 404 (profile not created yet),
-          // still trigger the setup modal instead of leaving the dashboard empty.
+          // 404 — no profile exists yet, show setup
           setShowSetup(true);
         }
       } catch (e) {
@@ -299,14 +263,15 @@ export default function TechnicianDashboard() {
     })();
   }, [API]);
 
-  // Called by SetupModal on both first-time setup and edits.
-  // Updates local ictProfile state and dismisses the modal.
+  // Called by SetupModal on successful completion.
+  // Updates local state and permanently dismisses the modal.
   function handleSetupComplete(profile: IctProfile) {
     setIctProfile(profile);
     setShowSetup(false);
+    // showSetup will never be set to true again for this session
+    // since profile.specialization is now set and the useEffect guard won't re-trigger
   }
 
-  // ── Derived display values ─────────────────────────────────────────────────
   const fullName = staff?.full_name ?? "Loading...";
   const initials = fullName
     .split(" ")
@@ -315,12 +280,10 @@ export default function TechnicianDashboard() {
     .slice(0, 2)
     .toUpperCase();
 
-  // Map backend enum value to human-readable label for display
   const specialization = ictProfile?.specialization
     ? specializationLabel[ictProfile.specialization] ?? ictProfile.specialization
     : null;
 
-  // ── Ticket statistics ──────────────────────────────────────────────────────
   const assignedCount   = tickets.length;
   const completedToday  = tickets.filter((t) => {
     if (t.status !== "closed" || !t.closed_at) return false;
@@ -329,35 +292,27 @@ export default function TechnicianDashboard() {
   const openCount       = tickets.filter((t) => t.status === "open").length;
   const inProgressCount = tickets.filter((t) => t.status === "in_progress").length;
 
-  // FIFO: surface the oldest open/in-progress ticket so the technician
-  // always works in the order tickets were raised
   const fifoTicket = tickets
     .filter((t) => t.status === "open" || t.status === "in_progress")
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
 
-  // Apply active filter tab
   const filtered =
     activeFilter === "All"
       ? tickets
       : tickets.filter((t) => t.status === activeFilter);
 
-  // Tickets are already enriched with raised_by from the useEffect above,
-  // so we pass filtered directly — no extra mapping needed here.
-
   return (
     <>
-      {/* Setup modal rendered outside main div so pointer-events lock doesn't block it */}
+      {/* Setup modal — only renders when showSetup is true */}
       {showSetup && (
-        <SetupModal onComplete={handleSetupComplete} existing={ictProfile} />
+        <SetupModal onComplete={handleSetupComplete} />
       )}
 
-      {/* Main layout — pointer events disabled while setup modal is open */}
       <div className={`min-h-screen bg-gray-100 flex flex-col ${showSetup ? "pointer-events-none select-none" : ""}`}>
 
         {/* ── Top Bar ── */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-2.5 ml-auto">
-            {/* Notification bell with unread indicator */}
             <div
               className="relative cursor-pointer w-10 h-10 flex items-center justify-center rounded-full"
               style={{ backgroundColor: "#fff", border: "1px solid #E8DDD0", boxShadow: "0 1px 3px rgba(90,30,0,0.08)" }}
@@ -371,7 +326,6 @@ export default function TechnicianDashboard() {
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-400" />
             </div>
 
-            {/* Avatar — initials derived from staff full_name */}
             <div
               style={{
                 width: 36, height: 36, borderRadius: "50%",
@@ -394,14 +348,13 @@ export default function TechnicianDashboard() {
           >
             <p className="text-xs sm:text-sm font-semibold tracking-widest uppercase mb-1"
                style={{ color: "#C8922A" }}>
-              GOOD MORNING
+              {getGreeting()}
             </p>
             <h1 className="text-2xl sm:text-3xl font-bold text-white">{fullName}</h1>
             <p className="text-sm sm:text-base mt-1" style={{ color: "#D4A96A" }}>
               {specialization ?? "Complete your profile to get started"}
             </p>
 
-            {/* Availability badge — color-coded by status */}
             {ictProfile?.availability && (
               <span
                 className="mt-3 inline-block px-3 py-1 rounded-full text-xs font-semibold"
@@ -420,7 +373,6 @@ export default function TechnicianDashboard() {
               </span>
             )}
 
-            {/* FIFO next-up banner — shown when there's an active ticket */}
             {fifoTicket && (
               <div
                 className="mt-4 px-4 py-2 rounded-lg inline-flex items-center gap-2"
@@ -437,7 +389,7 @@ export default function TechnicianDashboard() {
         {/* ── Main Content ── */}
         <main className="flex-1 px-4 sm:px-6 py-5 flex flex-col gap-5">
 
-          {/* ── Stats Row ── */}
+          {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               { label: "Assigned to Me",  value: loading ? "—" : String(assignedCount)   },
@@ -458,13 +410,11 @@ export default function TechnicianDashboard() {
             ))}
           </div>
 
-          {/* ── Body: Tickets + Right Panel ── */}
+          {/* Body */}
           <div className="flex flex-col xl:flex-row gap-4">
 
             {/* Tickets Table */}
             <div className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-w-0">
-
-              {/* Filter tabs */}
               <div className="flex gap-2 px-4 pt-4 pb-2 border-b border-gray-100">
                 {(["All", "open", "in_progress"] as Filter[]).map((f) => (
                   <button
@@ -485,14 +435,12 @@ export default function TechnicianDashboard() {
               {loading ? (
                 <div className="p-8 text-center text-gray-400 text-sm">Loading tickets...</div>
               ) : !ictProfile?.is_active ? (
-                // Guard: don't show tickets until profile is active
                 <div className="p-8 text-center text-gray-400 text-sm">
                   Complete your profile setup to start receiving tickets.
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="p-8 text-center text-gray-400 text-sm">No tickets found.</div>
               ) : (
-                // Tickets are pre-enriched with raised_by — pass filtered directly
                 <AssignedTicketTable
                   tickets={filtered}
                   fifoTicketId={fifoTicket?.id}
@@ -500,8 +448,8 @@ export default function TechnicianDashboard() {
               )}
             </div>
 
-            {/* ── Right Panel ── */}
-            <div className="xl:w-[240px] flex-shrink-0 flex flex-row xl:flex-col gap-3">
+            {/* Right Panel */}
+            <div className="xl:w-60 shrink-0 flex flex-row xl:flex-col gap-3">
 
               {/* Recent Activity */}
               <div className="flex-1 xl:flex-none bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
@@ -517,7 +465,7 @@ export default function TechnicianDashboard() {
                     {audit.map((a) => (
                       <div key={a.id} className="flex gap-3 items-start">
                         <div
-                          className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                          className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0"
                           style={{ border: "2px solid #C8922A" }}
                         >
                           <span className="w-2 h-2 rounded-full block"
@@ -538,7 +486,7 @@ export default function TechnicianDashboard() {
                 )}
               </div>
 
-              {/* My Specialization */}
+              {/* My Specialization — read only, no edit button */}
               <div className="flex-1 xl:flex-none bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
                 <h3 className="font-semibold text-base sm:text-lg text-gray-800 mb-4">
                   My Specialization
@@ -554,14 +502,9 @@ export default function TechnicianDashboard() {
                     <p className="text-xs text-gray-400 mt-3">
                       You only receive tickets matching your specialization.
                     </p>
-                    {/* Triggers edit mode of SetupModal */}
-                    <button
-                      onClick={() => setShowSetup(true)}
-                      className="text-xs font-medium underline mt-2 block"
-                      style={{ color: "#7A3100" }}
-                    >
-                      Edit
-                    </button>
+                    <p className="text-xs text-gray-300 mt-1">
+                      Contact admin to change your specialization.
+                    </p>
                   </>
                 ) : (
                   <>

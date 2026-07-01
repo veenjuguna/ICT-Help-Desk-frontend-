@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Inter, Playfair_Display } from "next/font/google";
 import { ArrowLeft, Send, User, Clock, Check, Loader2 } from "lucide-react";
@@ -45,15 +45,16 @@ type Ticket = {
   comment: string | null;
 };
 
-// FIX: Added StaffBasic so we can resolve staff_id → full_name on this page.
-// The dashboard's staffMap doesn't persist across navigation, so we fetch
-// the raiser's profile directly using GET /staff/{staff_id}.
+// Used to resolve staff_id → human-readable profile via GET /staff/{id}/basic.
+// The /basic endpoint is accessible by any authenticated staff member,
+// unlike the full GET /{staff_id} which is admin-only.
 type StaffBasic = {
   id: string;
   full_name: string;
   email: string;
+  phone_number: string | null;    // FIX: was personal_number — this is the contact number
+  office_number: string | null;
   office_location: string | null;
-  personal_number: string | null;
 };
 
 // ── Status Badge ──────────────────────────────────────────────────────────────
@@ -75,19 +76,18 @@ export default function TicketDetailPage() {
   const router   = useRouter();
   const ticketId = Number(params.id);
 
-  const [ticket, setTicket]           = useState<Ticket | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
+  const [ticket, setTicket]       = useState<Ticket | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
 
-  // FIX: Added raisedBy state to hold the resolved staff profile.
-  // Fetched in parallel with the ticket so there's no waterfall delay.
-  const [raisedBy, setRaisedBy]       = useState<StaffBasic | null>(null);
+  // Resolved staff profile of whoever raised this ticket.
+  // Fetched via GET /staff/{staff_id}/basic after the ticket loads.
+  const [raisedBy, setRaisedBy]   = useState<StaffBasic | null>(null);
 
   const [currentStatus, setCurrentStatus] = useState("");
-  const [pendingStatus, setPendingStatus] = useState("");
-  const [saved, setSaved]             = useState(false);
-  const [saving, setSaving]           = useState(false);
-  const [saveError, setSaveError]     = useState<string | null>(null);
+  const [saving, setSaving]       = useState(false);
+  const [saved, setSaved]         = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTicket = async () => {
@@ -95,7 +95,7 @@ export default function TicketDetailPage() {
         setLoading(true);
         setError(null);
 
-        // Step 1: Fetch the ticket first so we have staff_id
+        // Step 1: Fetch the ticket
         const res = await fetch(`${API}/tickets/${ticketId}`, {
           credentials: "include",
           headers: {
@@ -120,20 +120,17 @@ export default function TicketDetailPage() {
 
         const liveStatus = ticketStatusStore[data.id] ?? data.status;
         setCurrentStatus(liveStatus);
-        setPendingStatus(liveStatus);
 
-        // FIX: Step 2 — resolve staff_id → full name by fetching the raiser's
-        // profile. Using GET /staff/{id} so this page is self-contained and
-        // doesn't depend on staffMap being passed from the dashboard.
+        // Step 2: Resolve staff_id → full profile using the /basic endpoint.
+        // Accessible by any authenticated staff member (not admin-only).
+        // Falls back gracefully to "Unknown Staff" if the fetch fails.
         if (data.staff_id) {
-          const staffRes = await fetch(`${API}/staff/${data.staff_id}`, {
+          const staffRes = await fetch(`${API}/staff/${data.staff_id}/basic`, {
             credentials: "include",
           });
           if (staffRes.ok) {
-            const staffData: StaffBasic = await staffRes.json();
-            setRaisedBy(staffData);
+            setRaisedBy(await staffRes.json());
           }
-          // If staff fetch fails, raisedBy stays null and we fall back gracefully
         }
 
       } catch (err) {
@@ -146,23 +143,21 @@ export default function TicketDetailPage() {
     if (!isNaN(ticketId)) fetchTicket();
   }, [ticketId]);
 
-  // ── Status update ─────────────────────────────────────────────────────────
-  const statusOptions = [
-    { value: "open",        label: "Open" },
-    { value: "in_progress", label: "In Progress" },
-    { value: "resolved",    label: "Resolved" },
-  ];
-
-  const handleDone = async () => {
+  // FIX: ICT personnel can only mark a ticket resolved or unresolved.
+  // They cannot change status freely between open/in_progress — that is
+  // controlled by the ticket lifecycle (assignment, escalation, etc).
+  // Each button fires immediately as a direct action, no pending/confirm flow.
+  const handleMarkResolution = async (resolution: "resolved" | "unresolved") => {
     if (!ticket) return;
     try {
       setSaving(true);
       setSaveError(null);
+
       const res = await fetch(`${API}/tickets/${ticket.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: pendingStatus }),
+        body: JSON.stringify({ status: resolution }),
       });
 
       if (!res.ok) {
@@ -173,7 +168,6 @@ export default function TicketDetailPage() {
       const updated: Ticket = await res.json();
       setTicket(updated);
       setCurrentStatus(updated.status);
-      setPendingStatus(updated.status);
       ticketStatusStore[ticket.id] = updated.status;
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -184,22 +178,31 @@ export default function TicketDetailPage() {
     }
   };
 
-  // ── Time elapsed helper ───────────────────────────────────────────────────
-  const assignedAgo = (() => {
-    if (!ticket) return "";
-    const diff = Date.now() - new Date(ticket.created_at).getTime();
+  // ── Live "time ago" clock ────────────────────────────────────────────────
+  // Date.now() must never be called during render (impure — breaks React's
+  // purity rules for components/hooks). Instead, we track "now" in state,
+  // seeded and updated only inside an effect, and re-derive assignedAgo from it.
+  const [now, setNow] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000); // tick every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  const assignedAgo = useMemo(() => {
+    if (!ticket || now === null) return "";
+    const diff = now - new Date(ticket.created_at).getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 60) return `${mins}m ago`;
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `${hrs}h ago`;
     return `${Math.floor(hrs / 24)}d ago`;
-  })();
+  }, [ticket, now]);
 
-  // ── Initials helper for the avatar ───────────────────────────────────────
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
-  // ── Loading state ─────────────────────────────────────────────────────────
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div style={{
@@ -213,7 +216,7 @@ export default function TicketDetailPage() {
     );
   }
 
-  // ── Error state ───────────────────────────────────────────────────────────
+  // ── Error ─────────────────────────────────────────────────────────────────
   if (error || !ticket) {
     return (
       <div style={{
@@ -267,8 +270,8 @@ export default function TicketDetailPage() {
             </button>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                <h1 style={{
-                  fontFamily: "Playfair Display, serif", fontSize: "26px",
+                <h1 className={playfair.className} style={{
+                  fontSize: "26px",
                   fontWeight: 700, margin: 0, color: "#1a1a1a",
                 }}>
                   Ticket #{ticket.id}
@@ -294,7 +297,7 @@ export default function TicketDetailPage() {
         {/* ── Main Grid ── */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "20px", alignItems: "start" }}>
 
-          {/* ── LEFT: Issue Details + Status Update ── */}
+          {/* ── LEFT ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
             {/* Issue Details */}
@@ -358,51 +361,73 @@ export default function TicketDetailPage() {
               )}
             </div>
 
-            {/* Update Status */}
+            {/* FIX: Renamed from "Update Ticket Status" to "Mark Ticket Resolution".
+                ICT personnel can only mark resolved or unresolved — they cannot
+                freely change status between open/in_progress. Each button fires
+                immediately as a direct action with no pending/confirm flow. */}
             <div style={{
               background: "#fff", borderRadius: "12px", border: "1px solid #eee",
               padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
             }}>
-              <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 16px 0", color: "#1a1a1a" }}>
-                Update Ticket Status
+              <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 8px 0", color: "#1a1a1a" }}>
+                Mark Ticket Resolution
               </h2>
+              <p style={{ fontSize: "13px", color: "#888", margin: "0 0 16px 0" }}>
+                Mark this ticket as resolved once the issue is fixed, or unresolved if it could not be completed.
+              </p>
+
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-                {statusOptions.map(({ value: val, label: lbl }) => (
-                  <button key={val}
-                    onClick={() => { setPendingStatus(val); setSaved(false); setSaveError(null); }}
-                    style={{
-                      background: pendingStatus === val ? COLORS.primary : "#fff",
-                      color: pendingStatus === val ? "#fff" : "#444",
-                      border: `1px solid ${pendingStatus === val ? COLORS.primary : "#ddd"}`,
-                      padding: "9px 18px", borderRadius: "8px", cursor: "pointer",
-                      fontSize: "13px", fontWeight: 500, transition: "all 0.15s ease",
-                    }}
-                  >
-                    {lbl}
-                  </button>
-                ))}
 
-                {pendingStatus !== currentStatus && (
-                  <button onClick={handleDone} disabled={saving} style={{
-                    background: saving ? "#999" : "#1a1a1a",
-                    color: "#fff", border: "none", padding: "9px 18px",
-                    borderRadius: "8px", cursor: saving ? "not-allowed" : "pointer",
-                    fontSize: "13px", fontWeight: 600,
-                    display: "flex", alignItems: "center", gap: "6px",
-                  }}>
-                    {saving
-                      ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Saving...</>
-                      : <><Check size={14} /> Done</>
-                    }
-                  </button>
-                )}
+                {/* Resolved button — green accent when already resolved */}
+                <button
+                  onClick={() => handleMarkResolution("resolved")}
+                  disabled={saving || currentStatus === "resolved"}
+                  style={{
+                    background: currentStatus === "resolved" ? "#E8F5E9" : "#fff",
+                    color: currentStatus === "resolved" ? "#2D6B0F" : "#444",
+                    border: `1px solid ${currentStatus === "resolved" ? "#2D6B0F" : "#ddd"}`,
+                    padding: "9px 18px", borderRadius: "8px",
+                    cursor: saving || currentStatus === "resolved" ? "not-allowed" : "pointer",
+                    fontSize: "13px", fontWeight: 600, transition: "all 0.15s ease",
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  {saving ? (
+                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Saving...
+                    </span>
+                  ) : (
+                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <Check size={14} /> Mark Resolved
+                    </span>
+                  )}
+                </button>
 
+                {/* Unresolved button — red accent when already unresolved */}
+                <button
+                  onClick={() => handleMarkResolution("unresolved")}
+                  disabled={saving || currentStatus === "unresolved"}
+                  style={{
+                    background: currentStatus === "unresolved" ? "#FCE4EC" : "#fff",
+                    color: currentStatus === "unresolved" ? "#C62828" : "#444",
+                    border: `1px solid ${currentStatus === "unresolved" ? "#C62828" : "#ddd"}`,
+                    padding: "9px 18px", borderRadius: "8px",
+                    cursor: saving || currentStatus === "unresolved" ? "not-allowed" : "pointer",
+                    fontSize: "13px", fontWeight: 600, transition: "all 0.15s ease",
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  Mark Unresolved
+                </button>
+
+                {/* Success confirmation */}
                 {saved && (
                   <span style={{ fontSize: "13px", color: "#2D6B0F", fontWeight: 500, display: "flex", alignItems: "center", gap: "4px" }}>
-                    <Check size={13} /> Status updated
+                    <Check size={13} /> Ticket updated
                   </span>
                 )}
 
+                {/* Error message */}
                 {saveError && (
                   <span style={{ fontSize: "13px", color: "#C62828", fontWeight: 500 }}>
                     ⚠️ {saveError}
@@ -412,12 +437,10 @@ export default function TicketDetailPage() {
             </div>
           </div>
 
-          {/* ── RIGHT: Raised By + Assignment Details ── */}
+          {/* ── RIGHT ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
-            {/* FIX: Raised By panel now shows full_name, email, and office_location
-                instead of the raw staff_id UUID. Data comes from GET /staff/{staff_id}
-                fetched in the same useEffect as the ticket. */}
+            {/* Raised By — resolved from GET /staff/{staff_id}/basic */}
             <div style={{
               background: "#fff", borderRadius: "12px", border: "1px solid #eee",
               padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
@@ -425,8 +448,9 @@ export default function TicketDetailPage() {
               <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 20px 0", color: "#1a1a1a" }}>
                 Raised By
               </h2>
+
+              {/* Avatar + name + email */}
               <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-                {/* Avatar: initials if name resolved, generic icon if not */}
                 <div style={{
                   width: 44, height: 44, borderRadius: "50%",
                   background: raisedBy ? "#7A3100" : "#f0f0f0",
@@ -442,32 +466,37 @@ export default function TicketDetailPage() {
                   )}
                 </div>
                 <div>
-                  {/* Full name — falls back to "Unknown Staff" if fetch failed */}
                   <p style={{ margin: 0, fontWeight: 700, fontSize: "15px", color: "#1a1a1a" }}>
                     {raisedBy?.full_name ?? "Unknown Staff"}
                   </p>
-                  {/* Email */}
                   {raisedBy?.email && (
                     <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#888" }}>
                       {raisedBy.email}
                     </p>
                   )}
-                  {/* Office location if available */}
-                  {raisedBy?.office_location && (
-                    <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#aaa" }}>
-                      {raisedBy.office_location}
-                    </p>
-                  )}
                 </div>
               </div>
 
-              {/* Personal number if available */}
-              {raisedBy?.personal_number && (
-                <div style={{ marginBottom: "16px" }}>
-                  <p style={labelStyle}>Personal No.</p>
-                  <p style={valueStyle}>{raisedBy.personal_number}</p>
+              {/* Labelled contact + location fields */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
+
+                {/* FIX: Replaced personal_number with phone_number — actual contact field */}
+                <div>
+                  <p style={labelStyle}>Phone Number</p>
+                  <p style={valueStyle}>{raisedBy?.phone_number ?? "—"}</p>
                 </div>
-              )}
+
+                <div>
+                  <p style={labelStyle}>Office Number</p>
+                  <p style={valueStyle}>{raisedBy?.office_number ?? "—"}</p>
+                </div>
+
+                <div>
+                  <p style={labelStyle}>Office Location</p>
+                  <p style={valueStyle}>{raisedBy?.office_location ?? "—"}</p>
+                </div>
+
+              </div>
 
               <button style={{
                 width: "100%", background: COLORS.primaryDark, color: "#fff",

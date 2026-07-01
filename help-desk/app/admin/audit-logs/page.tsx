@@ -1,37 +1,51 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, RefreshCw, Shield, LogIn, LogOut, Ticket, UserPlus, Package, AlertCircle } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-neon.onrender.com";
 
 type AuditAction =
-  | "LOGIN_SUCCESS"
-  | "LOGIN_FAILED"
   | "TICKET_CREATED"
+  | "TICKET_UPDATED"
   | "TICKET_ASSIGNED"
   | "TICKET_CLOSED"
   | "ASSET_ALLOCATED"
+  | "ASSET_DEALLOCATED"
   | "USER_CREATED"
-  | "LOGOUT";
+  | "USER_UPDATED"
+  | "LOGIN_SUCCESS"
+  | "LOGIN_FAILED"
+  | "LOGOUT"
+  | "PERMISSION_CHANGED"
+  | "PASSWORD_RESET";
 
 interface AuditLog {
-  id: string | number;
+  id: number;
   action: AuditAction;
-  staff_email: string;
-  timestamp: string;
-  detail?: string;
+  session_id: number | null;
+  table_name: string;
+  record_id: string | null;
+  ip_address: string | null;
+  created_at: string;
+  staff: { id: string; full_name: string; email: string } | null;
 }
 
 const ACTION_META: Record<AuditAction, { label: string; color: string; bg: string; Icon: React.ElementType }> = {
-  LOGIN_SUCCESS:    { label: "Login Success",    color: "#1e6db5", bg: "#dbeafe", Icon: LogIn },
-  LOGIN_FAILED:     { label: "Login Failed",     color: "#b91c1c", bg: "#fee2e2", Icon: AlertCircle },
-  TICKET_CREATED:   { label: "Ticket Created",   color: "#166534", bg: "#dcfce7", Icon: Ticket },
-  TICKET_ASSIGNED:  { label: "Ticket Assigned",  color: "#0e7490", bg: "#cffafe", Icon: Ticket },
-  TICKET_CLOSED:    { label: "Ticket Closed",    color: "#4b5563", bg: "#f3f4f6", Icon: Ticket },
-  ASSET_ALLOCATED:  { label: "Asset Allocated",  color: "#92400e", bg: "#fef3c7", Icon: Package },
-  USER_CREATED:     { label: "User Created",     color: "#0e7490", bg: "#cffafe", Icon: UserPlus },
-  LOGOUT:           { label: "Logout",           color: "#4b5563", bg: "#f3f4f6", Icon: LogOut },
+  TICKET_CREATED:     { label: "Ticket Created",     color: "#166534", bg: "#dcfce7", Icon: Ticket },
+  TICKET_UPDATED:     { label: "Ticket Updated",     color: "#0e7490", bg: "#cffafe", Icon: Ticket },
+  TICKET_ASSIGNED:    { label: "Ticket Assigned",    color: "#0e7490", bg: "#cffafe", Icon: Ticket },
+  TICKET_CLOSED:      { label: "Ticket Closed",      color: "#4b5563", bg: "#f3f4f6", Icon: Ticket },
+  ASSET_ALLOCATED:    { label: "Asset Allocated",    color: "#92400e", bg: "#fef3c7", Icon: Package },
+  ASSET_DEALLOCATED:  { label: "Asset Deallocated",  color: "#4b5563", bg: "#f3f4f6", Icon: Package },
+  USER_CREATED:       { label: "User Created",       color: "#0e7490", bg: "#cffafe", Icon: UserPlus },
+  USER_UPDATED:       { label: "User Updated",       color: "#0e7490", bg: "#cffafe", Icon: UserPlus },
+  LOGIN_SUCCESS:      { label: "Login Success",      color: "#1e6db5", bg: "#dbeafe", Icon: LogIn },
+  LOGIN_FAILED:       { label: "Login Failed",       color: "#b91c1c", bg: "#fee2e2", Icon: AlertCircle },
+  LOGOUT:             { label: "Logout",             color: "#4b5563", bg: "#f3f4f6", Icon: LogOut },
+  PERMISSION_CHANGED: { label: "Permission Changed", color: "#92400e", bg: "#fef3c7", Icon: Shield },
+  PASSWORD_RESET:     { label: "Password Reset",     color: "#92400e", bg: "#fef3c7", Icon: Shield },
 };
 
 const ALL_ACTIONS = Object.keys(ACTION_META) as AuditAction[];
@@ -71,48 +85,41 @@ function timeAgo(ts: string) {
 }
 
 export default function AuditLogsPage() {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<AuditAction | "">("");
   const [page, setPage] = useState(1);
-  const [refreshing, setRefreshing] = useState(false);
 
   const PAGE_SIZE = 20;
 
-  const fetchLogs = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    else setRefreshing(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API}/audit/`, { credentials: "include" });
+   const queryClient = useQueryClient();
+
+  const { data: logs = [], isFetching, isLoading: loading, error: queryError } = useQuery<AuditLog[]>({
+    queryKey: ["audit-logs"],
+    queryFn: async () => {
+      const res = await fetch(`${API}/audit/?limit=500`, { credentials: "include" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail ?? `Error ${res.status}`);
       }
       const data = await res.json();
-      setLogs(Array.isArray(data) ? data : data.logs ?? []);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load audit logs.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+      return Array.isArray(data) ? data : data.logs ?? [];
+    },
+    staleTime: 60 * 1000,
+  });
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => { void fetchLogs(); }, 0);
-    return () => window.clearTimeout(timer);
-  }, [fetchLogs]);
+  const refreshing = isFetching && !loading;
+  const error = queryError instanceof Error ? queryError.message : queryError ? "Failed to load audit logs." : null;
 
   // Filter
-  const filtered = logs.filter((l) => {
+const filtered = logs.filter((l) => {
+    const q = search.toLowerCase();
     const matchSearch =
-      !search ||
-      l.staff_email?.toLowerCase().includes(search.toLowerCase()) ||
-      l.action?.toLowerCase().includes(search.toLowerCase()) ||
-      l.detail?.toLowerCase().includes(search.toLowerCase());
+      !q ||
+      l.staff?.email?.toLowerCase().includes(q) ||
+      l.staff?.full_name?.toLowerCase().includes(q) ||
+      l.action?.toLowerCase().includes(q) ||
+      l.table_name?.toLowerCase().includes(q) ||
+      l.ip_address?.toLowerCase().includes(q);
     const matchAction = !actionFilter || l.action === actionFilter;
     return matchSearch && matchAction;
   });
@@ -380,7 +387,7 @@ export default function AuditLogsPage() {
 
         @media (max-width: 768px) {
           .al-header, .al-body { padding: 1rem; }
-          .al-table thead th:nth-child(4), .al-table td:nth-child(4) { display: none; }
+          .al-table thead th:nth-child(5), .al-table td:nth-child(5) { display: none; }
         }
       `}</style>
 
@@ -393,7 +400,7 @@ export default function AuditLogsPage() {
           </div>
           <button
             className={`al-refresh-btn${refreshing ? " spinning" : ""}`}
-            onClick={() => fetchLogs(true)}
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["audit-logs"] })}
             disabled={refreshing}
           >
             <RefreshCw size={14} />
@@ -414,7 +421,7 @@ export default function AuditLogsPage() {
           {!loading && !error && (
             <div className="al-stats">
               {ALL_ACTIONS.map((action) => {
-                const count = logs.filter((l) => l.action === action).length;
+                const count = logs.filter((l: AuditLog) => l.action === action).length;
                 if (count === 0) return null;
                 const meta = ACTION_META[action];
                 return (
@@ -433,7 +440,7 @@ export default function AuditLogsPage() {
               <Search size={15} />
               <input
                 type="text"
-                placeholder="Search by email, action, or detail…"
+                placeholder="Search by email, action, table, or IP…"
                 value={search}
                 onChange={(e) => handleSearch(e.target.value)}
               />
@@ -469,19 +476,21 @@ export default function AuditLogsPage() {
               </div>
             ) : (
               <table className="al-table">
-                <thead>
+               <thead>
                   <tr>
                     <th>Timestamp</th>
                     <th>Action</th>
                     <th>Staff</th>
-                    <th>Detail</th>
+                    <th>Record</th>
+                    <th>IP Address</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginated.map((log) => {
-                    const { date, time } = formatTimestamp(log.timestamp);
-                    const ago = timeAgo(log.timestamp);
-                    const [user, domain] = (log.staff_email ?? "").split("@");
+                  {paginated.map((log: AuditLog) => {
+                    const { date, time } = formatTimestamp(log.created_at);
+                    const ago = timeAgo(log.created_at);
+                    const email = log.staff?.email ?? "";
+                    const [user, domain] = email.split("@");
                     return (
                       <tr key={log.id}>
                         <td>
@@ -495,17 +504,22 @@ export default function AuditLogsPage() {
                           <ActionBadge action={log.action} />
                         </td>
                         <td>
-                          <span className="al-email">
-                            {user}
-                            {domain && <span className="al-email-domain">@{domain}</span>}
-                          </span>
+                          {log.staff ? (
+                            <span className="al-email">
+                              {user}
+                              {domain && <span className="al-email-domain">@{domain}</span>}
+                            </span>
+                          ) : (
+                            <span style={{ color: "#d1d5db", fontSize: "0.75rem" }}>System</span>
+                          )}
                         </td>
                         <td>
-                          {log.detail ? (
-                            <span className="al-detail" title={log.detail}>{log.detail}</span>
-                          ) : (
-                            <span style={{ color: "#d1d5db", fontSize: "0.75rem" }}>—</span>
-                          )}
+                          <span className="al-detail" title={`${log.table_name}${log.record_id ? ` #${log.record_id}` : ""}`}>
+                            {log.table_name}{log.record_id ? ` #${log.record_id}` : ""}
+                          </span>
+                        </td>
+                        <td style={{ fontFamily: "monospace", fontSize: "0.78rem" }}>
+                          {log.ip_address ?? "—"}
                         </td>
                       </tr>
                     );

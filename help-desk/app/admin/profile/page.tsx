@@ -1,21 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState} from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, Pencil, Shield, KeyRound } from "lucide-react";
 import ProfileInput from "@/components/profile-input";
 
 export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
-  const [user, setUser] = useState<{
-    id: string; // ← add
-    full_name: string;
-    email: string;
-    personal_number?: string;
-    phone_number?: string;
-    office_location?: string;
-    office_number?: string;
-    department?: { name: string };
-  } | null>(null);
+  
 
   // ADD these 4 lines right after:  const [user, setUser] = useState<...>(null);
   const [editName, setEditName] = useState("");
@@ -29,35 +21,28 @@ export default function ProfilePage() {
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
-          credentials: "include",
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data);
-          setEditName(data.full_name ?? "");
-          setEditPhone(data.phone_number ?? "");
-          setEditLocation(data.office_location ?? "");
-          setEditNumber(data.office_number ?? "");
-        }
-      } catch {}
-    })();
-  }, []);
+  const queryClient = useQueryClient();
+
+const { data: user } = useQuery({
+  queryKey: ["profile-me"],
+  queryFn: async () => {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error("Failed to load profile.");
+    return res.json();
+  },
+  staleTime: 60 * 1000,
+});
 
   const fullName = user?.full_name ?? "";
   const email = user?.email ?? "";
   const personalNumber = user?.personal_number ?? "";
-  const phone = user?.phone_number ?? "";
-  const officeLocation = user?.office_location ?? "";
-  const officeNumber = user?.office_number ?? "";
   const dept = user?.department?.name ?? "";
   const initials =
     fullName
       .split(" ")
-      .map((n) => n[0])
+      .map((n: string) => n[0])
       .join("")
       .slice(0, 2) || "—";
 
@@ -87,17 +72,7 @@ export default function ProfilePage() {
           ...(editNumber && { office_number: editNumber }),
         }),
       });
-      setUser((u) =>
-        u
-          ? {
-              ...u,
-              full_name: editName,
-              phone_number: editPhone,
-              office_location: editLocation,
-              office_number: editNumber,
-            }
-          : u,
-      );
+      await queryClient.invalidateQueries({ queryKey: ["profile-me"] });
     }
     setEditing((v) => !v);
   };
@@ -141,7 +116,9 @@ export default function ProfilePage() {
           typeof data.detail === "string"
             ? data.detail
             : Array.isArray(data.detail)
-              ? data.detail.map((d: any) => d.msg).join(", ")
+              ? data.detail
+                  .map((d: { msg?: string }) => d.msg)
+                  .join(", ")
               : "Failed to change password.";
         throw new Error(message);
       }
@@ -150,9 +127,13 @@ export default function ProfilePage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (e: any) {
+    } catch (e: unknown) {
       setPasswordError(
-        typeof e === "string" ? e : (e?.message ?? "Something went wrong."),
+        typeof e === "string"
+          ? e
+          : e instanceof Error
+            ? e.message
+            : "Something went wrong.",
       );
     } finally {
       setPasswordLoading(false);

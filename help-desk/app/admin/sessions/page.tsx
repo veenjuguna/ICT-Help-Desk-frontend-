@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, RefreshCw, LogOut, AlertCircle, Monitor, Shield, Clock } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ict-help-desk-neon.onrender.com";
@@ -16,15 +17,11 @@ interface StaffMember {
 }
 
 interface RawSession {
-  id: string | number;
+  id: number;
   staff_id: string;
   ip_address?: string;
-  device?: string;
-  created_at: string;
-  last_active?: string;
-  staff_email?: string;
-  staff_name?: string;
-  role?: string;
+  login_at: string;
+  is_active: boolean;
 }
 
 interface Session extends RawSession {
@@ -51,14 +48,21 @@ function formatTime(ts: string) {
   });
 }
 
+function normalizeRole(role?: string): "ADMIN" | "ICT" | "STAFF" {
+  const r = (role ?? "staff").toLowerCase();
+  if (r === "admin") return "ADMIN";
+  if (r === "ict_personnel") return "ICT";
+  return "STAFF";
+}
+
 function RoleBadge({ role }: { role?: string }) {
-  const r = (role ?? "STAFF").toUpperCase();
+  const r = normalizeRole(role);
   const colors: Record<string, { color: string; bg: string }> = {
     ADMIN: { color: "#6B2D0F", bg: "#fef3e2" },
     ICT:   { color: "#0e7490", bg: "#cffafe" },
     STAFF: { color: "#374151", bg: "#f3f4f6" },
   };
-  const c = colors[r] ?? colors.STAFF;
+  const c = colors[r];
   return (
     <span style={{
       padding: "0.18rem 0.6rem", borderRadius: "999px",
@@ -70,14 +74,59 @@ function RoleBadge({ role }: { role?: string }) {
   );
 }
 
+// ── Data fetching (queryFn) ──────────────────────────────────
+async function fetchSessions(): Promise<Session[]> {
+  const [sessRes, staffRes] = await Promise.all([
+    fetch(`${API}/auth/sessions?active_only=true`, { credentials: "include" }),
+    fetch(`${API}/staff/`, { credentials: "include" }),
+  ]);
+
+  if (!sessRes.ok) {
+    const err = await sessRes.json().catch(() => ({}));
+    throw new Error(err.detail ?? `Sessions error ${sessRes.status}`);
+  }
+
+  const rawSessions: RawSession[] = await sessRes.json().then(d =>
+    Array.isArray(d) ? d : d.sessions ?? []
+  );
+
+  const staffMap: Record<string, StaffMember> = {};
+  if (staffRes.ok) {
+    const staffList: StaffMember[] = await staffRes.json().then(d =>
+      Array.isArray(d) ? d : d.staff ?? []
+    );
+    staffList.forEach(s => { staffMap[s.id] = s; });
+  }
+
+  return rawSessions.map(s => {
+    const staff = staffMap[s.staff_id];
+    return {
+      ...s,
+      staff_name:  staff?.full_name ?? "Unknown",
+      staff_email: staff?.email     ?? s.staff_id,
+      role:        staff?.role      ?? "staff",
+      department:  staff?.department?.name,
+    };
+  });
+}
+
+// ── Force logout (mutationFn) ────────────────────────────────
+async function forceLogoutRequest(staffId: string) {
+  const res = await fetch(`${API}/auth/sessions/${staffId}`, {
+    method: "DELETE", credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? `Error ${res.status}`);
+  }
+}
+
 export default function SessionsPage() {
-  const [sessions, setSessions]     = useState<Session[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
   const [search, setSearch]         = useState("");
   const [roleFilter, setRoleFilter] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
-  const [forceLoggingOut, setForceLoggingOut] = useState<Set<string>>(new Set());
+  const [isManualRefresh, setIsManualRefresh] = useState(false);
   const [toast, setToast]           = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<Session | null>(null);
 
@@ -86,75 +135,41 @@ export default function SessionsPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const fetchData = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    else setRefreshing(true);
-    setError(null);
-    try {
-      const [sessRes, staffRes] = await Promise.all([
-        fetch(`${API}/auth/sessions`, { credentials: "include" }),
-        fetch(`${API}/staff/`,        { credentials: "include" }),
-      ]);
+  const {
+    data: sessions = [],
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["activeSessions"],
+    queryFn: fetchSessions,
+    staleTime: 30 * 1000, // sessions should feel fairly "live"
+  });
 
-      if (!sessRes.ok) {
-        const err = await sessRes.json().catch(() => ({}));
-        throw new Error(err.detail ?? `Sessions error ${sessRes.status}`);
-      }
-
-      const rawSessions: RawSession[] = await sessRes.json().then(d =>
-        Array.isArray(d) ? d : d.sessions ?? []
+  const logoutMutation = useMutation({
+    mutationFn: forceLogoutRequest,
+    onSuccess: (_data, staffId) => {
+      const session = sessions.find(s => s.staff_id === staffId);
+      queryClient.setQueryData<Session[]>(["activeSessions"], (old) =>
+        (old ?? []).filter(s => s.staff_id !== staffId)
       );
-
-      const staffMap: Record<string, StaffMember> = {};
-      if (staffRes.ok) {
-        const staffList: StaffMember[] = await staffRes.json().then(d =>
-          Array.isArray(d) ? d : d.staff ?? []
-        );
-        staffList.forEach(s => { staffMap[s.id] = s; });
-      }
-
-      const enriched: Session[] = rawSessions.map(s => {
-        const staff = staffMap[s.staff_id];
-        return {
-          ...s,
-          staff_name:  s.staff_name  ?? staff?.full_name ?? "Unknown",
-          staff_email: s.staff_email ?? staff?.email     ?? s.staff_id,
-          role:        s.role        ?? staff?.role       ?? "staff",
-          department:  staff?.department?.name,
-        };
-      });
-
-      setSessions(enriched);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load sessions.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-      useEffect(() => {
-      const load = async () => { await fetchData(); };
-      load();
-     }, [fetchData]);
-  const handleForceLogout = async (session: Session) => {
-    setConfirmTarget(null);
-    setForceLoggingOut(prev => new Set(prev).add(session.staff_id));
-    try {
-      const res = await fetch(`${API}/auth/sessions/${session.staff_id}`, {
-        method: "DELETE", credentials: "include",
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? `Error ${res.status}`);
-      }
-      setSessions(prev => prev.filter(s => s.staff_id !== session.staff_id));
-      showToast(`${session.staff_name} has been logged out.`, "success");
-    } catch (e: unknown) {
+      showToast(`${session?.staff_name ?? "User"} has been logged out.`, "success");
+    },
+    onError: (e: unknown) => {
       showToast(e instanceof Error ? e.message : "Force logout failed.", "error");
-    } finally {
-      setForceLoggingOut(prev => { const n = new Set(prev); n.delete(session.staff_id); return n; });
-    }
+    },
+  });
+
+  const handleRefresh = async () => {
+    setIsManualRefresh(true);
+    await refetch();
+    setIsManualRefresh(false);
+  };
+
+  const handleForceLogout = (session: Session) => {
+    setConfirmTarget(null);
+    logoutMutation.mutate(session.staff_id);
   };
 
   const filtered = sessions.filter(s => {
@@ -164,12 +179,14 @@ export default function SessionsPage() {
       s.staff_email?.toLowerCase().includes(q) ||
       s.ip_address?.includes(q) ||
       s.department?.toLowerCase().includes(q);
-    const matchR = !roleFilter || (s.role ?? "").toUpperCase() === roleFilter;
+    const matchR = !roleFilter || normalizeRole(s.role) === roleFilter;
     return matchQ && matchR;
   });
 
   const countByRole = (r: string) =>
-    sessions.filter(s => (s.role ?? "").toUpperCase() === r).length;
+    sessions.filter(s => normalizeRole(s.role) === r).length;
+
+  const errorMessage = error instanceof Error ? error.message : null;
 
   return (
     <>
@@ -275,23 +292,23 @@ export default function SessionsPage() {
             <p>Live view of who is logged in — Admin only</p>
           </div>
           <button
-            className={`ss-refresh-btn${refreshing ? " spinning" : ""}`}
-            onClick={() => fetchData(true)}
-            disabled={refreshing}
+            className={`ss-refresh-btn${isManualRefresh ? " spinning" : ""}`}
+            onClick={handleRefresh}
+            disabled={isManualRefresh || isFetching}
           >
             <RefreshCw size={14} />
-            {refreshing ? "Refreshing…" : "Refresh"}
+            {isManualRefresh ? "Refreshing…" : "Refresh"}
           </button>
         </div>
 
         <div className="ss-body">
-          {error && (
+          {errorMessage && (
             <div className="ss-error-banner">
-              <AlertCircle size={15} /> {error}
+              <AlertCircle size={15} /> {errorMessage}
             </div>
           )}
 
-          {!loading && !error && (
+          {!isLoading && !errorMessage && (
             <>
               <div className="ss-cards">
                 <div className="ss-card">
@@ -342,7 +359,7 @@ export default function SessionsPage() {
           </div>
 
           <div className="ss-table-wrap">
-            {loading ? (
+            {isLoading ? (
               <div className="ss-empty">
                 <div className="ss-empty-icon"><Clock size={40} strokeWidth={1} /></div>
                 <h3>Loading sessions…</h3>
@@ -362,7 +379,6 @@ export default function SessionsPage() {
                     <th>Role</th>
                     <th>IP Address</th>
                     <th><span style={{ display:"flex", alignItems:"center", gap:"0.3rem" }}><Clock size={11} /> Session Started</span></th>
-                    <th>Last Active</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -382,33 +398,24 @@ export default function SessionsPage() {
                       <td>
                         <div className="ss-ip">
                           <span className="ss-ip-addr">{session.ip_address ?? "—"}</span>
-                          {session.device && <span className="ss-ip-device">{session.device}</span>}
                         </div>
                       </td>
                       <td>
                         <div className="ss-time">
-                          <span className="ss-time-main">{formatTime(session.created_at)}</span>
-                          <span className="ss-time-ago">{timeAgo(session.created_at)}</span>
+                          <span className="ss-time-main">{formatTime(session.login_at)}</span>
+                          <span className="ss-time-ago">{timeAgo(session.login_at)}</span>
                         </div>
-                      </td>
-                      <td>
-                        {session.last_active ? (
-                          <div className="ss-time">
-                            <span className="ss-time-main">{formatTime(session.last_active)}</span>
-                            <span className="ss-time-ago">{timeAgo(session.last_active)}</span>
-                          </div>
-                        ) : (
-                          <span style={{ color:"#d1d5db", fontSize:"0.75rem" }}>—</span>
-                        )}
                       </td>
                       <td>
                         <button
                           className="ss-logout-btn"
                           onClick={() => setConfirmTarget(session)}
-                          disabled={forceLoggingOut.has(session.staff_id)}
+                          disabled={logoutMutation.isPending && logoutMutation.variables === session.staff_id}
                         >
                           <LogOut size={13} />
-                          {forceLoggingOut.has(session.staff_id) ? "Logging out…" : "Force Logout"}
+                          {logoutMutation.isPending && logoutMutation.variables === session.staff_id
+                            ? "Logging out…"
+                            : "Force Logout"}
                         </button>
                       </td>
                     </tr>
