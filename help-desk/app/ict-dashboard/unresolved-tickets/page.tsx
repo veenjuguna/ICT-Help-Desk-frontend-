@@ -1,12 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 
-// ── Types ────────────────────────────────────────────────────────────────────
-type TicketCategory = "Hardware" | "Software" | "Network" | "Security";
 
+type TicketCategory = "Hardware" | "Software" | "Network" | "Security" | string;
+
+// The exact schema from your FastAPI backend
+interface TicketAPI {
+  id: number;
+  staff_id: string;
+  assigned_to_id: number | null;
+  title: string;
+  description: string;
+  category: string;
+  status: string;
+  comment: string | null;
+  resolution_notes: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  closed_at: string | null;
+}
+
+// Our Frontend UI schema
 interface UnresolvedTicket {
   id: string;
   ticketNumber: string;
@@ -15,37 +32,101 @@ interface UnresolvedTicket {
   issue: string;
 }
 
-// ── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_UNRESOLVED_TICKETS: UnresolvedTicket[] = [
-  { id: "1", ticketNumber: "TCK-1042", raisedBy: "Alice Johnson", category: "Hardware", issue: "Monitor on desk 4 isn't turning on. Power cable seems loose but replacing it didn't fix the issue." },
-  { id: "2", ticketNumber: "TCK-1045", raisedBy: "Mark Smith", category: "Software", issue: "Adobe Premiere keeps crashing when rendering 4K video. Needs an urgent update or reinstall." },
-  { id: "3", ticketNumber: "TCK-1048", raisedBy: "Sarah Lee", category: "Network", issue: "Wi-Fi in the conference room is dropping connections every 5 minutes during presentations." },
-  { id: "4", ticketNumber: "TCK-1050", raisedBy: "David Kim", category: "Security", issue: "Received suspicious email from internal address asking for password reset. Flagged as phishing." },
-  { id: "5", ticketNumber: "TCK-1051", raisedBy: "Emma Davis", category: "Hardware", issue: "Printer on 2nd floor is jamming repeatedly. Error code 49." },
-];
-
 export default function UnresolvedTicketsPage() {
   const [activeTab, setActiveTab] = useState<TicketCategory>("Hardware");
+  const [tickets, setTickets] = useState<UnresolvedTicket[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // ── API Fetch Logic ──
+  const fetchUnresolvedTickets = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const cleanBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+      
+      
+      const res = await fetch(`${cleanBaseUrl}/tickets/`, {
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch tickets. Status: ${res.status}`);
+      }
+
+      const data: TicketAPI[] = await res.json();
+
+      // Transform backend data to match our UI
+      const mappedTickets: UnresolvedTicket[] = data
+        // Only keep tickets that are not closed/resolved
+        .filter((t) => t.status === "open" || t.status === "in_progress")
+        .map((t) => {
+          // Format category to match Tabs (e.g., "hardware" -> "Hardware")
+          const formattedCategory = t.category
+            ? t.category.charAt(0).toUpperCase() + t.category.slice(1).toLowerCase()
+            : "General";
+
+          // Shorten the UUID staff_id so it looks clean in the UI
+          const shortStaffId = t.staff_id ? t.staff_id.split("-")[0] : "Unknown";
+
+          return {
+            id: String(t.id),
+            ticketNumber: `TCK-${t.id}`,
+            raisedBy: `Staff-${shortStaffId}`, // You can replace this if you fetch user names later
+            category: formattedCategory,
+            issue: t.description || t.title || "No description provided.",
+          };
+        });
+
+      setTickets(mappedTickets);
+    } catch (err) {
+      console.error("Failed to load unresolved tickets:", err);
+      setError("Could not load tickets. Please check your connection.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch on page load
+  useEffect(() => {
+    fetchUnresolvedTickets();
+  }, [fetchUnresolvedTickets]);
 
   // Filter tickets based on the currently selected tab
-  const displayedTickets = MOCK_UNRESOLVED_TICKETS.filter(t => t.category === activeTab);
+  const displayedTickets = tickets.filter((t) => t.category === activeTab);
+
+  // Calculate counts for the tabs dynamically
+  const getCount = (cat: string) => tickets.filter((t) => t.category === cat).length;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f3f0] font-sans h-screen">
       
       {/* ── Top Header ── */}
-      <header className="flex items-center gap-4 border-b border-[#e8e0d8] bg-white px-4 py-4 sm:px-8 shadow-sm z-10">
-        <Link 
-          href="/ict-dashboard/team" 
-          className="flex items-center justify-center p-2.5 rounded-lg border border-[#e8e0d8] text-[#6b5a4e] hover:bg-gray-50 transition-colors"
-          title="Back to Team Dashboard"
-        >
-          <ArrowLeft size={20} />
-        </Link>
-        <div>
-          <h1 className="text-[18px] font-bold text-[#1c1410]">Unresolved Tickets</h1>
-          <p className="text-sm text-[#9c8576]">Manage and review the current support backlog</p>
+      <header className="flex items-center justify-between border-b border-[#e8e0d8] bg-white px-4 py-4 sm:px-8 shadow-sm z-10">
+        <div className="flex items-center gap-4">
+          <Link 
+            href="/ict-dashboard/team" 
+            className="flex items-center justify-center p-2.5 rounded-lg border border-[#e8e0d8] text-[#6b5a4e] hover:bg-gray-50 transition-colors"
+            title="Back to Team Dashboard"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <div>
+            <h1 className="text-[18px] font-bold text-[#1c1410]">Unresolved Tickets</h1>
+            <p className="text-sm text-[#9c8576]">Manage and review the current support backlog</p>
+          </div>
         </div>
+        
+        <button
+          onClick={fetchUnresolvedTickets}
+          disabled={isLoading}
+          className="flex items-center justify-center p-2.5 rounded-lg border border-[#e8e0d8] text-[#6b4c38] hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50"
+          title="Refresh Data"
+        >
+          <RefreshCw size={18} className={isLoading ? "animate-spin" : ""} />
+        </button>
       </header>
 
       {/* ── Category Tabs ── */}
@@ -62,7 +143,7 @@ export default function UnresolvedTicketsPage() {
           >
             {category}
             <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${activeTab === category ? "bg-white/20" : "bg-[#f7f3f0] text-[#8a6a56]"}`}>
-              {MOCK_UNRESOLVED_TICKETS.filter(t => t.category === category).length}
+              {getCount(category)}
             </span>
           </button>
         ))}
@@ -70,8 +151,23 @@ export default function UnresolvedTicketsPage() {
 
       {/* ── Ticket List Area ── */}
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 w-full">
-        {displayedTickets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-[#d9cfc7] bg-white/50 w-full">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center h-48 w-full gap-3">
+            <RefreshCw size={28} className="animate-spin text-[#8a6a56]" />
+            <p className="text-[#8a6a56] font-medium text-sm">Fetching backlog from server...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-48 w-full gap-3">
+            <p className="text-red-500 font-medium text-sm">{error}</p>
+            <button
+              onClick={fetchUnresolvedTickets}
+              className="rounded-lg bg-[#44271a] px-4 py-2 text-sm text-white hover:bg-[#3a2016]"
+            >
+              Retry
+            </button>
+          </div>
+        ) : displayedTickets.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-[#d9cfc7] bg-white/50 max-w-4xl mx-auto w-full">
             <p className="text-[#9c8576] font-medium">No unresolved tickets in this category.</p>
             <p className="text-[#b0a09a] text-sm mt-1">All clear for {activeTab}!</p>
           </div>
@@ -80,7 +176,6 @@ export default function UnresolvedTicketsPage() {
             {displayedTickets.map((ticket) => (
               <div 
                 key={ticket.id} 
-                // Forced horizontal flex row
                 className="bg-white rounded-xl border border-[#e8e0d8] shadow-sm hover:shadow-md transition-shadow p-4 flex items-center justify-between gap-6 w-full"
               >
                 
@@ -97,7 +192,7 @@ export default function UnresolvedTicketsPage() {
                   </p>
                 </div>
 
-                {/* Middle: The Issue (Truncates if too long) */}
+                {/* Middle: The Issue */}
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] text-[#4a3728] truncate">
                     <span className="text-[11px] font-bold uppercase tracking-widest text-[#9c8576] mr-3">Issue:</span>
@@ -108,7 +203,7 @@ export default function UnresolvedTicketsPage() {
                 {/* Right Side: View Button */}
                 <div className="shrink-0 pl-4">
                   <Link 
-                    href={`/ict-dashboard/tickets/${ticket.ticketNumber}`}
+                    href={`/ict-dashboard/tickets/${ticket.id}`}
                     className="flex items-center justify-center px-6 py-2.5 text-sm font-medium rounded-lg bg-[#44271a] text-white hover:bg-[#3a2016] transition-colors whitespace-nowrap shadow-sm"
                   >
                     View Ticket
