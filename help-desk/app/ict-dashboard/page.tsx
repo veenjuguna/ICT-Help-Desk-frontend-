@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState} from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AssignedTicketTable from "@/components/ICT/assigned-ticket-table";
 
 type TicketStatus = "open" | "in_progress" | "closed";
@@ -75,7 +76,7 @@ type Filter = "All" | "open" | "in_progress";
 function SetupModal({
   onComplete,
 }: {
-  onComplete: (profile: IctProfile) => void;
+  onComplete: () => void;
 }) {
   const [specialization, setSpecialization] = useState("");
   const [phoneExtension, setPhoneExtension] = useState("");
@@ -113,8 +114,8 @@ function SetupModal({
         const data = await res.json();
         throw new Error(data.detail ?? "Setup failed.");
       }
-      const profile: IctProfile = await res.json();
-      onComplete(profile);
+      await res.json();
+      onComplete();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Setup failed.");
     } finally {
@@ -204,72 +205,61 @@ function SetupModal({
 
 export default function TechnicianDashboard() {
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
-  const [staff, setStaff]               = useState<StaffProfile | null>(null);
-  const [ictProfile, setIctProfile]     = useState<IctProfile | null>(null);
-  const [tickets, setTickets]           = useState<Ticket[]>([]);
-  const [audit, setAudit]               = useState<AuditLog[]>([]);
-  const [loading, setLoading]           = useState(true);
-  const [showSetup, setShowSetup]       = useState(false);
+  const [userDismissedSetup, setUserDismissedSetup] = useState(false);
 
   const API = process.env.NEXT_PUBLIC_API_URL;
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [staffRes, ticketRes, auditRes, ictRes] = await Promise.all([
-          fetch(`${API}/staff/me`,         { credentials: "include" }),
-          fetch(`${API}/tickets/`,         { credentials: "include" }),
-          fetch(`${API}/audit?limit=5`,    { credentials: "include" }),
-          fetch(`${API}/ict-personnel/me`, { credentials: "include" }),
-        ]);
+  const queryClient = useQueryClient();
 
-        if (staffRes.ok) setStaff(await staffRes.json());
-        if (auditRes.ok) setAudit(await auditRes.json());
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ["ict-dashboard"],
+    queryFn: async () => {
+      const [staffRes, ticketRes, auditRes, ictRes] = await Promise.all([
+        fetch(`${API}/staff/me`,         { credentials: "include" }),
+        fetch(`${API}/tickets/`,         { credentials: "include" }),
+        fetch(`${API}/audit?limit=5`,    { credentials: "include" }),
+        fetch(`${API}/ict-personnel/me`, { credentials: "include" }),
+      ]);
 
-        if (ticketRes.ok) {
-          const rawTickets: Ticket[] = await ticketRes.json();
-          const enriched = await Promise.all(
-            rawTickets.map(async (t) => {
-              try {
-                const sRes = await fetch(`${API}/staff/${t.staff_id}/basic`, {
-                  credentials: "include",
-                });
-                const raised_by = sRes.ok
-                  ? (await sRes.json()).full_name
-                  : "—";
-                return { ...t, raised_by };
-              } catch {
-                return { ...t, raised_by: "—" };
-              }
-            })
-          );
-          setTickets(enriched);
-        }
+      const staff: StaffProfile | null = staffRes.ok ? await staffRes.json() : null;
+      const audit: AuditLog[] = auditRes.ok ? await auditRes.json() : [];
 
-        if (ictRes.ok) {
-          const myProfile: IctProfile = await ictRes.json();
-          setIctProfile(myProfile);
-          // Only show setup if specialization has never been set
-          if (!myProfile.specialization) setShowSetup(true);
-        } else {
-          // 404 — no profile exists yet, show setup
-          setShowSetup(true);
-        }
-      } catch (e) {
-        console.error("Dashboard fetch error:", e);
-      } finally {
-        setLoading(false);
+      let tickets: Ticket[] = [];
+      if (ticketRes.ok) {
+        const rawTickets: Ticket[] = await ticketRes.json();
+        tickets = await Promise.all(
+          rawTickets.map(async (t) => {
+            try {
+              const sRes = await fetch(`${API}/staff/${t.staff_id}/basic`, { credentials: "include" });
+              const raised_by = sRes.ok ? (await sRes.json()).full_name : "—";
+              return { ...t, raised_by };
+            } catch {
+              return { ...t, raised_by: "—" };
+            }
+          })
+        );
       }
-    })();
-  }, [API]);
+
+      const ictProfile: IctProfile | null = ictRes.ok ? await ictRes.json() : null;
+      return { staff, tickets, audit, ictProfile };
+    },
+    staleTime: 60 * 1000,
+  });
+
+  const staff       = data?.staff       ?? null;
+  const ictProfile  = data?.ictProfile  ?? null;
+  const tickets     = data?.tickets     ?? [];
+  const audit       = data?.audit       ?? [];
+  const showSetup   = !userDismissedSetup && !!data && (!data.ictProfile || !data.ictProfile.specialization);
+
+  // Show setup modal when profile loads and specialization isn't set
+   
 
   // Called by SetupModal on successful completion.
   // Updates local state and permanently dismisses the modal.
-  function handleSetupComplete(profile: IctProfile) {
-    setIctProfile(profile);
-    setShowSetup(false);
-    // showSetup will never be set to true again for this session
-    // since profile.specialization is now set and the useEffect guard won't re-trigger
+  function handleSetupComplete() {
+    setUserDismissedSetup(true);
+    void queryClient.invalidateQueries({ queryKey: ["ict-dashboard"] });
   }
 
   const fullName = staff?.full_name ?? "Loading...";
@@ -510,7 +500,7 @@ export default function TechnicianDashboard() {
                   <>
                     <p className="text-sm text-gray-400 mb-3">Not set yet.</p>
                     <button
-                      onClick={() => setShowSetup(true)}
+                      onClick={() => setUserDismissedSetup(false)}
                       className="text-xs font-medium underline"
                       style={{ color: "#7A3100" }}
                     >
