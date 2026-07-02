@@ -48,8 +48,23 @@ interface TicketsByPersonnelAPI {
   };
 }
 
-// ── New Ticket Types for Modal ──
-type TicketCategory = "Hardware" | "Software" | "Network" | "Security";
+// ── Ticket API Types ──
+interface TicketAPI {
+  id: number;
+  staff_id: string;
+  assigned_to_id: number | null;
+  title: string;
+  description: string;
+  category: string;
+  status: string;
+  comment: string | null;
+  resolution_notes: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  closed_at: string | null;
+}
+
+type TicketCategory = "Hardware" | "Software" | "Network" | "Security" | string;
 
 interface UnresolvedTicket {
   id: string;
@@ -102,7 +117,6 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
   }
 
   const personnel: IctPersonnelAPI[] = await personnelRes.json();
-  console.log("✅ RAW PERSONNEL DATA:", personnel);
 
   let ticketData: TicketsByPersonnelAPI[] = [];
   try {
@@ -115,9 +129,6 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
     );
     if (ticketsRes.ok) {
       ticketData = await ticketsRes.json();
-      console.log("✅ RAW TICKET DATA:", ticketData);
-    } else {
-      console.warn("⚠️ Ticket data unavailable. Status:", ticketsRes.status);
     }
   } catch (err) {
     console.warn("⚠️ Network error fetching ticket data:", err);
@@ -178,7 +189,6 @@ function IconUser() {
   );
 }
 
-// New Icon for Unresolved Tickets
 function IconAlert() {
   return (
     <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -189,26 +199,23 @@ function IconAlert() {
 
 // ── Shared UI Components ─────────────────────────────────────────────────────
 
-// Updated StatCard to optionally act as a button OR a link (ADDED href support)
 function StatCard({
   icon,
   value,
   label,
   sublabel,
   onClick,
-  href,
 }: {
   icon?: React.ReactNode;
   value: string | number;
   label: string;
   sublabel?: string;
   onClick?: () => void;
-  href?: string;
 }) {
   const baseClasses = "flex items-center justify-between rounded-xl border border-[#e8e0d8] bg-white px-6 py-5 shadow-sm transition-all hover:shadow-md";
-  const interactiveClasses = (onClick || href) ? "cursor-pointer hover:shadow-md hover:border-[#d9cfc7] active:bg-[#fcfafa]" : "hover:shadow-md";
+  const interactiveClasses = onClick ? "cursor-pointer hover:border-[#d9cfc7] active:bg-[#fcfafa]" : "";
 
-  const content = (
+  return (
     <div className={`${baseClasses} ${interactiveClasses}`} onClick={onClick}>
       <div className="flex items-center gap-4">
         {icon && (
@@ -230,12 +237,6 @@ function StatCard({
       </p>
     </div>
   );
-
-  if (href) {
-    return <Link href={href} className="block">{content}</Link>;
-  }
-
-  return content;
 }
 
 function StatusBadge({ status }: { status: TeamMember["status"] }) {
@@ -287,17 +288,12 @@ function MemberCard({ member }: { member: TeamMember }) {
   );
 }
 
-// ── Mock Data for Unresolved Tickets ──
-const MOCK_UNRESOLVED_TICKETS: UnresolvedTicket[] = [
-  { id: "1", ticketNumber: "TCK-1042", raisedBy: "Alice Johnson", category: "Hardware", description: "Monitor on desk 4 isn't turning on. Power cable seems loose but replacing it didn't fix the issue." },
-  { id: "2", ticketNumber: "TCK-1045", raisedBy: "Mark Smith", category: "Software", description: "Adobe Premiere keeps crashing when rendering 4K video. Needs an urgent update or reinstall." },
-  { id: "3", ticketNumber: "TCK-1048", raisedBy: "Sarah Lee", category: "Network", description: "Wi-Fi in the conference room is dropping connections every 5 minutes during presentations." },
-  { id: "4", ticketNumber: "TCK-1050", raisedBy: "David Kim", category: "Security", description: "Received suspicious email from internal address asking for password reset. Flagged as phishing." },
-  { id: "5", ticketNumber: "TCK-1051", raisedBy: "Emma Davis", category: "Hardware", description: "Printer on 2nd floor is jamming repeatedly. Error code 49." },
-];
-
 export default function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
+  
+  // NEW: State for our real dynamic unresolved tickets
+  const [unresolvedTickets, setUnresolvedTickets] = useState<UnresolvedTicket[]>([]);
+  
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -313,11 +309,42 @@ export default function TeamPage() {
     setError(null);
 
     try {
-      const data = await fetchTeamMembers();
-      setMembers(data);
+      // 1. Fetch Team Members
+      const teamData = await fetchTeamMembers();
+      setMembers(teamData);
+
+      // 2. Fetch Unresolved Tickets from backend
+      const cleanBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+      const ticketsRes = await fetch(`${cleanBaseUrl}/tickets/team_unresolved`, {
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (ticketsRes.ok) {
+        const ticketsData: TicketAPI[] = await ticketsRes.json();
+        
+        const mappedTickets: UnresolvedTicket[] = ticketsData
+          .filter((t) => t.status === "open" || t.status === "in_progress")
+          .map((t) => {
+            const formattedCategory = t.category
+              ? t.category.charAt(0).toUpperCase() + t.category.slice(1).toLowerCase()
+              : "General";
+            const shortStaffId = t.staff_id ? t.staff_id.split("-")[0] : "Unknown";
+
+            return {
+              id: String(t.id),
+              ticketNumber: `TCK-${t.id}`,
+              raisedBy: `Staff-${shortStaffId}`, 
+              category: formattedCategory,
+              description: t.description || t.title || "No description provided.",
+            };
+          });
+
+        setUnresolvedTickets(mappedTickets);
+      }
     } catch (err) {
-      console.error("Failed to fetch team members:", err);
-      setError("Could not load team data. Please try refreshing.");
+      console.error("Failed to load data:", err);
+      setError("Could not load dashboard data. Please try refreshing.");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -340,8 +367,8 @@ export default function TeamPage() {
   const activeTickets = members.reduce((sum, m) => sum + m.active, 0);
   const completedToday = members.reduce((sum, m) => sum + m.completed, 0);
 
-  // Filter tickets based on active tab
-  const displayedTickets = MOCK_UNRESOLVED_TICKETS.filter(t => t.category === activeTab);
+  // Filter tickets dynamically based on the active tab and backend data
+  const displayedTickets = unresolvedTickets.filter(t => t.category === activeTab);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f3f0] font-sans relative">
@@ -420,13 +447,13 @@ export default function TeamPage() {
                 value={activeTickets}
                 label="Active Tickets"
               />
-              {/* THIS IS THE ONLY CHANGE: Added the href to point to the new page */}
+              {/* Unresolved Tickets Stat Card (Now uses real count from backend) */}
               <StatCard
                 icon={<IconAlert />}
-                value={MOCK_UNRESOLVED_TICKETS.length}
+                value={unresolvedTickets.length}
                 label="Unresolved"
                 sublabel="View Backlog"
-                href="/ict-dashboard/unresolved-tickets"
+                onClick={() => setIsModalOpen(true)}
               />
               <StatCard
                 icon={<IconUser />}
@@ -445,7 +472,7 @@ export default function TeamPage() {
         )}
       </div>
 
-      {/* ── Unresolved Tickets Modal (KEPT EXACTLY AS IT WAS) ── */}
+      {/* ── Unresolved Tickets Modal ── */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl w-full max-w-3xl shadow-xl flex flex-col max-h-[85vh]">
@@ -468,15 +495,18 @@ export default function TeamPage() {
                   key={category}
                   onClick={() => {
                     setActiveTab(category);
-                    setExpandedTicketId(null); // Reset expanded view on tab change
+                    setExpandedTicketId(null);
                   }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                     activeTab === category 
                       ? "bg-[#44271a] text-white" 
                       : "bg-white border border-[#e8e0d8] text-[#6b5a4e] hover:bg-[#f7f3f0]"
                   }`}
                 >
                   {category}
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === category ? "bg-white/20" : "bg-[#f7f3f0] text-[#8a6a56]"}`}>
+                    {unresolvedTickets.filter(t => t.category === category).length}
+                  </span>
                 </button>
               ))}
             </div>
