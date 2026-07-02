@@ -12,7 +12,7 @@ interface UnresolvedTicket {
   ticketNumber: string;
   raisedBy: string;
   category: TicketCategory;
-  issue: string; // Updated to match your request
+  issue: string;
 }
 
 // ── Mock Data ────────────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ export default function UnresolvedTicketsPage() {
       </header>
 
       {/* ── Category Tabs ── */}
-      <div className="flex gap-2 px-4 sm:px-8 py-4 border-b border-[#e8e0d8] bg-[#fdfbf9] overflow-x-auto">
+      <div className="flex gap-2 px-4 sm:px-8 py-4 border-b border-[#e8e0d8] bg-[#fdfbf9] overflow-x-auto shrink-0">
         {(["Hardware", "Software", "Network", "Security"] as TicketCategory[]).map((category) => (
           <button
             key={category}
@@ -69,46 +69,46 @@ export default function UnresolvedTicketsPage() {
       </div>
 
       {/* ── Ticket List Area ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 max-w-4xl w-full mx-auto">
+      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
         {displayedTickets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-[#d9cfc7] bg-white/50">
+          <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-[#d9cfc7] bg-white/50 max-w-4xl mx-auto">
             <p className="text-[#9c8576] font-medium">No unresolved tickets in this category.</p>
             <p className="text-[#b0a09a] text-sm mt-1">All clear for {activeTab}!</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             {displayedTickets.map((ticket) => (
-              <div key={ticket.id} className="bg-white rounded-xl border border-[#e8e0d8] overflow-hidden shadow-sm hover:shadow-md transition-shadow p-5">
+              <div 
+                key={ticket.id} 
+                className="bg-white rounded-xl border border-[#e8e0d8] shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-8"
+              >
                 
-                {/* Top Row: IDs and Categories */}
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="font-bold text-[#1c1410] text-lg">{ticket.ticketNumber}</span>
-                      <span className="px-2.5 py-0.5 rounded-md bg-[#f7f3f0] text-[#6b5a4e] text-[11px] font-bold uppercase tracking-wider">
-                        {ticket.category}
-                      </span>
-                    </div>
-                    <p className="text-sm text-[#9c8576]">
-                      Raised by: <span className="text-[#4a3728] font-semibold">{ticket.raisedBy}</span>
-                    </p>
+                {/* Left Side: IDs, Categories, Raised By */}
+                <div className="flex-shrink-0 w-full lg:w-56">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="font-bold text-[#1c1410] text-[17px]">{ticket.ticketNumber}</span>
+                    <span className="px-2.5 py-0.5 rounded-md bg-[#f7f3f0] text-[#6b5a4e] text-[11px] font-bold uppercase tracking-wider">
+                      {ticket.category}
+                    </span>
                   </div>
+                  <p className="text-sm text-[#9c8576]">
+                    Raised by: <span className="text-[#4a3728] font-semibold">{ticket.raisedBy}</span>
+                  </p>
                 </div>
 
-                {/* Middle Row: The Issue (Visible by default) */}
-                <div className="mb-5 p-4 rounded-lg bg-[#fcfafa] border border-[#f0ebe6]">
-                  <p className="text-xs font-bold uppercase tracking-widest text-[#9c8576] mb-1.5">Issue</p>
-                  <p className="text-[14px] text-[#4a3728] leading-relaxed">
+                {/* Middle: The Issue (Spans available space) */}
+                <div className="flex-1">
+                  <p className="text-sm text-[#4a3728] leading-relaxed line-clamp-2">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-[#9c8576] mr-2">Issue:</span>
                     {ticket.issue}
                   </p>
                 </div>
 
-                {/* Bottom Row: View Button */}
-                <div className="flex justify-end">
-                  {/* 👉 REPLACE THIS HREF WITH YOUR ACTUAL VIEW URL WHEN READY */}
+                {/* Right Side: View Button */}
+                <div className="flex-shrink-0 flex justify-end w-full lg:w-auto mt-2 lg:mt-0">
                   <Link 
                     href={`/ict-dashboard/tickets/${ticket.ticketNumber}`}
-                    className="px-6 py-2.5 text-sm font-medium rounded-lg bg-[#f7f3f0] text-[#4a3728] border border-[#e8e0d8] hover:bg-[#ede8e3] transition-colors"
+                    className="px-6 py-2.5 text-sm font-medium rounded-lg bg-[#f7f3f0] text-[#4a3728] border border-[#e8e0d8] hover:bg-[#ede8e3] transition-colors whitespace-nowrap"
                   >
                     View Ticket
                   </Link>
