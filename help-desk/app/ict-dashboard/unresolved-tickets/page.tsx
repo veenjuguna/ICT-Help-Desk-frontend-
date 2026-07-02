@@ -4,10 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 
-
 type TicketCategory = "Hardware" | "Software" | "Network" | "Security" | string;
 
-// The exact schema from your FastAPI backend
+// The exact schema from your FastAPI backend screenshot
 interface TicketAPI {
   id: number;
   staff_id: string;
@@ -46,8 +45,8 @@ export default function UnresolvedTicketsPage() {
     try {
       const cleanBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
       
-      
-      const res = await fetch(`${cleanBaseUrl}/tickets/`, {
+      // 🔥 UPDATED: Now hitting your specific endpoint from the screenshot
+      const res = await fetch(`${cleanBaseUrl}/tickets/team_unresolved`, {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
       });
@@ -57,10 +56,11 @@ export default function UnresolvedTicketsPage() {
       }
 
       const data: TicketAPI[] = await res.json();
+      console.log("🔥 REAL BACKEND DATA:", data);
 
       // Transform backend data to match our UI
       const mappedTickets: UnresolvedTicket[] = data
-        // Only keep tickets that are not closed/resolved
+        // Filter out closed tickets just in case the backend sends them
         .filter((t) => t.status === "open" || t.status === "in_progress")
         .map((t) => {
           // Format category to match Tabs (e.g., "hardware" -> "Hardware")
@@ -74,7 +74,7 @@ export default function UnresolvedTicketsPage() {
           return {
             id: String(t.id),
             ticketNumber: `TCK-${t.id}`,
-            raisedBy: `Staff-${shortStaffId}`, // You can replace this if you fetch user names later
+            raisedBy: `Staff-${shortStaffId}`, // Placeholder until you link real names
             category: formattedCategory,
             issue: t.description || t.title || "No description provided.",
           };
