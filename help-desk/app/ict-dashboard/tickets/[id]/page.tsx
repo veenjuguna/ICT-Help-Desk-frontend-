@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Inter, Playfair_Display } from "next/font/google";
 import { ArrowLeft, Send, User, Clock, Check, Loader2 } from "lucide-react";
 import { ticketStatusStore } from "../ticketStore";
+import { useQueryClient } from "@tanstack/react-query";
 
 const inter = Inter({ subsets: ["latin"] });
 const playfair = Playfair_Display({ subsets: ["latin"] });
@@ -22,6 +23,7 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   in_progress: { bg: "#FFF8E0", color: "#C8962E" },
   resolved:    { bg: "#E8F5E9", color: "#2D6B0F" },
   unresolved:  { bg: "#FCE4EC", color: "#C62828" },
+  closed:      { bg: "#E8F5E9", color: "#2D6B0F" },
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -29,6 +31,7 @@ const STATUS_LABEL: Record<string, string> = {
   in_progress: "In Progress",
   resolved:    "Resolved",
   unresolved:  "Unresolved",
+  closed:      "Resolved",
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -74,6 +77,7 @@ function StatusBadge({ status }: { status: string }) {
 export default function TicketDetailPage() {
   const params   = useParams();
   const router   = useRouter();
+  const queryClient = useQueryClient();
   const ticketId = Number(params.id);
 
   const [ticket, setTicket]       = useState<Ticket | null>(null);
@@ -88,6 +92,7 @@ export default function TicketDetailPage() {
   const [saving, setSaving]       = useState(false);
   const [saved, setSaved]         = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [unresolvedComment, setUnresolvedComment] = useState("");
 
   useEffect(() => {
     const fetchTicket = async () => {
@@ -149,15 +154,22 @@ export default function TicketDetailPage() {
   // Each button fires immediately as a direct action, no pending/confirm flow.
   const handleMarkResolution = async (resolution: "resolved" | "unresolved") => {
     if (!ticket) return;
+    if (resolution === "unresolved" && unresolvedComment.trim().length < 3) {
+      setSaveError("Add a short note before marking this ticket unresolved.");
+      return;
+    }
     try {
       setSaving(true);
       setSaveError(null);
+
+      const body: Record<string, string> = { status: resolution };
+      if (resolution === "unresolved") body.comment = unresolvedComment.trim();
 
       const res = await fetch(`${API}/tickets/${ticket.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: resolution }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -169,6 +181,13 @@ export default function TicketDetailPage() {
       setTicket(updated);
       setCurrentStatus(updated.status);
       ticketStatusStore[ticket.id] = updated.status;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["ict-dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["ict-tickets"] }),
+        queryClient.invalidateQueries({ queryKey: ["ict-all-tickets"] }),
+        queryClient.invalidateQueries({ queryKey: ["ict-completed-tickets"] }),
+        queryClient.invalidateQueries({ queryKey: ["ict-team-members"] }),
+      ]);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
@@ -373,21 +392,41 @@ export default function TicketDetailPage() {
                 Mark Ticket Resolution
               </h2>
               <p style={{ fontSize: "13px", color: "#888", margin: "0 0 16px 0" }}>
-                Mark this ticket as resolved once the issue is fixed, or unresolved if it could not be completed.
+                Mark this ticket as resolved once the issue is fixed, or add a note if it needs admin follow-up.
               </p>
+
+              <textarea
+                value={unresolvedComment}
+                onChange={(e) => setUnresolvedComment(e.target.value)}
+                disabled={saving || currentStatus === "closed"}
+                placeholder="Optional note for unresolved tickets..."
+                rows={3}
+                style={{
+                  width: "100%",
+                  resize: "vertical",
+                  border: "1px solid #ddd",
+                  borderRadius: "8px",
+                  padding: "10px 12px",
+                  marginBottom: "12px",
+                  fontFamily: "inherit",
+                  fontSize: "13px",
+                  outline: "none",
+                  background: currentStatus === "closed" ? "#f8f8f8" : "#fff",
+                }}
+              />
 
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
 
                 {/* Resolved button — green accent when already resolved */}
                 <button
                   onClick={() => handleMarkResolution("resolved")}
-                  disabled={saving || currentStatus === "resolved"}
+                  disabled={saving || currentStatus === "closed"}
                   style={{
-                    background: currentStatus === "resolved" ? "#E8F5E9" : "#fff",
-                    color: currentStatus === "resolved" ? "#2D6B0F" : "#444",
-                    border: `1px solid ${currentStatus === "resolved" ? "#2D6B0F" : "#ddd"}`,
+                    background: currentStatus === "closed" && !ticket.comment ? "#E8F5E9" : "#fff",
+                    color: currentStatus === "closed" && !ticket.comment ? "#2D6B0F" : "#444",
+                    border: `1px solid ${currentStatus === "closed" && !ticket.comment ? "#2D6B0F" : "#ddd"}`,
                     padding: "9px 18px", borderRadius: "8px",
-                    cursor: saving || currentStatus === "resolved" ? "not-allowed" : "pointer",
+                    cursor: saving || currentStatus === "closed" ? "not-allowed" : "pointer",
                     fontSize: "13px", fontWeight: 600, transition: "all 0.15s ease",
                     opacity: saving ? 0.6 : 1,
                   }}
@@ -406,13 +445,13 @@ export default function TicketDetailPage() {
                 {/* Unresolved button — red accent when already unresolved */}
                 <button
                   onClick={() => handleMarkResolution("unresolved")}
-                  disabled={saving || currentStatus === "unresolved"}
+                  disabled={saving || currentStatus === "closed"}
                   style={{
-                    background: currentStatus === "unresolved" ? "#FCE4EC" : "#fff",
-                    color: currentStatus === "unresolved" ? "#C62828" : "#444",
-                    border: `1px solid ${currentStatus === "unresolved" ? "#C62828" : "#ddd"}`,
+                    background: currentStatus === "closed" && ticket.comment ? "#FCE4EC" : "#fff",
+                    color: currentStatus === "closed" && ticket.comment ? "#C62828" : "#444",
+                    border: `1px solid ${currentStatus === "closed" && ticket.comment ? "#C62828" : "#ddd"}`,
                     padding: "9px 18px", borderRadius: "8px",
-                    cursor: saving || currentStatus === "unresolved" ? "not-allowed" : "pointer",
+                    cursor: saving || currentStatus === "closed" ? "not-allowed" : "pointer",
                     fontSize: "13px", fontWeight: 600, transition: "all 0.15s ease",
                     opacity: saving ? 0.6 : 1,
                   }}

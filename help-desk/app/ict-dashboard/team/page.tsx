@@ -1,10 +1,10 @@
-//teams
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 
+// ── Types ────────────────────────────────────────────────────────────────────
 interface TeamMember {
   id: string;
   initials: string;
@@ -48,6 +48,18 @@ interface TicketsByPersonnelAPI {
   };
 }
 
+// ── New Ticket Types for Modal ──
+type TicketCategory = "Hardware" | "Software" | "Network" | "Security";
+
+interface UnresolvedTicket {
+  id: string;
+  ticketNumber: string;
+  raisedBy: string;
+  category: TicketCategory;
+  description: string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -69,13 +81,13 @@ function mapAvailability(availability: string): TeamMember["status"] {
   const val = availability.toLowerCase();
   if (val === "available") return "Available";
   if (val === "busy") return "Busy";
-  return "Offline"; // covers off_duty, on_leave
+  return "Offline";
 }
 
 async function fetchTeamMembers(): Promise<TeamMember[]> {
   const cleanBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(
     /\/$/,
-    "",
+    ""
   );
 
   const personnelRes = await fetch(`${cleanBaseUrl}/ict-personnel/`, {
@@ -85,14 +97,13 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
 
   if (!personnelRes.ok) {
     throw new Error(
-      `Failed to fetch ICT personnel. Status: ${personnelRes.status}`,
+      `Failed to fetch ICT personnel. Status: ${personnelRes.status}`
     );
   }
 
   const personnel: IctPersonnelAPI[] = await personnelRes.json();
   console.log("✅ RAW PERSONNEL DATA:", personnel);
 
-  // Ticket data — optional, won't break page if unavailable
   let ticketData: TicketsByPersonnelAPI[] = [];
   try {
     const ticketsRes = await fetch(
@@ -100,7 +111,7 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
       {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-      },
+      }
     );
     if (ticketsRes.ok) {
       ticketData = await ticketsRes.json();
@@ -142,74 +153,61 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
     });
 }
 
+// ── Icons ────────────────────────────────────────────────────────────────────
 function IconTeam() {
   return (
-    <svg
-      className="h-6 w-6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"
-      />
+    <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
     </svg>
   );
 }
 
 function IconTrend() {
   return (
-    <svg
-      className="h-6 w-6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"
-      />
+    <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
     </svg>
   );
 }
 
 function IconUser() {
   return (
-    <svg
-      className="h-6 w-6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
-      />
+    <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
     </svg>
   );
 }
 
+// New Icon for Unresolved Tickets
+function IconAlert() {
+  return (
+    <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+  );
+}
+
+// ── Shared UI Components ─────────────────────────────────────────────────────
+
+// Updated StatCard to optionally act as a button
 function StatCard({
   icon,
   value,
   label,
   sublabel,
+  onClick,
 }: {
   icon?: React.ReactNode;
   value: string | number;
   label: string;
   sublabel?: string;
+  onClick?: () => void;
 }) {
+  const baseClasses = "flex items-center justify-between rounded-xl border border-[#e8e0d8] bg-white px-6 py-5 shadow-sm transition-all";
+  const interactiveClasses = onClick ? "cursor-pointer hover:shadow-md hover:border-[#d9cfc7] active:bg-[#fcfafa]" : "hover:shadow-md";
+
   return (
-    <div className="flex items-center justify-between rounded-xl border border-[#e8e0d8] bg-white px-6 py-5 shadow-sm transition-all hover:shadow-md">
-      {/* Left Side: Icon and Label */}
+    <div className={`${baseClasses} ${interactiveClasses}`} onClick={onClick}>
       <div className="flex items-center gap-4">
         {icon && (
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f7f3f0] text-[#8a6a56]">
@@ -225,8 +223,6 @@ function StatCard({
           )}
         </div>
       </div>
-
-      {/* Right Side: The Number */}
       <p className="text-[32px] font-bold leading-none text-[#1c1410]">
         {value}
       </p>
@@ -283,11 +279,25 @@ function MemberCard({ member }: { member: TeamMember }) {
   );
 }
 
+// ── Mock Data for Unresolved Tickets ──
+const MOCK_UNRESOLVED_TICKETS: UnresolvedTicket[] = [
+  { id: "1", ticketNumber: "TCK-1042", raisedBy: "Alice Johnson", category: "Hardware", description: "Monitor on desk 4 isn't turning on. Power cable seems loose but replacing it didn't fix the issue." },
+  { id: "2", ticketNumber: "TCK-1045", raisedBy: "Mark Smith", category: "Software", description: "Adobe Premiere keeps crashing when rendering 4K video. Needs an urgent update or reinstall." },
+  { id: "3", ticketNumber: "TCK-1048", raisedBy: "Sarah Lee", category: "Network", description: "Wi-Fi in the conference room is dropping connections every 5 minutes during presentations." },
+  { id: "4", ticketNumber: "TCK-1050", raisedBy: "David Kim", category: "Security", description: "Received suspicious email from internal address asking for password reset. Flagged as phishing." },
+  { id: "5", ticketNumber: "TCK-1051", raisedBy: "Emma Davis", category: "Hardware", description: "Printer on 2nd floor is jamming repeatedly. Error code 49." },
+];
+
 export default function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<TicketCategory>("Hardware");
+  const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
 
   const loadData = useCallback(async (isBackgroundFetch = false) => {
     if (!isBackgroundFetch) setIsLoading(true);
@@ -322,8 +332,11 @@ export default function TeamPage() {
   const activeTickets = members.reduce((sum, m) => sum + m.active, 0);
   const completedToday = members.reduce((sum, m) => sum + m.completed, 0);
 
+  // Filter tickets based on active tab
+  const displayedTickets = MOCK_UNRESOLVED_TICKETS.filter(t => t.category === activeTab);
+
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f3f0] font-sans">
+    <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f3f0] font-sans relative">
       {/* Top Bar */}
       <header className="flex items-center justify-between border-b border-[#e8e0d8] bg-white px-4 py-4 sm:px-8 shadow-sm z-10">
         <div>
@@ -388,7 +401,7 @@ export default function TeamPage() {
         ) : (
           <>
             {/* Stats Row */}
-            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 icon={<IconTeam />}
                 value={totalMembers}
@@ -398,6 +411,14 @@ export default function TeamPage() {
                 icon={<IconTrend />}
                 value={activeTickets}
                 label="Active Tickets"
+              />
+              {/* NEW: Unresolved Tickets Stat Card (Acts as a button) */}
+              <StatCard
+                icon={<IconAlert />}
+                value={MOCK_UNRESOLVED_TICKETS.length}
+                label="Unresolved"
+                sublabel="View Backlog"
+                onClick={() => setIsModalOpen(true)}
               />
               <StatCard
                 icon={<IconUser />}
@@ -415,6 +436,87 @@ export default function TeamPage() {
           </>
         )}
       </div>
+
+      {/* ── Unresolved Tickets Modal ── */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-xl flex flex-col max-h-[85vh]">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#e8e0d8]">
+              <h2 className="text-[18px] font-bold text-[#1c1410]">Unresolved Tickets</h2>
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="text-[#9c8576] hover:text-[#1c1410] transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Tabs */}
+            <div className="flex gap-2 px-6 py-4 border-b border-[#e8e0d8] bg-[#fdfbf9] overflow-x-auto">
+              {(["Hardware", "Software", "Network", "Security"] as TicketCategory[]).map((category) => (
+                <button
+                  key={category}
+                  onClick={() => {
+                    setActiveTab(category);
+                    setExpandedTicketId(null); // Reset expanded view on tab change
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === category 
+                      ? "bg-[#44271a] text-white" 
+                      : "bg-white border border-[#e8e0d8] text-[#6b5a4e] hover:bg-[#f7f3f0]"
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+
+            {/* Modal Content / Ticket List */}
+            <div className="flex-1 overflow-y-auto p-6 bg-[#f7f3f0]">
+              {displayedTickets.length === 0 ? (
+                <div className="text-center py-12 text-[#9c8576]">
+                  No unresolved tickets in this category.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {displayedTickets.map((ticket) => (
+                    <div key={ticket.id} className="bg-white rounded-xl border border-[#e8e0d8] overflow-hidden shadow-sm">
+                      
+                      {/* Ticket Header Row */}
+                      <div className="flex items-center justify-between p-4">
+                        <div>
+                          <p className="font-bold text-[#1c1410]">{ticket.ticketNumber}</p>
+                          <p className="text-xs text-[#9c8576] mt-0.5">Raised by: <span className="text-[#6b5a4e] font-medium">{ticket.raisedBy}</span></p>
+                        </div>
+                        <button 
+                          onClick={() => setExpandedTicketId(expandedTicketId === ticket.id ? null : ticket.id)}
+                          className="px-4 py-2 text-xs font-medium rounded-md border border-[#d9cfc7] text-[#4a3728] hover:bg-[#f7f3f0] transition-colors"
+                        >
+                          {expandedTicketId === ticket.id ? "Hide" : "View"}
+                        </button>
+                      </div>
+
+                      {/* Expanded Description Area */}
+                      {expandedTicketId === ticket.id && (
+                        <div className="p-4 bg-[#fcfafa] border-t border-[#e8e0d8]">
+                          <p className="text-[11px] uppercase tracking-wide text-[#9c8576] mb-1">Description</p>
+                          <p className="text-sm text-[#4a3728] leading-relaxed">
+                            {ticket.description}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
