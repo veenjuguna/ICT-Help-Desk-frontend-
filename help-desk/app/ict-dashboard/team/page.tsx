@@ -189,24 +189,26 @@ function IconAlert() {
 
 // ── Shared UI Components ─────────────────────────────────────────────────────
 
-// Updated StatCard to optionally act as a button
+// Updated StatCard to optionally act as a button OR a link (ADDED href support)
 function StatCard({
   icon,
   value,
   label,
   sublabel,
   onClick,
+  href,
 }: {
   icon?: React.ReactNode;
   value: string | number;
   label: string;
   sublabel?: string;
   onClick?: () => void;
+  href?: string;
 }) {
-  const baseClasses = "flex items-center justify-between rounded-xl border border-[#e8e0d8] bg-white px-6 py-5 shadow-sm transition-all";
-  const interactiveClasses = onClick ? "cursor-pointer hover:shadow-md hover:border-[#d9cfc7] active:bg-[#fcfafa]" : "hover:shadow-md";
+  const baseClasses = "flex items-center justify-between rounded-xl border border-[#e8e0d8] bg-white px-6 py-5 shadow-sm transition-all hover:shadow-md";
+  const interactiveClasses = (onClick || href) ? "cursor-pointer hover:shadow-md hover:border-[#d9cfc7] active:bg-[#fcfafa]" : "hover:shadow-md";
 
-  return (
+  const content = (
     <div className={`${baseClasses} ${interactiveClasses}`} onClick={onClick}>
       <div className="flex items-center gap-4">
         {icon && (
@@ -228,6 +230,12 @@ function StatCard({
       </p>
     </div>
   );
+
+  if (href) {
+    return <Link href={href} className="block">{content}</Link>;
+  }
+
+  return content;
 }
 
 function StatusBadge({ status }: { status: TeamMember["status"] }) {
@@ -412,13 +420,13 @@ export default function TeamPage() {
                 value={activeTickets}
                 label="Active Tickets"
               />
-              {/* NEW: Unresolved Tickets Stat Card (Acts as a button) */}
+              {/* THIS IS THE ONLY CHANGE: Added the href to point to the new page */}
               <StatCard
                 icon={<IconAlert />}
                 value={MOCK_UNRESOLVED_TICKETS.length}
                 label="Unresolved"
                 sublabel="View Backlog"
-                onClick={() => setIsModalOpen(true)}
+                href="/ict-dashboard/unresolved-tickets"
               />
               <StatCard
                 icon={<IconUser />}
@@ -437,7 +445,7 @@ export default function TeamPage() {
         )}
       </div>
 
-      {/* ── Unresolved Tickets Modal ── */}
+      {/* ── Unresolved Tickets Modal (KEPT EXACTLY AS IT WAS) ── */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl w-full max-w-3xl shadow-xl flex flex-col max-h-[85vh]">
