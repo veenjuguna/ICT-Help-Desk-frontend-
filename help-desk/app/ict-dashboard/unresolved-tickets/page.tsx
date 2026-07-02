@@ -69,46 +69,47 @@ export default function UnresolvedTicketsPage() {
       </div>
 
       {/* ── Ticket List Area ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 w-full">
         {displayedTickets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-[#d9cfc7] bg-white/50 max-w-4xl mx-auto">
+          <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-[#d9cfc7] bg-white/50 w-full">
             <p className="text-[#9c8576] font-medium">No unresolved tickets in this category.</p>
             <p className="text-[#b0a09a] text-sm mt-1">All clear for {activeTab}!</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 w-full">
             {displayedTickets.map((ticket) => (
               <div 
                 key={ticket.id} 
-                className="bg-white rounded-xl border border-[#e8e0d8] shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-8"
+                // Forced horizontal flex row
+                className="bg-white rounded-xl border border-[#e8e0d8] shadow-sm hover:shadow-md transition-shadow p-4 flex items-center justify-between gap-6 w-full"
               >
                 
                 {/* Left Side: IDs, Categories, Raised By */}
-                <div className="flex-shrink-0 w-full lg:w-56">
+                <div className="w-56 shrink-0 border-r border-[#e8e0d8] pr-4">
                   <div className="flex items-center gap-3 mb-1">
-                    <span className="font-bold text-[#1c1410] text-[17px]">{ticket.ticketNumber}</span>
-                    <span className="px-2.5 py-0.5 rounded-md bg-[#f7f3f0] text-[#6b5a4e] text-[11px] font-bold uppercase tracking-wider">
+                    <span className="font-bold text-[#1c1410] text-[16px]">{ticket.ticketNumber}</span>
+                    <span className="px-2 py-0.5 rounded-md bg-[#f7f3f0] text-[#6b5a4e] text-[10px] font-bold uppercase tracking-wider">
                       {ticket.category}
                     </span>
                   </div>
-                  <p className="text-sm text-[#9c8576]">
+                  <p className="text-[13px] text-[#9c8576]">
                     Raised by: <span className="text-[#4a3728] font-semibold">{ticket.raisedBy}</span>
                   </p>
                 </div>
 
-                {/* Middle: The Issue (Spans available space) */}
-                <div className="flex-1">
-                  <p className="text-sm text-[#4a3728] leading-relaxed line-clamp-2">
-                    <span className="text-[11px] font-bold uppercase tracking-widest text-[#9c8576] mr-2">Issue:</span>
+                {/* Middle: The Issue (Truncates if too long) */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] text-[#4a3728] truncate">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-[#9c8576] mr-3">Issue:</span>
                     {ticket.issue}
                   </p>
                 </div>
 
                 {/* Right Side: View Button */}
-                <div className="flex-shrink-0 flex justify-end w-full lg:w-auto mt-2 lg:mt-0">
+                <div className="shrink-0 pl-4">
                   <Link 
                     href={`/ict-dashboard/tickets/${ticket.ticketNumber}`}
-                    className="px-6 py-2.5 text-sm font-medium rounded-lg bg-[#f7f3f0] text-[#4a3728] border border-[#e8e0d8] hover:bg-[#ede8e3] transition-colors whitespace-nowrap"
+                    className="flex items-center justify-center px-6 py-2.5 text-sm font-medium rounded-lg bg-[#44271a] text-white hover:bg-[#3a2016] transition-colors whitespace-nowrap shadow-sm"
                   >
                     View Ticket
                   </Link>
