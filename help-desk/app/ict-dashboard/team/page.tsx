@@ -205,17 +205,19 @@ function StatCard({
   label,
   sublabel,
   onClick,
+  href,
 }: {
   icon?: React.ReactNode;
   value: string | number;
   label: string;
   sublabel?: string;
   onClick?: () => void;
+  href?: string;
 }) {
   const baseClasses = "flex items-center justify-between rounded-xl border border-[#e8e0d8] bg-white px-6 py-5 shadow-sm transition-all hover:shadow-md";
-  const interactiveClasses = onClick ? "cursor-pointer hover:border-[#d9cfc7] active:bg-[#fcfafa]" : "";
+  const interactiveClasses = (onClick || href) ? "cursor-pointer hover:shadow-md hover:border-[#d9cfc7] active:bg-[#fcfafa]" : "hover:shadow-md";
 
-  return (
+  const content = (
     <div className={`${baseClasses} ${interactiveClasses}`} onClick={onClick}>
       <div className="flex items-center gap-4">
         {icon && (
@@ -237,6 +239,12 @@ function StatCard({
       </p>
     </div>
   );
+
+  if (href) {
+    return <Link href={href} className="block">{content}</Link>;
+  }
+
+  return content;
 }
 
 function StatusBadge({ status }: { status: TeamMember["status"] }) {
@@ -291,17 +299,12 @@ function MemberCard({ member }: { member: TeamMember }) {
 export default function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   
-  // NEW: State for our real dynamic unresolved tickets
+  // State for our real dynamic unresolved tickets
   const [unresolvedTickets, setUnresolvedTickets] = useState<UnresolvedTicket[]>([]);
   
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<TicketCategory>("Hardware");
-  const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
 
   const loadData = useCallback(async (isBackgroundFetch = false) => {
     if (!isBackgroundFetch) setIsLoading(true);
@@ -366,9 +369,6 @@ export default function TeamPage() {
   const totalMembers = members.length;
   const activeTickets = members.reduce((sum, m) => sum + m.active, 0);
   const completedToday = members.reduce((sum, m) => sum + m.completed, 0);
-
-  // Filter tickets dynamically based on the active tab and backend data
-  const displayedTickets = unresolvedTickets.filter(t => t.category === activeTab);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f3f0] font-sans relative">
@@ -447,13 +447,13 @@ export default function TeamPage() {
                 value={activeTickets}
                 label="Active Tickets"
               />
-              {/* Unresolved Tickets Stat Card (Now uses real count from backend) */}
+              {/* This is the modified Unresolved Tickets card. Now uses href instead of onClick */}
               <StatCard
                 icon={<IconAlert />}
                 value={unresolvedTickets.length}
                 label="Unresolved"
                 sublabel="View Backlog"
-                onClick={() => setIsModalOpen(true)}
+                href="/ict-dashboard/unresolved-tickets"
               />
               <StatCard
                 icon={<IconUser />}
@@ -471,90 +471,6 @@ export default function TeamPage() {
           </>
         )}
       </div>
-
-      {/* ── Unresolved Tickets Modal ── */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-xl flex flex-col max-h-[85vh]">
-            
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#e8e0d8]">
-              <h2 className="text-[18px] font-bold text-[#1c1410]">Unresolved Tickets</h2>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="text-[#9c8576] hover:text-[#1c1410] transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Modal Tabs */}
-            <div className="flex gap-2 px-6 py-4 border-b border-[#e8e0d8] bg-[#fdfbf9] overflow-x-auto">
-              {(["Hardware", "Software", "Network", "Security"] as TicketCategory[]).map((category) => (
-                <button
-                  key={category}
-                  onClick={() => {
-                    setActiveTab(category);
-                    setExpandedTicketId(null);
-                  }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                    activeTab === category 
-                      ? "bg-[#44271a] text-white" 
-                      : "bg-white border border-[#e8e0d8] text-[#6b5a4e] hover:bg-[#f7f3f0]"
-                  }`}
-                >
-                  {category}
-                  <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === category ? "bg-white/20" : "bg-[#f7f3f0] text-[#8a6a56]"}`}>
-                    {unresolvedTickets.filter(t => t.category === category).length}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Modal Content / Ticket List */}
-            <div className="flex-1 overflow-y-auto p-6 bg-[#f7f3f0]">
-              {displayedTickets.length === 0 ? (
-                <div className="text-center py-12 text-[#9c8576]">
-                  No unresolved tickets in this category.
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {displayedTickets.map((ticket) => (
-                    <div key={ticket.id} className="bg-white rounded-xl border border-[#e8e0d8] overflow-hidden shadow-sm">
-                      
-                      {/* Ticket Header Row */}
-                      <div className="flex items-center justify-between p-4">
-                        <div>
-                          <p className="font-bold text-[#1c1410]">{ticket.ticketNumber}</p>
-                          <p className="text-xs text-[#9c8576] mt-0.5">Raised by: <span className="text-[#6b5a4e] font-medium">{ticket.raisedBy}</span></p>
-                        </div>
-                        <button 
-                          onClick={() => setExpandedTicketId(expandedTicketId === ticket.id ? null : ticket.id)}
-                          className="px-4 py-2 text-xs font-medium rounded-md border border-[#d9cfc7] text-[#4a3728] hover:bg-[#f7f3f0] transition-colors"
-                        >
-                          {expandedTicketId === ticket.id ? "Hide" : "View"}
-                        </button>
-                      </div>
-
-                      {/* Expanded Description Area */}
-                      {expandedTicketId === ticket.id && (
-                        <div className="p-4 bg-[#fcfafa] border-t border-[#e8e0d8]">
-                          <p className="text-[11px] uppercase tracking-wide text-[#9c8576] mb-1">Description</p>
-                          <p className="text-sm text-[#4a3728] leading-relaxed">
-                            {ticket.description}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
