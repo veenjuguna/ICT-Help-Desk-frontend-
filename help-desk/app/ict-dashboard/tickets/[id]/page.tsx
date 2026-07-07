@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Inter, Playfair_Display } from "next/font/google";
-import { ArrowLeft, Send, User, Clock, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Send, User, Clock, Check, Loader2, AlertTriangle } from "lucide-react";
 import { ticketStatusStore } from "../ticketStore";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -17,7 +17,7 @@ const COLORS = {
   primaryDark: "#b08326",
 };
 
-// ── Status colour + label maps ────────────────────────────────────────────────
+// ── Status colour + label maps ─────────────────────────────────
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   open:        { bg: "#E3F2FD", color: "#1976D2" },
   in_progress: { bg: "#FFF8E0", color: "#C8962E" },
@@ -34,7 +34,7 @@ const STATUS_LABEL: Record<string, string> = {
   closed:      "Resolved",
 };
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────
 type Ticket = {
   id: number;
   title: string;
@@ -46,21 +46,20 @@ type Ticket = {
   created_at: string;
   closed_at: string | null;
   comment: string | null;
+  resolution_notes: string | null;   // what the technician did
+  rejection_reason: string | null;   // why staff rejected
 };
 
-// Used to resolve staff_id → human-readable profile via GET /staff/{id}/basic.
-// The /basic endpoint is accessible by any authenticated staff member,
-// unlike the full GET /{staff_id} which is admin-only.
 type StaffBasic = {
   id: string;
   full_name: string;
   email: string;
-  phone_number: string | null;    // FIX: was personal_number — this is the contact number
+  phone_number: string | null;
   office_number: string | null;
   office_location: string | null;
 };
 
-// ── Status Badge ──────────────────────────────────────────────────────────────
+// ── Status Badge ───────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_COLORS[status] ?? { bg: "#eee", color: "#333" };
   return (
@@ -73,21 +72,17 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Page ───────────────────────────────────────────────────────
 export default function TicketDetailPage() {
   const params   = useParams();
   const router   = useRouter();
   const queryClient = useQueryClient();
   const ticketId = Number(params.id);
 
-  const [ticket, setTicket]       = useState<Ticket | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-
-  // Resolved staff profile of whoever raised this ticket.
-  // Fetched via GET /staff/{staff_id}/basic after the ticket loads.
-  const [raisedBy, setRaisedBy]   = useState<StaffBasic | null>(null);
-
+  const [ticket, setTicket]           = useState<Ticket | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [raisedBy, setRaisedBy]       = useState<StaffBasic | null>(null);
   const [currentStatus, setCurrentStatus] = useState("");
   const [saving, setSaving]       = useState(false);
   const [saved, setSaved]         = useState(false);
@@ -100,7 +95,6 @@ export default function TicketDetailPage() {
         setLoading(true);
         setError(null);
 
-        // Step 1: Fetch the ticket
         const res = await fetch(`${API}/tickets/${ticketId}`, {
           credentials: "include",
           headers: {
@@ -126,16 +120,14 @@ export default function TicketDetailPage() {
         const liveStatus = ticketStatusStore[data.id] ?? data.status;
         setCurrentStatus(liveStatus);
 
-        // Step 2: Resolve staff_id → full profile using the /basic endpoint.
-        // Accessible by any authenticated staff member (not admin-only).
-        // Falls back gracefully to "Unknown Staff" if the fetch fails.
+        // Pre-fill resolution notes if already set
+        if (data.resolution_notes) setResolutionNotes(data.resolution_notes);
+
         if (data.staff_id) {
           const staffRes = await fetch(`${API}/staff/${data.staff_id}/basic`, {
             credentials: "include",
           });
-          if (staffRes.ok) {
-            setRaisedBy(await staffRes.json());
-          }
+          if (staffRes.ok) setRaisedBy(await staffRes.json());
         }
 
       } catch (err) {
@@ -148,10 +140,6 @@ export default function TicketDetailPage() {
     if (!isNaN(ticketId)) fetchTicket();
   }, [ticketId]);
 
-  // FIX: ICT personnel can only mark a ticket resolved or unresolved.
-  // They cannot change status freely between open/in_progress — that is
-  // controlled by the ticket lifecycle (assignment, escalation, etc).
-  // Each button fires immediately as a direct action, no pending/confirm flow.
   const handleMarkResolution = async (resolution: "resolved" | "unresolved") => {
     if (!ticket) return;
     if (resolution === "unresolved" && unresolvedComment.trim().length < 3) {
@@ -197,14 +185,11 @@ export default function TicketDetailPage() {
     }
   };
 
-  // ── Live "time ago" clock ────────────────────────────────────────────────
-  // Date.now() must never be called during render (impure — breaks React's
-  // purity rules for components/hooks). Instead, we track "now" in state,
-  // seeded and updated only inside an effect, and re-derive assignedAgo from it.
+  // ── Live "time ago" clock ──────────────────────────────────
   const [now, setNow] = useState<number>(() => Date.now());
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 60000); // tick every minute
+    const interval = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -221,7 +206,10 @@ export default function TicketDetailPage() {
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
-  // ── Loading ───────────────────────────────────────────────────────────────
+  // Can only mark resolution when ticket is open or in_progress
+  const canMarkResolution = ["open", "in_progress"].includes(currentStatus);
+
+  // ── Loading ────────────────────────────────────────────────
   if (loading) {
     return (
       <div style={{
@@ -235,7 +223,7 @@ export default function TicketDetailPage() {
     );
   }
 
-  // ── Error ─────────────────────────────────────────────────────────────────
+  // ── Error ──────────────────────────────────────────────────
   if (error || !ticket) {
     return (
       <div style={{
@@ -265,7 +253,7 @@ export default function TicketDetailPage() {
     );
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────
   return (
     <div className={inter.className} style={{
       padding: "2rem", background: "#FDF8F2", minHeight: "100vh",
@@ -290,8 +278,7 @@ export default function TicketDetailPage() {
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                 <h1 className={playfair.className} style={{
-                  fontSize: "26px",
-                  fontWeight: 700, margin: 0, color: "#1a1a1a",
+                  fontSize: "26px", fontWeight: 700, margin: 0, color: "#1a1a1a",
                 }}>
                   Ticket #{ticket.id}
                 </h1>
@@ -370,11 +357,44 @@ export default function TicketDetailPage() {
                 )}
               </div>
 
+              {/* Technician comment — kept for legacy tickets */}
               {ticket.comment && (
                 <div style={{ borderTop: "1px solid #f5f5f5", paddingTop: "16px", marginTop: "4px" }}>
                   <p style={labelStyle}>Technician Comment</p>
                   <p style={{ fontSize: "14px", color: "#444", margin: 0, lineHeight: "1.7" }}>
                     {ticket.comment}
+                  </p>
+                </div>
+              )}
+
+              {/* Resolution notes — what the technician did */}
+              {ticket.resolution_notes && (
+                <div style={{
+                  borderTop: "1px solid #f5f5f5", paddingTop: "16px", marginTop: "4px",
+                  background: "#F9FFF9", borderRadius: "8px", padding: "14px",
+                  border: "1px solid #C8E6C9",
+                }}>
+                  <p style={{ ...labelStyle, color: "#2D6B0F" }}>
+                    Resolution Notes — What the Technician Did
+                  </p>
+                  <p style={{ fontSize: "14px", color: "#2D4010", margin: 0, lineHeight: "1.7" }}>
+                    {ticket.resolution_notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Rejection reason — why staff rejected the resolution */}
+              {ticket.rejection_reason && (
+                <div style={{
+                  borderTop: "1px solid #f5f5f5", paddingTop: "16px", marginTop: "4px",
+                  background: "#FFF8F8", borderRadius: "8px", padding: "14px",
+                  border: "1px solid #FFCDD2",
+                }}>
+                  <p style={{ ...labelStyle, color: "#C62828" }}>
+                    Staff Rejection Reason
+                  </p>
+                  <p style={{ fontSize: "14px", color: "#7F1010", margin: 0, lineHeight: "1.7" }}>
+                    {ticket.rejection_reason}
                   </p>
                 </div>
               )}
@@ -435,9 +455,11 @@ export default function TicketDetailPage() {
                     <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Saving...
                     </span>
-                  ) : (
-                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <Check size={14} /> Mark Resolved
+                  )}
+
+                  {saveError && (
+                    <span style={{ fontSize: "13px", color: "#C62828", fontWeight: 500 }}>
+                      ⚠️ {saveError}
                     </span>
                   )}
                 </button>
@@ -466,20 +488,54 @@ export default function TicketDetailPage() {
                   </span>
                 )}
 
-                {/* Error message */}
-                {saveError && (
-                  <span style={{ fontSize: "13px", color: "#C62828", fontWeight: 500 }}>
-                    ⚠️ {saveError}
-                  </span>
-                )}
+                {/* Contextual hints */}
+                <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>
+                    ✓ <strong>Mark Resolved</strong> — staff will be asked to confirm the fix. You are released immediately.
+                  </p>
+                  <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>
+                    ⚠ <strong>Mark Unresolved</strong> — ticket moves to team view for another technician to pick up. You are released immediately.
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Status info panel — shown when ticket is not actionable */}
+            {!canMarkResolution && (
+              <div style={{
+                background: "#fff", borderRadius: "12px", border: "1px solid #eee",
+                padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+              }}>
+                <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 8px 0", color: "#1a1a1a" }}>
+                  Ticket Status
+                </h2>
+                <div style={{
+                  padding: "14px", borderRadius: "8px",
+                  background: (STATUS_COLORS[currentStatus] ?? { bg: "#f5f5f5" }).bg,
+                  border: `1px solid ${(STATUS_COLORS[currentStatus] ?? { color: "#ccc" }).color}30`,
+                }}>
+                  <p style={{ margin: 0, fontSize: "14px", color: (STATUS_COLORS[currentStatus] ?? { color: "#333" }).color, fontWeight: 600 }}>
+                    {currentStatus === "pending_confirmation" &&
+                      "Awaiting staff confirmation — the staff member has been notified to confirm the resolution."}
+                    {currentStatus === "unresolved" &&
+                      "This ticket is in the team view — any available technician can pick it up."}
+                    {currentStatus === "closed" &&
+                      "This ticket has been closed and confirmed by the staff member."}
+                    {currentStatus === "reopened" &&
+                      "Staff rejected the resolution — this ticket is back in the triage queue."}
+                    {!["pending_confirmation", "unresolved", "closed", "reopened"].includes(currentStatus) &&
+                      (STATUS_LABEL[currentStatus] ?? currentStatus)}
+                  </p>
+                </div>
+              </div>
+            )}
+
           </div>
 
           {/* ── RIGHT ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
-            {/* Raised By — resolved from GET /staff/{staff_id}/basic */}
+            {/* Raised By */}
             <div style={{
               background: "#fff", borderRadius: "12px", border: "1px solid #eee",
               padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
@@ -488,7 +544,6 @@ export default function TicketDetailPage() {
                 Raised By
               </h2>
 
-              {/* Avatar + name + email */}
               <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
                 <div style={{
                   width: 44, height: 44, borderRadius: "50%",
@@ -516,25 +571,19 @@ export default function TicketDetailPage() {
                 </div>
               </div>
 
-              {/* Labelled contact + location fields */}
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
-
-                {/* FIX: Replaced personal_number with phone_number — actual contact field */}
                 <div>
                   <p style={labelStyle}>Phone Number</p>
                   <p style={valueStyle}>{raisedBy?.phone_number ?? "—"}</p>
                 </div>
-
                 <div>
                   <p style={labelStyle}>Office Number</p>
                   <p style={valueStyle}>{raisedBy?.office_number ?? "—"}</p>
                 </div>
-
                 <div>
                   <p style={labelStyle}>Office Location</p>
                   <p style={valueStyle}>{raisedBy?.office_location ?? "—"}</p>
                 </div>
-
               </div>
 
               <button style={{
@@ -542,7 +591,7 @@ export default function TicketDetailPage() {
                 border: "none", padding: "12px", borderRadius: "8px",
                 cursor: "pointer", fontSize: "14px", fontWeight: 600,
               }}>
-                Contact Employee
+               Employee's Profile
               </button>
             </div>
 
@@ -558,7 +607,9 @@ export default function TicketDetailPage() {
                 <div>
                   <p style={labelStyle}>Assigned To</p>
                   <p style={valueStyle}>
-                    {ticket.assigned_to_id ? `Technician #${ticket.assigned_to_id}` : "Unassigned (Queued)"}
+                    {ticket.assigned_to_id
+                      ? `Technician #${ticket.assigned_to_id}`
+                      : "Unassigned (Queued)"}
                   </p>
                 </div>
                 <div>
@@ -584,7 +635,7 @@ export default function TicketDetailPage() {
   );
 }
 
-// ── Shared label/value styles ─────────────────────────────────────────────────
+// ── Shared label/value styles ──────────────────────────────────
 const labelStyle = {
   fontSize: "12px", color: "#888", textTransform: "uppercase" as const,
   letterSpacing: "0.5px", margin: "0 0 4px 0", fontWeight: 600,
