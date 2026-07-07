@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Inter, Playfair_Display } from "next/font/google";
 import { ArrowLeft, Send, User, Clock, Check, Loader2, AlertTriangle } from "lucide-react";
 import { ticketStatusStore } from "../ticketStore";
+import { useQueryClient } from "@tanstack/react-query";
 
 const inter = Inter({ subsets: ["latin"] });
 const playfair = Playfair_Display({ subsets: ["latin"] });
@@ -18,23 +19,19 @@ const COLORS = {
 
 // ── Status colour + label maps ─────────────────────────────────
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  open:                 { bg: "#E3F2FD", color: "#1976D2" },
-  in_progress:          { bg: "#FFF8E0", color: "#C8962E" },
-  resolved:             { bg: "#E8F5E9", color: "#2D6B0F" },
-  unresolved:           { bg: "#FCE4EC", color: "#C62828" },
-  pending_confirmation: { bg: "#F3E5F5", color: "#7B1FA2" },
-  reopened:             { bg: "#FBE9E7", color: "#BF360C" },
-  closed:               { bg: "#F5F5F5", color: "#555"    },
+  open:        { bg: "#E3F2FD", color: "#1976D2" },
+  in_progress: { bg: "#FFF8E0", color: "#C8962E" },
+  resolved:    { bg: "#E8F5E9", color: "#2D6B0F" },
+  unresolved:  { bg: "#FCE4EC", color: "#C62828" },
+  closed:      { bg: "#E8F5E9", color: "#2D6B0F" },
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  open:                 "Open",
-  in_progress:          "In Progress",
-  resolved:             "Resolved",
-  unresolved:           "Unresolved — Team View",
-  pending_confirmation: "Pending Confirmation",
-  reopened:             "Reopened",
-  closed:               "Closed",
+  open:        "Open",
+  in_progress: "In Progress",
+  resolved:    "Resolved",
+  unresolved:  "Unresolved",
+  closed:      "Resolved",
 };
 
 // ── Types ──────────────────────────────────────────────────────
@@ -79,6 +76,7 @@ function StatusBadge({ status }: { status: string }) {
 export default function TicketDetailPage() {
   const params   = useParams();
   const router   = useRouter();
+  const queryClient = useQueryClient();
   const ticketId = Number(params.id);
 
   const [ticket, setTicket]           = useState<Ticket | null>(null);
@@ -86,13 +84,10 @@ export default function TicketDetailPage() {
   const [error, setError]             = useState<string | null>(null);
   const [raisedBy, setRaisedBy]       = useState<StaffBasic | null>(null);
   const [currentStatus, setCurrentStatus] = useState("");
-  const [saving, setSaving]           = useState(false);
-  const [saved, setSaved]             = useState(false);
-  const [saveError, setSaveError]     = useState<string | null>(null);
-
-  // Resolution notes — mandatory before marking resolved or unresolved
-  const [resolutionNotes, setResolutionNotes] = useState("");
-  const [notesError, setNotesError]           = useState<string | null>(null);
+  const [saving, setSaving]       = useState(false);
+  const [saved, setSaved]         = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [unresolvedComment, setUnresolvedComment] = useState("");
 
   useEffect(() => {
     const fetchTicket = async () => {
@@ -147,26 +142,22 @@ export default function TicketDetailPage() {
 
   const handleMarkResolution = async (resolution: "resolved" | "unresolved") => {
     if (!ticket) return;
-
-    // resolution_notes is mandatory before submitting
-    if (!resolutionNotes.trim()) {
-      setNotesError("You must describe what you did before marking this ticket.");
+    if (resolution === "unresolved" && unresolvedComment.trim().length < 3) {
+      setSaveError("Add a short note before marking this ticket unresolved.");
       return;
     }
-    setNotesError(null);
-
     try {
       setSaving(true);
       setSaveError(null);
+
+      const body: Record<string, string> = { status: resolution };
+      if (resolution === "unresolved") body.comment = unresolvedComment.trim();
 
       const res = await fetch(`${API}/tickets/${ticket.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: resolution,
-          resolution_notes: resolutionNotes.trim(),
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -178,6 +169,13 @@ export default function TicketDetailPage() {
       setTicket(updated);
       setCurrentStatus(updated.status);
       ticketStatusStore[ticket.id] = updated.status;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["ict-dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["ict-tickets"] }),
+        queryClient.invalidateQueries({ queryKey: ["ict-all-tickets"] }),
+        queryClient.invalidateQueries({ queryKey: ["ict-completed-tickets"] }),
+        queryClient.invalidateQueries({ queryKey: ["ict-team-members"] }),
+      ]);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
@@ -402,100 +400,60 @@ export default function TicketDetailPage() {
               )}
             </div>
 
-            {/* ── Mark Ticket Resolution ── */}
-            {canMarkResolution && (
-              <div style={{
-                background: "#fff", borderRadius: "12px", border: "1px solid #eee",
-                padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-              }}>
-                <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 8px 0", color: "#1a1a1a" }}>
-                  Mark Ticket Resolution
-                </h2>
-                <p style={{ fontSize: "13px", color: "#888", margin: "0 0 16px 0" }}>
-                  Describe what you did to address this issue, then mark it resolved or unresolved.
-                  Your notes are visible to the staff member and recorded for audit.
-                </p>
+            {/* FIX: Renamed from "Update Ticket Status" to "Mark Ticket Resolution".
+                ICT personnel can only mark resolved or unresolved — they cannot
+                freely change status between open/in_progress. Each button fires
+                immediately as a direct action with no pending/confirm flow. */}
+            <div style={{
+              background: "#fff", borderRadius: "12px", border: "1px solid #eee",
+              padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+            }}>
+              <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 8px 0", color: "#1a1a1a" }}>
+                Mark Ticket Resolution
+              </h2>
+              <p style={{ fontSize: "13px", color: "#888", margin: "0 0 16px 0" }}>
+                Mark this ticket as resolved once the issue is fixed, or add a note if it needs admin follow-up.
+              </p>
 
-                {/* Resolution notes textarea — mandatory */}
-                <div style={{ marginBottom: "16px" }}>
-                  <label style={{
-                    display: "block", fontSize: "12px", fontWeight: 700,
-                    color: "#444", textTransform: "uppercase",
-                    letterSpacing: "0.5px", marginBottom: "6px",
-                  }}>
-                    What did you do? <span style={{ color: "#C62828" }}>*</span>
-                  </label>
-                  <textarea
-                    value={resolutionNotes}
-                    onChange={(e) => {
-                      setResolutionNotes(e.target.value);
-                      if (notesError) setNotesError(null);
-                    }}
-                    placeholder="Describe the steps you took to resolve or investigate this issue..."
-                    rows={5}
-                    style={{
-                      width: "100%", padding: "12px",
-                      border: `1px solid ${notesError ? "#C62828" : "#ddd"}`,
-                      borderRadius: "8px", fontSize: "14px",
-                      fontFamily: "inherit", resize: "vertical",
-                      outline: "none", color: "#1a1a1a",
-                      lineHeight: "1.6", boxSizing: "border-box",
-                    }}
-                  />
-                  {notesError && (
-                    <p style={{ fontSize: "12px", color: "#C62828", margin: "4px 0 0 0", display: "flex", alignItems: "center", gap: "4px" }}>
-                      <AlertTriangle size={12} /> {notesError}
-                    </p>
-                  )}
-                </div>
+              <textarea
+                value={unresolvedComment}
+                onChange={(e) => setUnresolvedComment(e.target.value)}
+                disabled={saving || currentStatus === "closed"}
+                placeholder="Optional note for unresolved tickets..."
+                rows={3}
+                style={{
+                  width: "100%",
+                  resize: "vertical",
+                  border: "1px solid #ddd",
+                  borderRadius: "8px",
+                  padding: "10px 12px",
+                  marginBottom: "12px",
+                  fontFamily: "inherit",
+                  fontSize: "13px",
+                  outline: "none",
+                  background: currentStatus === "closed" ? "#f8f8f8" : "#fff",
+                }}
+              />
 
-                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
 
-                  {/* Mark Resolved — moves to pending_confirmation */}
-                  <button
-                    onClick={() => handleMarkResolution("resolved")}
-                    disabled={saving}
-                    style={{
-                      background: "#fff", color: "#2D6B0F",
-                      border: "1px solid #2D6B0F",
-                      padding: "9px 18px", borderRadius: "8px",
-                      cursor: saving ? "not-allowed" : "pointer",
-                      fontSize: "13px", fontWeight: 600,
-                      transition: "all 0.15s ease",
-                      opacity: saving ? 0.6 : 1,
-                    }}
-                  >
-                    {saving ? (
-                      <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Saving...
-                      </span>
-                    ) : (
-                      <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <Check size={14} /> Mark Resolved
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Mark Unresolved — goes to team view */}
-                  <button
-                    onClick={() => handleMarkResolution("unresolved")}
-                    disabled={saving}
-                    style={{
-                      background: "#fff", color: "#C62828",
-                      border: "1px solid #C62828",
-                      padding: "9px 18px", borderRadius: "8px",
-                      cursor: saving ? "not-allowed" : "pointer",
-                      fontSize: "13px", fontWeight: 600,
-                      transition: "all 0.15s ease",
-                      opacity: saving ? 0.6 : 1,
-                    }}
-                  >
-                    Mark Unresolved — Push to Team
-                  </button>
-
-                  {saved && (
-                    <span style={{ fontSize: "13px", color: "#2D6B0F", fontWeight: 500, display: "flex", alignItems: "center", gap: "4px" }}>
-                      <Check size={13} /> Ticket updated
+                {/* Resolved button — green accent when already resolved */}
+                <button
+                  onClick={() => handleMarkResolution("resolved")}
+                  disabled={saving || currentStatus === "closed"}
+                  style={{
+                    background: currentStatus === "closed" && !ticket.comment ? "#E8F5E9" : "#fff",
+                    color: currentStatus === "closed" && !ticket.comment ? "#2D6B0F" : "#444",
+                    border: `1px solid ${currentStatus === "closed" && !ticket.comment ? "#2D6B0F" : "#ddd"}`,
+                    padding: "9px 18px", borderRadius: "8px",
+                    cursor: saving || currentStatus === "closed" ? "not-allowed" : "pointer",
+                    fontSize: "13px", fontWeight: 600, transition: "all 0.15s ease",
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  {saving ? (
+                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Saving...
                     </span>
                   )}
 
@@ -504,7 +462,31 @@ export default function TicketDetailPage() {
                       ⚠️ {saveError}
                     </span>
                   )}
-                </div>
+                </button>
+
+                {/* Unresolved button — red accent when already unresolved */}
+                <button
+                  onClick={() => handleMarkResolution("unresolved")}
+                  disabled={saving || currentStatus === "closed"}
+                  style={{
+                    background: currentStatus === "closed" && ticket.comment ? "#FCE4EC" : "#fff",
+                    color: currentStatus === "closed" && ticket.comment ? "#C62828" : "#444",
+                    border: `1px solid ${currentStatus === "closed" && ticket.comment ? "#C62828" : "#ddd"}`,
+                    padding: "9px 18px", borderRadius: "8px",
+                    cursor: saving || currentStatus === "closed" ? "not-allowed" : "pointer",
+                    fontSize: "13px", fontWeight: 600, transition: "all 0.15s ease",
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  Mark Unresolved
+                </button>
+
+                {/* Success confirmation */}
+                {saved && (
+                  <span style={{ fontSize: "13px", color: "#2D6B0F", fontWeight: 500, display: "flex", alignItems: "center", gap: "4px" }}>
+                    <Check size={13} /> Ticket updated
+                  </span>
+                )}
 
                 {/* Contextual hints */}
                 <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "6px" }}>
