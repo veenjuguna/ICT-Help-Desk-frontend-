@@ -206,8 +206,8 @@ export default function TicketTable() {
                       verticalAlign: "middle",
                     }}
                   >
-                    <Link
-                      href={`/tickets/${ticket.id}`}
+                   <Link
+  href={`/view-tickets/${ticket.id}`}
                       style={{
                         display: "inline-block",
                         padding: "0.4rem 0.9rem",
