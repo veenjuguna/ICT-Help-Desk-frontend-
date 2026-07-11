@@ -1,9 +1,10 @@
-//teams
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
+
+// ── Types ──────────────────────────────────────────────────────
 
 interface TeamMember {
   id: string;
@@ -32,10 +33,7 @@ interface IctPersonnelAPI {
     personal_number: string;
     office_number: string;
     office_location: string | null;
-    department: {
-      id: number;
-      name: string;
-    } | null;
+    department: { id: number; name: string } | null;
   } | null;
 }
 
@@ -48,66 +46,77 @@ interface TicketsByPersonnelAPI {
   };
 }
 
+interface TicketAPI {
+  id: number;
+  staff_id: string;
+  assigned_to_id: number | null;
+  title: string;
+  description: string;
+  category: string;
+  status: string;
+  comment: string | null;
+  resolution_notes: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  closed_at: string | null;
+}
+
+interface UnresolvedTicket {
+  id: string;
+  ticketNumber: string;
+  raisedBy: string;       // resolved full name
+  category: string;
+  description: string;
+  resolution_notes: string | null;  // what the previous tech tried
+  created_at: string;
+}
+
+// ── Helpers ────────────────────────────────────────────────────
+
 function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  return name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 }
 
 function formatSpecialization(spec: string | null): string {
   if (!spec) return "General";
-  return spec
-    .replace(/_/g, " ")
-    .toLowerCase()
+  return spec.replace(/_/g, " ").toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function mapAvailability(availability: string): TeamMember["status"] {
   const val = availability.toLowerCase();
   if (val === "available") return "Available";
-  if (val === "busy") return "Busy";
-  return "Offline"; // covers off_duty, on_leave
+  if (val === "busy")      return "Busy";
+  return "Offline";
 }
 
-async function fetchTeamMembers(): Promise<TeamMember[]> {
-  const cleanBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(
-    /\/$/,
-    "",
-  );
+function timeAgo(dateStr: string): string {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60)    return `${diff}s ago`;
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
 
-  const personnelRes = await fetch(`${cleanBaseUrl}/ict-personnel/`, {
+async function fetchTeamMembers(baseUrl: string): Promise<TeamMember[]> {
+  const personnelRes = await fetch(`${baseUrl}/ict-personnel/`, {
     credentials: "include",
     headers: { "Content-Type": "application/json" },
   });
 
   if (!personnelRes.ok) {
-    throw new Error(
-      `Failed to fetch ICT personnel. Status: ${personnelRes.status}`,
-    );
+    throw new Error(`Failed to fetch ICT personnel. Status: ${personnelRes.status}`);
   }
 
   const personnel: IctPersonnelAPI[] = await personnelRes.json();
-  console.log("✅ RAW PERSONNEL DATA:", personnel);
 
-  // Ticket data — optional, won't break page if unavailable
   let ticketData: TicketsByPersonnelAPI[] = [];
   try {
-    const ticketsRes = await fetch(
-      `${cleanBaseUrl}/tickets/admin/by-personnel`,
-      {
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-    if (ticketsRes.ok) {
-      ticketData = await ticketsRes.json();
-      console.log("✅ RAW TICKET DATA:", ticketData);
-    } else {
-      console.warn("⚠️ Ticket data unavailable. Status:", ticketsRes.status);
-    }
+    const ticketsRes = await fetch(`${baseUrl}/tickets/admin/by-personnel`, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (ticketsRes.ok) ticketData = await ticketsRes.json();
   } catch (err) {
     console.warn("⚠️ Network error fetching ticket data:", err);
   }
@@ -121,95 +130,80 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
     .filter((p) => p.is_active)
     .map((p) => {
       const tickets = ticketMap.get(p.id) ?? {};
-      const active = (tickets.open ?? 0) + (tickets.in_progress ?? 0);
+      const active    = (tickets.open ?? 0) + (tickets.in_progress ?? 0);
       const completed = tickets.closed ?? 0;
-      const name = p.staff?.full_name ?? `Technician #${p.id}`;
+      const name      = p.staff?.full_name ?? `Technician #${p.id}`;
 
       return {
-        id: String(p.id),
-        initials: getInitials(name),
+        id:              String(p.id),
+        initials:        getInitials(name),
         name,
-        role: formatSpecialization(p.specialization),
-        status: mapAvailability(p.availability),
+        role:            formatSpecialization(p.specialization),
+        status:          mapAvailability(p.availability),
         active,
         completed,
-        rating: 0,
+        rating:          0,
         specializations: p.specialization
           ? [formatSpecialization(p.specialization)]
           : ["General"],
-        avgResolution: "—",
+        avgResolution:   "—",
       };
     });
 }
 
+// ── Icons ──────────────────────────────────────────────────────
+
 function IconTeam() {
   return (
-    <svg
-      className="h-6 w-6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"
-      />
+    <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
     </svg>
   );
 }
 
 function IconTrend() {
   return (
-    <svg
-      className="h-6 w-6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"
-      />
+    <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
     </svg>
   );
 }
 
 function IconUser() {
   return (
-    <svg
-      className="h-6 w-6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
-      />
+    <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
     </svg>
   );
 }
 
+function IconAlert() {
+  return (
+    <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+  );
+}
+
+// ── Shared UI Components ───────────────────────────────────────
+
 function StatCard({
-  icon,
-  value,
-  label,
-  sublabel,
+  icon, value, label, sublabel, onClick, href,
 }: {
   icon?: React.ReactNode;
   value: string | number;
   label: string;
   sublabel?: string;
+  onClick?: () => void;
+  href?: string;
 }) {
-  return (
-    <div className="flex items-center justify-between rounded-xl border border-[#e8e0d8] bg-white px-6 py-5 shadow-sm transition-all hover:shadow-md">
-      {/* Left Side: Icon and Label */}
+  const baseClasses = "flex items-center justify-between rounded-xl border border-[#e8e0d8] bg-white px-6 py-5 shadow-sm transition-all hover:shadow-md";
+  const interactiveClasses = (onClick || href)
+    ? "cursor-pointer hover:border-[#d9cfc7] active:bg-[#fcfafa]"
+    : "";
+
+  const content = (
+    <div className={`${baseClasses} ${interactiveClasses}`} onClick={onClick}>
       <div className="flex items-center gap-4">
         {icon && (
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f7f3f0] text-[#8a6a56]">
@@ -225,22 +219,19 @@ function StatCard({
           )}
         </div>
       </div>
-
-      {/* Right Side: The Number */}
-      <p className="text-[32px] font-bold leading-none text-[#1c1410]">
-        {value}
-      </p>
+      <p className="text-[32px] font-bold leading-none text-[#1c1410]">{value}</p>
     </div>
   );
+
+  if (href) return <Link href={href} className="block">{content}</Link>;
+  return content;
 }
 
 function StatusBadge({ status }: { status: TeamMember["status"] }) {
   const dotColor =
-    status === "Available"
-      ? "bg-green-500"
-      : status === "Busy"
-        ? "bg-amber-400"
-        : "bg-gray-400";
+    status === "Available" ? "bg-green-500" :
+    status === "Busy"      ? "bg-amber-400" :
+    "bg-gray-400";
   return (
     <span className="flex items-center gap-1.5 rounded-full border border-[#e8e0d8] bg-white px-3 py-1 text-xs font-medium text-[#4a3728]">
       <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
@@ -258,9 +249,7 @@ function MemberCard({ member }: { member: TeamMember }) {
             {member.initials}
           </div>
           <div>
-            <h3 className="text-[15px] font-semibold text-[#1c1410]">
-              {member.name}
-            </h3>
+            <h3 className="text-[15px] font-semibold text-[#1c1410]">{member.name}</h3>
             <p className="text-xs text-[#9c8576]">{member.role}</p>
           </div>
         </div>
@@ -283,11 +272,89 @@ function MemberCard({ member }: { member: TeamMember }) {
   );
 }
 
+// ── Unresolved Ticket Card ─────────────────────────────────────
+
+function UnresolvedTicketCard({
+  ticket,
+  onPickup,
+  pickingUp,
+}: {
+  ticket: UnresolvedTicket;
+  onPickup: (id: string) => void;
+  pickingUp: string | null;
+}) {
+  const isPickingUp = pickingUp === ticket.id;
+
+  return (
+    <div className="rounded-xl border border-[#e8e0d8] bg-white px-5 py-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-bold text-[#6b4c38] font-mono">
+              {ticket.ticketNumber}
+            </span>
+            <span className="rounded-full bg-[#FCE4EC] px-2.5 py-0.5 text-xs font-semibold text-[#C62828]">
+              Unresolved
+            </span>
+          </div>
+          <p className="text-sm font-medium text-[#1c1410] line-clamp-2">
+            {ticket.description}
+          </p>
+        </div>
+        <button
+          onClick={() => onPickup(ticket.id)}
+          disabled={isPickingUp}
+          className="flex-shrink-0 rounded-lg bg-[#44271a] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#3a2016] disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {isPickingUp ? (
+            <span className="flex items-center gap-1.5">
+              <RefreshCw size={11} className="animate-spin" /> Picking up...
+            </span>
+          ) : (
+            "Pick Up"
+          )}
+        </button>
+      </div>
+
+      <div className="flex items-center gap-4 text-xs text-[#9c8576]">
+        <span>
+          <span className="font-medium text-[#6b5a4e]">Raised by:</span>{" "}
+          {ticket.raisedBy}
+        </span>
+        <span>
+          <span className="font-medium text-[#6b5a4e]">Category:</span>{" "}
+          {ticket.category}
+        </span>
+        <span>{timeAgo(ticket.created_at)}</span>
+      </div>
+
+      {/* What the previous tech tried */}
+      {ticket.resolution_notes && (
+        <div className="mt-3 rounded-lg bg-[#FFF8EC] border border-[#E8B84B] px-3 py-2">
+          <p className="text-[11px] font-bold text-[#8a6a20] uppercase tracking-wide mb-1">
+            Previous attempt
+          </p>
+          <p className="text-xs text-[#6b5a30] leading-relaxed">
+            {ticket.resolution_notes}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Page ──────────────────────────────────────────────────
+
 export default function TeamPage() {
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [members, setMembers]                   = useState<TeamMember[]>([]);
+  const [unresolvedTickets, setUnresolvedTickets] = useState<UnresolvedTicket[]>([]);
+  const [isLoading, setIsLoading]               = useState(true);
+  const [isRefreshing, setIsRefreshing]         = useState(false);
+  const [error, setError]                       = useState<string | null>(null);
+  const [pickingUp, setPickingUp]               = useState<string | null>(null);
+  const [pickupError, setPickupError]           = useState<string | null>(null);
+
+  const BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
   const loadData = useCallback(async (isBackgroundFetch = false) => {
     if (!isBackgroundFetch) setIsLoading(true);
@@ -295,35 +362,102 @@ export default function TeamPage() {
     setError(null);
 
     try {
-      const data = await fetchTeamMembers();
-      setMembers(data);
+      // 1. Fetch team members
+      const teamData = await fetchTeamMembers(BASE);
+      setMembers(teamData);
+
+      // 2. Fetch unresolved tickets from correct endpoint
+      const ticketsRes = await fetch(`${BASE}/tickets/team/unresolved`, {
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (ticketsRes.ok) {
+        const ticketsData: TicketAPI[] = await ticketsRes.json();
+
+        // Resolve staff names in parallel via /staff/{id}/basic
+        const enriched = await Promise.all(
+          ticketsData.map(async (t) => {
+            let raisedBy = "Unknown";
+            try {
+              const sRes = await fetch(`${BASE}/staff/${t.staff_id}/basic`, {
+                credentials: "include",
+              });
+              if (sRes.ok) {
+                const s = await sRes.json();
+                raisedBy = s.full_name ?? "Unknown";
+              }
+            } catch {}
+
+            return {
+              id:               String(t.id),
+              ticketNumber:     `TCK-${t.id}`,
+              raisedBy,
+              category:         t.category
+                ? t.category.charAt(0).toUpperCase() +
+                  t.category.slice(1).replace(/_/g, " ")
+                : "General",
+              description:      t.description || t.title || "No description provided.",
+              resolution_notes: t.resolution_notes,
+              created_at:       t.created_at,
+            };
+          })
+        );
+
+        setUnresolvedTickets(enriched);
+      }
     } catch (err) {
-      console.error("Failed to fetch team members:", err);
-      setError("Could not load team data. Please try refreshing.");
+      console.error("Failed to load data:", err);
+      setError("Could not load dashboard data. Please try refreshing.");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [BASE]);
 
   useEffect(() => {
-    const fetchInitialData = async () => {
-      await loadData();
-    };
-
-    void fetchInitialData();
-    const intervalId = setInterval(() => {
-      void loadData(true);
-    }, 30000);
-    return () => clearInterval(intervalId);
+    void loadData();
+    const interval = setInterval(() => void loadData(true), 30000);
+    return () => clearInterval(interval);
   }, [loadData]);
 
-  const totalMembers = members.length;
-  const activeTickets = members.reduce((sum, m) => sum + m.active, 0);
-  const completedToday = members.reduce((sum, m) => sum + m.completed, 0);
+  // Pick up an unresolved ticket from the team view
+  async function handlePickup(ticketId: string) {
+    setPickingUp(ticketId);
+    setPickupError(null);
+    try {
+      const res = await fetch(`${BASE}/tickets/${ticketId}/pickup`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail ?? `Failed to pick up ticket (${res.status})`);
+      }
+
+      // Remove from team view immediately — it's now assigned to this tech
+      setUnresolvedTickets((prev) => prev.filter((t) => t.id !== ticketId));
+
+      // Refresh team members to update availability badges
+      const teamData = await fetchTeamMembers(BASE);
+      setMembers(teamData);
+
+    } catch (err) {
+      setPickupError(err instanceof Error ? err.message : "Pickup failed");
+    } finally {
+      setPickingUp(null);
+    }
+  }
+
+  const totalMembers    = members.length;
+  const activeTickets   = members.reduce((sum, m) => sum + m.active, 0);
+  const completedToday  = members.reduce((sum, m) => sum + m.completed, 0);
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f3f0] font-sans">
+    <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f3f0] font-sans relative">
+
       {/* Top Bar */}
       <header className="flex items-center justify-between border-b border-[#e8e0d8] bg-white px-4 py-4 sm:px-8 shadow-sm z-10">
         <div>
@@ -344,10 +478,7 @@ export default function TeamPage() {
             className="flex items-center justify-center p-2.5 rounded-lg border border-[#e8e0d8] text-[#6b4c38] hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50"
             title="Refresh Data"
           >
-            <RefreshCw
-              size={18}
-              className={isRefreshing ? "animate-spin" : ""}
-            />
+            <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
           </button>
           <Link
             href="/ict-dashboard/raise-ticket"
@@ -388,30 +519,61 @@ export default function TeamPage() {
         ) : (
           <>
             {/* Stats Row */}
-            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard icon={<IconTeam />} value={totalMembers}   label="Team Members"    />
+              <StatCard icon={<IconTrend />} value={activeTickets} label="Active Tickets"  />
               <StatCard
-                icon={<IconTeam />}
-                value={totalMembers}
-                label="Team Members"
+                icon={<IconAlert />}
+                value={unresolvedTickets.length}
+                label="Unresolved"
+                sublabel="Needs pickup"
               />
-              <StatCard
-                icon={<IconTrend />}
-                value={activeTickets}
-                label="Active Tickets"
-              />
-              <StatCard
-                icon={<IconUser />}
-                value={completedToday}
-                label="Completed Today"
-              />
+              <StatCard icon={<IconUser />} value={completedToday} label="Completed Today" />
             </div>
 
             {/* Personnel Roster */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
               {members.map((member) => (
                 <MemberCard key={member.id} member={member} />
               ))}
             </div>
+
+            {/* Unresolved Tickets — Team View */}
+            {unresolvedTickets.length > 0 && (
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-[15px] font-bold text-[#1c1410]">
+                      Unresolved Tickets — Team View
+                    </h2>
+                    <p className="text-xs text-[#9c8576] mt-0.5">
+                      These tickets couldn't be resolved by the assigned technician.
+                      Any available team member can pick them up.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[#FCE4EC] px-3 py-1 text-xs font-bold text-[#C62828]">
+                    {unresolvedTickets.length} waiting
+                  </span>
+                </div>
+
+                {pickupError && (
+                  <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                    ⚠️ {pickupError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  {unresolvedTickets.map((ticket) => (
+                    <UnresolvedTicketCard
+                      key={ticket.id}
+                      ticket={ticket}
+                      onPickup={handlePickup}
+                      pickingUp={pickingUp}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

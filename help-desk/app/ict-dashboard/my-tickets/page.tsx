@@ -19,7 +19,7 @@ import {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type TicketStatus = "open" | "in_progress" | "closed" | "rejected";
+type TicketStatus = "open" | "in_progress" | "closed";
 type TicketCategory =
   | "hardware"
   | "software"
@@ -116,11 +116,6 @@ const STATUS_META: Record<
     label: "Resolved",
     dot: "bg-green-500",
     badge: "bg-green-50 border-green-200 text-green-700",
-  },
-  rejected: {
-    label: "Rejected",
-    dot: "bg-red-400",
-    badge: "bg-red-50 border-red-200 text-red-700",
   },
 };
 

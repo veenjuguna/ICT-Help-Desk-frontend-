@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import StatusBadge from "./status-badge";
 import { useEffect, useState } from "react";
 
@@ -10,6 +11,18 @@ type Ticket = {
   status: string;
   created_at: string;
 };
+
+function toStatusLabel(status: string): "Open" | "Resolved" | "In Progress" {
+  switch (status.toLowerCase()) {
+    case "open":
+      return "Open";
+    case "resolved":
+    case "closed":
+      return "Resolved";
+    default:
+      return "In Progress";
+  }
+}
 
 export default function TicketTable() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -67,6 +80,7 @@ export default function TicketTable() {
                 "Issue",
                 "Category/Priority",
                 "Status",
+                "Action",
               ].map((h) => (
                 <th
                   key={h}
@@ -93,7 +107,7 @@ export default function TicketTable() {
             {loading ? (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   style={{
                     padding: "2.5rem",
                     textAlign: "center",
@@ -107,7 +121,7 @@ export default function TicketTable() {
             ) : tickets.length === 0 ? (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   style={{
                     padding: "2.5rem",
                     textAlign: "center",
@@ -184,7 +198,30 @@ export default function TicketTable() {
                       verticalAlign: "middle",
                     }}
                   >
-                    <StatusBadge status={ticket.status as any} />
+                    <StatusBadge status={toStatusLabel(ticket.status)} />
+                  </td>
+                  <td
+                    style={{
+                      padding: "0.9rem 1.25rem",
+                      verticalAlign: "middle",
+                    }}
+                  >
+                   <Link
+  href={`/view-tickets/${ticket.id}`}
+                      style={{
+                        display: "inline-block",
+                        padding: "0.4rem 0.9rem",
+                        borderRadius: 6,
+                        background: "#6B2D0F",
+                        color: "#fff",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      View
+                    </Link>
                   </td>
                 </tr>
               ))
