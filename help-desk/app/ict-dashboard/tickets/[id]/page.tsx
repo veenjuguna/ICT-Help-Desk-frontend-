@@ -404,6 +404,7 @@ export default function TicketDetailPage() {
                 ICT personnel can only mark resolved or unresolved — they cannot
                 freely change status between open/in_progress. Each button fires
                 immediately as a direct action with no pending/confirm flow. */}
+              {canMarkResolution &&
             <div style={{
               background: "#fff", borderRadius: "12px", border: "1px solid #eee",
               padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
@@ -451,7 +452,7 @@ export default function TicketDetailPage() {
                     opacity: saving ? 0.6 : 1,
                   }}
                 >
-                  {saving ? (
+                  {saving && (
                     <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Saving...
                     </span>
@@ -498,7 +499,8 @@ export default function TicketDetailPage() {
                   </p>
                 </div>
               </div>
-            )}
+              </div>
+              }
 
             {/* Status info panel — shown when ticket is not actionable */}
             {!canMarkResolution && (
