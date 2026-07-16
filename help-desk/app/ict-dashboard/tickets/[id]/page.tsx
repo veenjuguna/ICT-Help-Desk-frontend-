@@ -1,11 +1,11 @@
+//pending tickets page
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Search, Eye, Loader2 } from "lucide-react";
 import { Inter, Playfair_Display } from "next/font/google";
-import { ArrowLeft, Send, User, Clock, Check, Loader2, AlertTriangle } from "lucide-react";
-import { ticketStatusStore } from "../ticketStore";
-import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 
 const inter = Inter({ subsets: ["latin"] });
 const playfair = Playfair_Display({ subsets: ["latin"] });
@@ -15,26 +15,24 @@ const API = process.env.NEXT_PUBLIC_API_URL;
 const COLORS = {
   primary: "#C8962E",
   primaryDark: "#b08326",
+  open: { bg: "#E3F2FD", color: "#1976D2" },
+  in_progress: { bg: "#FFF8E0", color: "#C8962E" },
+  closed: { bg: "#E8F5E9", color: "#2D6B0F" },
+  unresolved: { bg: "#FCE4EC", color: "#C62828" },
 };
 
-// ── Status colour + label maps ─────────────────────────────────
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  open:        { bg: "#E3F2FD", color: "#1976D2" },
-  in_progress: { bg: "#FFF8E0", color: "#C8962E" },
-  resolved:    { bg: "#E8F5E9", color: "#2D6B0F" },
-  unresolved:  { bg: "#FCE4EC", color: "#C62828" },
-  closed:      { bg: "#E8F5E9", color: "#2D6B0F" },
+  open: COLORS.open,
+  in_progress: COLORS.in_progress,
+  closed: COLORS.closed,
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  open:        "Open",
+  open: "Open",
   in_progress: "In Progress",
-  resolved:    "Resolved",
-  unresolved:  "Unresolved",
-  closed:      "Resolved",
+  closed: "Resolved",
 };
 
-// ── Types ──────────────────────────────────────────────────────
 type Ticket = {
   id: number;
   title: string;
@@ -46,364 +44,290 @@ type Ticket = {
   created_at: string;
   closed_at: string | null;
   comment: string | null;
-  resolution_notes: string | null;   // what the technician did
-  rejection_reason: string | null;   // why staff rejected
 };
 
-type StaffBasic = {
-  id: string;
-  full_name: string;
-  email: string;
-  phone_number: string | null;
-  office_number: string | null;
-  office_location: string | null;
-};
+function StatusBadge({ status, comment }: { status: string; comment: string | null }) {
+  // closed + comment present means the tech marked it unresolved
+  const isUnresolved = status === "closed" && !!comment;
+  const s = isUnresolved
+    ? COLORS.unresolved
+    : STATUS_COLORS[status] ?? { bg: "#eee", color: "#333" };
+  const label = isUnresolved ? "Unresolved" : STATUS_LABEL[status] ?? status;
 
-// ── Status Badge ───────────────────────────────────────────────
-function StatusBadge({ status }: { status: string }) {
-  const s = STATUS_COLORS[status] ?? { bg: "#eee", color: "#333" };
   return (
-    <span style={{
-      background: s.bg, color: s.color, padding: "5px 14px",
-      borderRadius: "20px", fontSize: "13px", fontWeight: 600,
-    }}>
-      {STATUS_LABEL[status] ?? status}
+    <span
+      style={{
+        background: s.bg,
+        color: s.color,
+        padding: "4px 10px",
+        borderRadius: "20px",
+        fontSize: "11px",
+        fontWeight: 600,
+        display: "inline-block",
+      }}
+    >
+      {label}
     </span>
   );
 }
 
-// ── Page ───────────────────────────────────────────────────────
-export default function TicketDetailPage() {
-  const params   = useParams();
-  const router   = useRouter();
-  const queryClient = useQueryClient();
-  const ticketId = Number(params.id);
-
-  const [ticket, setTicket]           = useState<Ticket | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
-  const [raisedBy, setRaisedBy]       = useState<StaffBasic | null>(null);
-  const [currentStatus, setCurrentStatus] = useState("");
-  const [saving, setSaving]       = useState(false);
-  const [saved, setSaved]         = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [unresolvedComment, setUnresolvedComment] = useState("");
-
-  useEffect(() => {
-    const fetchTicket = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const res = await fetch(`${API}/tickets/${ticketId}`, {
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-          },
-        });
-
-        if (!res.ok) {
-          if (res.status === 401 || res.status === 403) {
-            setError(
-              `Session error (${res.status}) — your login session may have expired. Please log out and log in again.`
-            );
-            return;
-          }
-          if (res.status === 404) throw new Error("Ticket not found");
-          throw new Error(`Error loading ticket (${res.status})`);
-        }
-
-        const data: Ticket = await res.json();
-        setTicket(data);
-
-        const liveStatus = ticketStatusStore[data.id] ?? data.status;
-        setCurrentStatus(liveStatus);
-
-        // Pre-fill resolution notes if already set
-        if (data.resolution_notes) setResolutionNotes(data.resolution_notes);
-
-        if (data.staff_id) {
-          const staffRes = await fetch(`${API}/staff/${data.staff_id}/basic`, {
-            credentials: "include",
-          });
-          if (staffRes.ok) setRaisedBy(await staffRes.json());
-        }
-
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (!isNaN(ticketId)) fetchTicket();
-  }, [ticketId]);
-
-  const handleMarkResolution = async (resolution: "resolved" | "unresolved") => {
-    if (!ticket) return;
-    if (resolution === "unresolved" && unresolvedComment.trim().length < 3) {
-      setSaveError("Add a short note before marking this ticket unresolved.");
-      return;
+async function fetchTickets(): Promise<Ticket[]> {
+  const res = await fetch(`${API}/tickets/`, {
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(
+        `Authentication error (${res.status}) — session may not be set or cookie is blocked cross-origin`,
+      );
     }
-    try {
-      setSaving(true);
-      setSaveError(null);
+    throw new Error(`Failed to load tickets (${res.status})`);
+  }
+  return res.json();
+}
 
-      const body: Record<string, string> = { status: resolution };
-      if (resolution === "unresolved") body.comment = unresolvedComment.trim();
+export default function PendingTicketsPage() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const router = useRouter();
 
-      const res = await fetch(`${API}/tickets/${ticket.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+  const {
+    data: tickets = [],
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: ["ict-tickets"],
+    queryFn: fetchTickets,
+    refetchInterval: 30_000,
+  });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? `Failed to update (${res.status})`);
-      }
+  const error =
+    queryError instanceof Error
+      ? queryError.message
+      : queryError
+        ? "Something went wrong"
+        : null;
 
-      const updated: Ticket = await res.json();
-      setTicket(updated);
-      setCurrentStatus(updated.status);
-      ticketStatusStore[ticket.id] = updated.status;
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["ict-dashboard"] }),
-        queryClient.invalidateQueries({ queryKey: ["ict-tickets"] }),
-        queryClient.invalidateQueries({ queryKey: ["ict-all-tickets"] }),
-        queryClient.invalidateQueries({ queryKey: ["ict-completed-tickets"] }),
-        queryClient.invalidateQueries({ queryKey: ["ict-team-members"] }),
-      ]);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Update failed");
-    } finally {
-      setSaving(false);
-    }
+ // True pending queue: assigned to a technician, but that technician
+// hasn't opened it yet (still "open", not "in_progress" or "closed").
+  const pendingTickets = tickets.filter(
+  (t) => t.status === "open" && t.assigned_to_id !== null
+);
+
+  const stats = [
+    { label: "Total Tickets", value: tickets.length },
+    { label: "Open", value: tickets.filter((t) => t.status === "open").length },
+    {
+      label: "In Progress",
+      value: tickets.filter((t) => t.status === "in_progress").length,
+    },
+    {
+      label: "Closed",
+      value: tickets.filter((t) => t.status === "closed").length,
+    },
+  ];
+
+  const filteredTickets = pendingTickets.filter((ticket) => {
+    const term = searchTerm.toLowerCase();
+    return (
+      String(ticket.id).includes(term) ||
+      ticket.title.toLowerCase().includes(term) ||
+      ticket.category.toLowerCase().includes(term) ||
+      (STATUS_LABEL[ticket.status] ?? ticket.status).toLowerCase().includes(term)
+    );
+  });
+
+  const handleView = (ticketId: number) => {
+    router.push(`/ict-dashboard/tickets/${ticketId}`);
   };
 
-  // ── Live "time ago" clock ──────────────────────────────────
-  const [now, setNow] = useState<number>(() => Date.now());
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const assignedAgo = useMemo(() => {
-    if (!ticket || now === null) return "";
-    const diff = now - new Date(ticket.created_at).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  }, [ticket, now]);
-
-  const getInitials = (name: string) =>
-    name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
-
-  // Can only mark resolution when ticket is open or in_progress
-  const canMarkResolution = ["open", "in_progress"].includes(currentStatus);
-
-  // ── Loading ────────────────────────────────────────────────
+  // ── Loading state ──────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "center",
-        minHeight: "100vh", background: "#FDF8F2", flexDirection: "column", gap: "16px",
-      }}>
-        <style>{`@keyframes spin { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }`}</style>
-        <Loader2 size={32} color={COLORS.primary} style={{ animation: "spin 1s linear infinite" }} />
-        <p style={{ color: "#666", fontSize: "14px" }}>Loading ticket...</p>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+          background: "#FDF8F2",
+          flexDirection: "column",
+          gap: "16px",
+        }}
+      >
+        <Loader2
+          size={32}
+          color={COLORS.primary}
+          style={{ animation: "spin 1s linear infinite" }}
+        />
+        <p style={{ color: "#666", fontSize: "14px" }}>Loading tickets...</p>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  // ── Error ──────────────────────────────────────────────────
-  if (error || !ticket) {
+  // ── Error state ────────────────────────────────────────────
+  if (error) {
     return (
-      <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center",
-        justifyContent: "center", minHeight: "100vh", background: "#FDF8F2",
-        gap: "16px", padding: "2rem", textAlign: "center",
-      }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+          background: "#FDF8F2",
+          flexDirection: "column",
+          gap: "16px",
+        }}
+      >
         <div style={{ fontSize: "48px" }}>⚠️</div>
-        <h2 style={{ fontSize: "24px", fontWeight: 700, margin: 0 }}>
-          {error ?? "Ticket not found"}
+        <h2 style={{ fontSize: "20px", fontWeight: 700, margin: 0 }}>
+          Failed to load tickets
         </h2>
-        <div style={{ display: "flex", gap: "12px" }}>
-          <button onClick={() => router.back()} style={{
-            background: COLORS.primary, color: "#fff", border: "none",
-            padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: 500,
-          }}>
-            Go Back
-          </button>
-          <button onClick={() => router.push("/login")} style={{
-            background: "#fff", color: "#444", border: "1px solid #ddd",
-            padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: 500,
-          }}>
-            Go to Login
-          </button>
-        </div>
+        <p
+          style={{
+            color: "#666",
+            margin: 0,
+            fontSize: "14px",
+            textAlign: "center",
+            maxWidth: "400px",
+          }}
+        >
+          {error}
+        </p>
+        <button
+          onClick={() => refetch()}
+          style={{
+            background: COLORS.primary,
+            color: "#fff",
+            border: "none",
+            padding: "10px 20px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
-  // ── Render ─────────────────────────────────────────────────
   return (
-    <div className={inter.className} style={{
-      padding: "2rem", background: "#FDF8F2", minHeight: "100vh",
-    }}>
-      <style>{`@keyframes spin { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }`}</style>
-      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-
-        {/* ── Header ── */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          marginBottom: "28px", flexWrap: "wrap", gap: "12px",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <button onClick={() => router.back()} style={{
-              background: "#fff", border: "1px solid #e0e0e0", borderRadius: "8px",
-              padding: "8px", cursor: "pointer", display: "flex",
-              alignItems: "center", justifyContent: "center",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-            }}>
-              <ArrowLeft size={18} color="#444" />
-            </button>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                <h1 className={playfair.className} style={{
-                  fontSize: "26px", fontWeight: 700, margin: 0, color: "#1a1a1a",
-                }}>
-                  Ticket #{ticket.id}
-                </h1>
-                <StatusBadge status={currentStatus} />
-              </div>
-              <p style={{ color: "#888", fontSize: "13px", margin: "4px 0 0 0", display: "flex", alignItems: "center", gap: "4px" }}>
-                <Clock size={12} /> Opened {assignedAgo}
-              </p>
-            </div>
-          </div>
-
-          <button style={{
-            background: "#fff", color: "#444", border: "1px solid #ddd",
-            padding: "10px 18px", borderRadius: "8px", cursor: "pointer",
-            display: "flex", alignItems: "center", gap: "8px",
-            fontSize: "13px", fontWeight: 500, boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-          }}>
-            <Send size={14} /> Transfer Ticket
-          </button>
+    <div
+      className={inter.className}
+      style={{
+        padding: "2rem",
+        background: "#FDF8F2",
+        minHeight: "100vh",
+        fontFamily: "Inter, system-ui, sans-serif",
+      }}
+    >
+      <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
+        {/* HEADER */}
+        <div style={{ marginBottom: "24px" }}>
+          <h1
+            className={playfair.className}
+            style={{
+              fontSize: "32px",
+              fontWeight: 700,
+              marginBottom: "6px",
+              color: "#1a1a1a",
+            }}
+          >
+            Pending Tickets
+          </h1>
+          <p style={{ color: "#666", marginBottom: "0", fontSize: "14px" }}>
+            Technician work queue —Assigned tickets awaiting pickup
+          </p>
         </div>
 
-        {/* ── Main Grid ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "20px", alignItems: "start" }}>
-
-          {/* ── LEFT ── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-
-            {/* Issue Details */}
-            <div style={{
-              background: "#fff", borderRadius: "12px", border: "1px solid #eee",
-              padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-            }}>
-              <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 20px 0", color: "#1a1a1a" }}>
-                Issue Details
+        {/* STATS ROW */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: "16px",
+            marginBottom: "24px",
+          }}
+        >
+          {stats.map((s) => (
+            <div
+              key={s.label}
+              style={{
+                background: "#fff",
+                padding: "20px",
+                borderRadius: "12px",
+                border: "1px solid #eee",
+                transition: "all 0.2s ease",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-3px)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
+              }}
+            >
+              <p
+                style={{ fontSize: "13px", color: "#666", margin: "0 0 8px 0" }}
+              >
+                {s.label}
+              </p>
+              <h2
+                style={{
+                  fontSize: "28px",
+                  fontWeight: 700,
+                  margin: 0,
+                  color: "#1a1a1a",
+                }}
+              >
+                {s.value}
               </h2>
-
-              <div style={{ marginBottom: "16px" }}>
-                <p style={labelStyle}>Title</p>
-                <p style={valueStyle}>{ticket.title}</p>
-              </div>
-
-              <div style={{ borderTop: "1px solid #f5f5f5", paddingTop: "16px", marginBottom: "16px" }}>
-                <p style={labelStyle}>Category</p>
-                <p style={{ ...valueStyle, textTransform: "capitalize" }}>
-                  {ticket.category.replace(/_/g, " ")}
-                </p>
-              </div>
-
-              <div style={{ borderTop: "1px solid #f5f5f5", paddingTop: "16px", marginBottom: "16px" }}>
-                <p style={labelStyle}>Description</p>
-                <p style={{ fontSize: "14px", color: "#444", margin: 0, lineHeight: "1.7" }}>
-                  {ticket.description}
-                </p>
-              </div>
-
-              <div style={{ borderTop: "1px solid #f5f5f5", paddingTop: "16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                <div>
-                  <p style={labelStyle}>Created</p>
-                  <p style={valueStyle}>
-                    {new Date(ticket.created_at).toLocaleString("en-KE", {
-                      day: "numeric", month: "short", year: "numeric",
-                      hour: "2-digit", minute: "2-digit",
-                    })}
-                  </p>
-                </div>
-                {ticket.closed_at && (
-                  <div>
-                    <p style={labelStyle}>Closed</p>
-                    <p style={valueStyle}>
-                      {new Date(ticket.closed_at).toLocaleString("en-KE", {
-                        day: "numeric", month: "short", year: "numeric",
-                        hour: "2-digit", minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Technician comment — kept for legacy tickets */}
-              {ticket.comment && (
-                <div style={{ borderTop: "1px solid #f5f5f5", paddingTop: "16px", marginTop: "4px" }}>
-                  <p style={labelStyle}>Technician Comment</p>
-                  <p style={{ fontSize: "14px", color: "#444", margin: 0, lineHeight: "1.7" }}>
-                    {ticket.comment}
-                  </p>
-                </div>
-              )}
-
-              {/* Resolution notes — what the technician did */}
-              {ticket.resolution_notes && (
-                <div style={{
-                  borderTop: "1px solid #f5f5f5", paddingTop: "16px", marginTop: "4px",
-                  background: "#F9FFF9", borderRadius: "8px", padding: "14px",
-                  border: "1px solid #C8E6C9",
-                }}>
-                  <p style={{ ...labelStyle, color: "#2D6B0F" }}>
-                    Resolution Notes — What the Technician Did
-                  </p>
-                  <p style={{ fontSize: "14px", color: "#2D4010", margin: 0, lineHeight: "1.7" }}>
-                    {ticket.resolution_notes}
-                  </p>
-                </div>
-              )}
-
-              {/* Rejection reason — why staff rejected the resolution */}
-              {ticket.rejection_reason && (
-                <div style={{
-                  borderTop: "1px solid #f5f5f5", paddingTop: "16px", marginTop: "4px",
-                  background: "#FFF8F8", borderRadius: "8px", padding: "14px",
-                  border: "1px solid #FFCDD2",
-                }}>
-                  <p style={{ ...labelStyle, color: "#C62828" }}>
-                    Staff Rejection Reason
-                  </p>
-                  <p style={{ fontSize: "14px", color: "#7F1010", margin: 0, lineHeight: "1.7" }}>
-                    {ticket.rejection_reason}
-                  </p>
-                </div>
-              )}
             </div>
+          ))}
+        </div>
+
+        {/* SEARCH */}
+        <div
+          style={{
+            background: "#fff",
+            padding: "16px",
+            borderRadius: "12px",
+            border: "1px solid #eee",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            marginBottom: "24px",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+          }}
+        >
+          <Search size={18} color="#666" />
+          <input
+            type="text"
+            placeholder="Search pending tickets by ID, title, or category..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              border: "none",
+              outline: "none",
+              width: "100%",
+              fontSize: "14px",
+              background: "transparent",
+            }}
+          />
+        </div>
 
             {/* FIX: Renamed from "Update Ticket Status" to "Mark Ticket Resolution".
                 ICT personnel can only mark resolved or unresolved — they cannot
                 freely change status between open/in_progress. Each button fires
                 immediately as a direct action with no pending/confirm flow. */}
+              {canMarkResolution &&
             <div style={{
               background: "#fff", borderRadius: "12px", border: "1px solid #eee",
               padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
@@ -414,24 +338,14 @@ export default function TicketDetailPage() {
               <p style={{ fontSize: "13px", color: "#888", margin: "0 0 16px 0" }}>
                 Mark this ticket as resolved once the issue is fixed, or add a note if it needs admin follow-up.
               </p>
-
-              <textarea
-                value={unresolvedComment}
-                onChange={(e) => setUnresolvedComment(e.target.value)}
-                disabled={saving || currentStatus === "closed"}
-                placeholder="Optional note for unresolved tickets..."
-                rows={3}
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table
                 style={{
                   width: "100%",
-                  resize: "vertical",
-                  border: "1px solid #ddd",
-                  borderRadius: "8px",
-                  padding: "10px 12px",
-                  marginBottom: "12px",
-                  fontFamily: "inherit",
-                  fontSize: "13px",
-                  outline: "none",
-                  background: currentStatus === "closed" ? "#f8f8f8" : "#fff",
+                  borderCollapse: "collapse",
+                  minWidth: "700px",
                 }}
               />
 
@@ -451,7 +365,7 @@ export default function TicketDetailPage() {
                     opacity: saving ? 0.6 : 1,
                   }}
                 >
-                  {saving ? (
+                  {saving && (
                     <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Saving...
                     </span>
@@ -498,7 +412,8 @@ export default function TicketDetailPage() {
                   </p>
                 </div>
               </div>
-            )}
+              </div>
+              }
 
             {/* Status info panel — shown when ticket is not actionable */}
             {!canMarkResolution && (
@@ -627,18 +542,37 @@ export default function TicketDetailPage() {
                 </div>
               </div>
             </div>
+          )}
+        </div>
 
-          </div>
+        <div
+          style={{
+            marginTop: "16px",
+            fontSize: "13px",
+            color: "#666",
+            textAlign: "right",
+          }}
+        >
+          Showing {filteredTickets.length} of {pendingTickets.length} pending tickets
         </div>
       </div>
     </div>
   );
 }
 
-// ── Shared label/value styles ──────────────────────────────────
-const labelStyle = {
-  fontSize: "12px", color: "#888", textTransform: "uppercase" as const,
-  letterSpacing: "0.5px", margin: "0 0 4px 0", fontWeight: 600,
+const th = {
+  textAlign: "left" as const,
+  padding: "16px 14px",
+  fontSize: "12px",
+  fontWeight: 600,
+  color: "#666",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.5px",
+  borderBottom: "2px solid #f0f0f0",
 };
 
-const valueStyle = { fontSize: "14px", color: "#1a1a1a", margin: 0 };
+const td = {
+  padding: "14px",
+  fontSize: "13px",
+  verticalAlign: "middle" as const,
+};
