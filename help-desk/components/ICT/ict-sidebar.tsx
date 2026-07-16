@@ -1,8 +1,9 @@
+//ict-sidebar
 "use client";
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   LayoutDashboard,
@@ -36,7 +37,7 @@ const NAV_LINKS = [
     label: "Dashboard",
     icon: LayoutDashboard,
   },
-  { href: "/ict-dashboard/tickets/all", label: "All Tickets", icon: Ticket },
+
   {
     href: "/ict-dashboard/tickets/pending",
     label: "Pending Tickets",
@@ -47,13 +48,14 @@ const NAV_LINKS = [
     label: "My Completed ",
     icon: CheckCircle,
   },
+  { href: "/ict-dashboard/tickets/all", label: "All Tickets", icon: Ticket },
+  { href: "/ict-dashboard/my-tickets", label: "My Tickets", icon: Ticket },
   { href: "/ict-dashboard/team", label: "Team", icon: Users },
   { href: "/ict-dashboard/profile", label: "Profile", icon: User },
 ];
 
 export default function IctSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const [userName] = useState<string>(() => getUserFromStorage().name);
@@ -66,10 +68,17 @@ export default function IctSidebar() {
     .toUpperCase()
     .slice(0, 2);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {}
     localStorage.removeItem("user");
     localStorage.removeItem("token");
-    router.push("/login");
+    document.cookie = "user_role=; path=/; max-age=0";
+    window.location.href = "/login";
   };
 
   const handleNavClick = () => setOpen(false);
@@ -293,8 +302,7 @@ export default function IctSidebar() {
               {NAV_LINKS.map(({ href, label, icon: Icon }) => {
                 const isActive =
                   pathname === href ||
-                  (href !== "/ict-dashboard" &&
-                    pathname.startsWith(href));
+                  (href !== "/ict-dashboard" && pathname.startsWith(href));
                 return (
                   <Link
                     key={href}

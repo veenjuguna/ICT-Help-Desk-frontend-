@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -8,25 +8,29 @@ import Link from "next/link";
 type Stage = "verifying" | "success" | "error" | "waiting";
 
 export default function VerifyPage() {
+  return (
+    <Suspense>
+      <VerifyContent />
+    </Suspense>
+  );
+}
+
+function VerifyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const email = searchParams.get("email")?? "";
 
   const [stage, setStage] = useState<Stage>(token ? "verifying" : "waiting");
   const [progress, setProgress] = useState(0);
-  const [email, setEmail] = useState("");
+
   const [errorMsg, setErrorMsg] = useState("");
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
   const [countdown, setCountdown] = useState(5);
 
   // Read pending email from localStorage — all inside async IIFE
-  useEffect(() => {
-    (async () => {
-      const pending = localStorage.getItem("pending_verify_email");
-      if (pending) setEmail(pending);
-    })();
-  }, []);
+  
 
   // Verify token if present — all setState inside async IIFE
   useEffect(() => {
@@ -37,7 +41,10 @@ export default function VerifyPage() {
     const progressInterval = setInterval(() => {
       if (cancelled) return;
       setProgress((p) => {
-        if (p >= 85) { clearInterval(progressInterval); return 85; }
+        if (p >= 85) {
+          clearInterval(progressInterval);
+          return 85;
+        }
         return p + Math.random() * 12;
       });
     }, 200);
@@ -48,7 +55,7 @@ export default function VerifyPage() {
       try {
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/auth/verify?token=${token}`,
-          { method: "GET" }
+          { method: "GET" },
         );
         if (cancelled) return;
         clearInterval(progressInterval);
@@ -57,13 +64,16 @@ export default function VerifyPage() {
           setTimeout(() => {
             if (!cancelled) {
               setStage("success");
-              localStorage.removeItem("pending_verify_email");
+              // localStorage.removeItem("pending_verify_email");
             }
           }, 400);
         } else {
           const data = await res.json().catch(() => ({}));
           setProgress(100);
-          const msg = data?.detail ?? data?.message ?? "Verification failed. The link may have expired.";
+          const msg =
+            data?.detail ??
+            data?.message ??
+            "Verification failed. The link may have expired.";
           setTimeout(() => {
             if (!cancelled) {
               setErrorMsg(msg);
@@ -77,7 +87,9 @@ export default function VerifyPage() {
         setProgress(100);
         setTimeout(() => {
           if (!cancelled) {
-            setErrorMsg("Network error. Please check your connection and try again.");
+            setErrorMsg(
+              "Network error. Please check your connection and try again.",
+            );
             setStage("error");
           }
         }, 400);
@@ -102,14 +114,15 @@ export default function VerifyPage() {
   }, [stage, countdown, router]);
 
   const handleResend = async () => {
-    if (!email || resending) return;
+    if (resending) return;
     setResending(true);
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/resend-verification`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/resend-verification?email=${encodeURIComponent(email)}`,
+        {
+          method: "POST",
+        },
+      );
     } catch {
       // silent
     } finally {
@@ -306,27 +319,45 @@ export default function VerifyPage() {
       `}</style>
 
       <div className="vp-root">
-
         {/* LEFT */}
         <div className="vp-left">
-          <Image src="/treasury-building.jpeg" alt="National Treasury Building"
-            fill style={{ objectFit:"cover", objectPosition:"center" }}
-            priority quality={85} sizes="42vw" />
+          <Image
+            src="/treasury-building.jpeg"
+            alt="National Treasury Building"
+            fill
+            style={{ objectFit: "cover", objectPosition: "center" }}
+            priority
+            quality={85}
+            sizes="42vw"
+          />
           <div className="vp-left-overlay" />
           <div className="vp-left-content">
             <div className="vp-logo-wrap">
-              <Image src="/tnt-logo-1.png" alt="The National Treasury"
-                width={200} height={48}
-                style={{ objectFit:"contain", height:"36px", width:"auto" }} priority />
+              <Image
+                src="/tnt-logo-1.png"
+                alt="The National Treasury"
+                width={200}
+                height={48}
+                style={{ objectFit: "contain", height: "36px", width: "auto" }}
+                priority
+              />
             </div>
             <p className="vp-tagline">ICT Helpdesk Portal</p>
-            <h1 className="vp-left-title">Almost <span>there!</span></h1>
+            <h1 className="vp-left-title">
+              Almost <span>there!</span>
+            </h1>
             <div className="vp-divider" />
             <div className="vp-steps">
               {[
-                { label: "Fill in your details",     status: "done"    },
-                { label: "Verify your email",         status: stage === "success" ? "done" : "active"   },
-                { label: "Log in and raise tickets",  status: stage === "success" ? "active" : "pending" },
+                { label: "Fill in your details", status: "done" },
+                {
+                  label: "Verify your email",
+                  status: stage === "success" ? "done" : "active",
+                },
+                {
+                  label: "Log in and raise tickets",
+                  status: stage === "success" ? "active" : "pending",
+                },
               ].map((s, i) => (
                 <div className="vp-step" key={i}>
                   <div className={`vp-step-dot ${s.status}`}>
@@ -342,7 +373,6 @@ export default function VerifyPage() {
         {/* RIGHT */}
         <div className="vp-right">
           <div className="vp-card">
-
             {/* VERIFYING */}
             {stage === "verifying" && (
               <>
@@ -351,12 +381,26 @@ export default function VerifyPage() {
                 </div>
                 <p className="vp-eyebrow">Please wait</p>
                 <h2 className="vp-title">Verifying your email</h2>
-                <p className="vp-desc">We&apos;re confirming your account. This only takes a moment.</p>
-                <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
+                <p className="vp-desc">
+                  We&apos;re confirming your account. This only takes a moment.
+                </p>
+                <div
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
                   <div className="vp-progress-wrap">
-                    <div className="vp-progress-bar" style={{ width:`${Math.min(progress,100)}%` }} />
+                    <div
+                      className="vp-progress-bar"
+                      style={{ width: `${Math.min(progress, 100)}%` }}
+                    />
                   </div>
-                  <p className="vp-progress-label">{Math.round(Math.min(progress,100))}% complete</p>
+                  <p className="vp-progress-label">
+                    {Math.round(Math.min(progress, 100))}% complete
+                  </p>
                 </div>
               </>
             )}
@@ -365,36 +409,77 @@ export default function VerifyPage() {
             {stage === "waiting" && (
               <>
                 <div className="vp-icon-circle waiting">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6B2D0F" strokeWidth="1.8">
-                    <rect x="2" y="4" width="20" height="16" rx="2"/>
-                    <path d="m2 7 10 7 10-7"/>
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#6B2D0F"
+                    strokeWidth="1.8"
+                  >
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="m2 7 10 7 10-7" />
                   </svg>
                 </div>
                 <p className="vp-eyebrow">Check your inbox</p>
                 <h2 className="vp-title">Verify your email address</h2>
                 {email && (
                   <div className="vp-email-pill">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/>
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <rect x="2" y="4" width="20" height="16" rx="2" />
+                      <path d="m2 7 10 7 10-7" />
                     </svg>
                     {email}
                   </div>
                 )}
                 <p className="vp-desc">
-                  We&apos;ve sent a verification link to your work email. Click the link to activate your account.
+                  We&apos;ve sent a verification link to your work email. Click
+                  the link to activate your account.
                 </p>
-                <div style={{ width:"100%", background:"#FDF4E7", border:"1px solid #E8D4A8", borderRadius:10, padding:"0.9rem 1rem", fontSize:13, color:"#7A5C44", lineHeight:1.6 }}>
-                  <strong style={{ color:"#6B2D0F" }}>Didn&apos;t receive it?</strong> Check your spam folder or request a new link below.
+                <div
+                  style={{
+                    width: "100%",
+                    background: "#FDF4E7",
+                    border: "1px solid #E8D4A8",
+                    borderRadius: 10,
+                    padding: "0.9rem 1rem",
+                    fontSize: 13,
+                    color: "#7A5C44",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  <strong style={{ color: "#6B2D0F" }}>
+                    Didn&apos;t receive it?
+                  </strong>{" "}
+                  Check your spam folder or request a new link below.
                 </div>
                 {resent ? (
                   <p className="vp-resent">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="20 6 9 17 4 12"/>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
                     </svg>
                     Verification email resent!
                   </p>
                 ) : (
-                  <button className="vp-btn-ghost" onClick={handleResend} disabled={resending || !email}>
+                  <button
+                    className="vp-btn-ghost"
+                    onClick={handleResend}
+                    disabled={resending}
+                  >
                     {resending ? "Sending..." : "Resend verification email"}
                   </button>
                 )}
@@ -405,38 +490,97 @@ export default function VerifyPage() {
             {stage === "success" && (
               <>
                 <div className="vp-icon-circle success">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1E6B33" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <polyline points="9 12 11 14 15 10"/>
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#1E6B33"
+                    strokeWidth="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="9 12 11 14 15 10" />
                   </svg>
                 </div>
                 <p className="vp-eyebrow">Verified!</p>
                 <h2 className="vp-title">Email confirmed 🎉</h2>
                 <p className="vp-desc">
-                  Your account has been verified. You can now sign in to the National Treasury ICT Helpdesk.
+                  Your account has been verified. You can now sign in to the
+                  National Treasury ICT Helpdesk.
                 </p>
-                <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
+                <div
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
                   <div className="vp-progress-wrap">
-                    <div className="vp-progress-bar" style={{ width:"100%", background:"linear-gradient(90deg, #1E6B33, #27ae60)" }} />
+                    <div
+                      className="vp-progress-bar"
+                      style={{
+                        width: "100%",
+                        background: "linear-gradient(90deg, #1E6B33, #27ae60)",
+                      }}
+                    />
                   </div>
                 </div>
-                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
                   <svg viewBox="0 0 48 48" width="56" height="56">
-                    <circle cx="24" cy="24" r="20" fill="none" stroke="#F0E8DC" strokeWidth="4"/>
-                    <circle cx="24" cy="24" r="20" fill="none" stroke="#6B2D0F" strokeWidth="4"
+                    <circle
+                      cx="24"
+                      cy="24"
+                      r="20"
+                      fill="none"
+                      stroke="#F0E8DC"
+                      strokeWidth="4"
+                    />
+                    <circle
+                      cx="24"
+                      cy="24"
+                      r="20"
+                      fill="none"
+                      stroke="#6B2D0F"
+                      strokeWidth="4"
                       strokeDasharray={`${(countdown / 5) * 125.6} 125.6`}
                       strokeLinecap="round"
                       transform="rotate(-90 24 24)"
-                      style={{ transition:"stroke-dasharray 0.9s linear" }}
+                      style={{ transition: "stroke-dasharray 0.9s linear" }}
                     />
-                    <text x="24" y="29" textAnchor="middle" fontSize="14" fontWeight="700" fill="#6B2D0F">{countdown}</text>
+                    <text
+                      x="24"
+                      y="29"
+                      textAnchor="middle"
+                      fontSize="14"
+                      fontWeight="700"
+                      fill="#6B2D0F"
+                    >
+                      {countdown}
+                    </text>
                   </svg>
-                  <p className="vp-countdown-label">Redirecting to login in {countdown}s</p>
+                  <p className="vp-countdown-label">
+                    Redirecting to login in {countdown}s
+                  </p>
                 </div>
                 <Link href="/login" className="vp-btn-primary">
                   Sign in now
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M5 12h14M12 5l7 7-7 7" />
                   </svg>
                 </Link>
               </>
@@ -446,26 +590,55 @@ export default function VerifyPage() {
             {stage === "error" && (
               <>
                 <div className="vp-icon-circle error">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#BB0000" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#BB0000"
+                    strokeWidth="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
                 </div>
-                <p className="vp-eyebrow" style={{ color:"#BB0000" }}>Verification failed</p>
+                <p className="vp-eyebrow" style={{ color: "#BB0000" }}>
+                  Verification failed
+                </p>
                 <h2 className="vp-title">Something went wrong</h2>
                 <p className="vp-desc">{errorMsg}</p>
-                <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
+                <div
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}
+                >
                   {resent ? (
                     <p className="vp-resent">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <polyline points="20 6 9 17 4 12"/>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
                       </svg>
                       New verification email sent!
                     </p>
                   ) : (
-                    <button className="vp-btn-ghost" onClick={handleResend} disabled={resending || !email}>
-                      {resending ? "Sending..." : "Request new verification link"}
+                    <button
+                      className="vp-btn-ghost"
+                      onClick={handleResend}
+                      disabled={resending || !email}
+                    >
+                      {resending
+                        ? "Sending..."
+                        : "Request new verification link"}
                     </button>
                   )}
                   <Link href="/login" className="vp-btn-primary">
@@ -474,11 +647,11 @@ export default function VerifyPage() {
                 </div>
               </>
             )}
-
           </div>
 
           <p className="vp-footer">
-            © {new Date().getFullYear()} National Treasury &amp; Economic Planning · Government of Kenya
+            © {new Date().getFullYear()} National Treasury &amp; Economic
+            Planning · Government of Kenya
           </p>
         </div>
       </div>

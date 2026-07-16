@@ -3,24 +3,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  LifeBuoy,
-  History,
-  User,
-  LogOut,
-  
-} from "lucide-react";
+import { LayoutDashboard, LifeBuoy, History, User, LogOut } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
-
   const navLinks = [
-    { href: "/dashboard", label: "Dashboard",          icon: LayoutDashboard },
-    { href: "/request",   label: "Request Assistance", icon: LifeBuoy        },
-    { href: "/tickets",   label: "Ticket History",     icon: History         },
-    { href: "/profile",   label: "Profile",            icon: User            },
-
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/request", label: "Request Assistance", icon: LifeBuoy },
+    { href: "/tickets", label: "Ticket History", icon: History },
+    { href: "/profile", label: "Profile", icon: User },
   ];
 
   return (
@@ -164,7 +155,6 @@ export default function Sidebar() {
       `}</style>
 
       <aside className="sidebar">
-
         {/* BACKGROUND */}
         <div className="sidebar-bg">
           <Image
@@ -182,7 +172,6 @@ export default function Sidebar() {
 
         <div className="sidebar-inner">
           <div>
-
             {/* HEADER — logo with white filter applied */}
             <div className="sidebar-header">
               <Image
@@ -195,7 +184,6 @@ export default function Sidebar() {
                   height: "40px",
                   width: "auto",
                   maxWidth: "200px",
-                  
                 }}
                 priority
               />
@@ -221,17 +209,31 @@ export default function Sidebar() {
                 );
               })}
             </nav>
-
           </div>
 
           {/* LOGOUT */}
           <div className="sidebar-footer">
-            <button className="logout-btn">
+            <button
+              className="logout-btn"
+              onClick={async () => {
+                try {
+                  await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/auth/logout`,
+                    {
+                      method: "POST",
+                      credentials: "include",
+                    },
+                  );
+                } catch {}
+                // Clear the role cookie
+                document.cookie = "user_role=; path=/; max-age=0";
+                window.location.href = "/login";
+              }}
+            >
               <LogOut size={19} />
               <span>Logout</span>
             </button>
           </div>
-
         </div>
       </aside>
     </>

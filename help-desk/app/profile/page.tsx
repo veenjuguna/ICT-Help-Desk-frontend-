@@ -1,12 +1,166 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { User, Pencil, Shield, KeyRound } from "lucide-react";
 import ProfileInput from "@/components/profile-input";
 
 export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
+  const [user, setUser] = useState<{
+    id: string; // ← add
+    full_name: string;
+    email: string;
+    personal_number?: string;
+    phone_number?: string;
+    office_location?: string;
+    office_number?: string;
+    department?: { name: string };
+  } | null>(null);
 
+  // ADD these 4 lines right after:  const [user, setUser] = useState<...>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editNumber, setEditNumber] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/me`, {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data);
+          setEditName(data.full_name ?? "");
+          setEditPhone(data.phone_number ?? "");
+          setEditLocation(data.office_location ?? "");
+          setEditNumber(data.office_number ?? "");
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const fullName = user?.full_name ?? "";
+  const email = user?.email ?? "";
+  const personalNumber = user?.personal_number ?? "";
+  const dept = user?.department?.name ?? "";
+  const initials =
+    fullName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .slice(0, 2) || "—";
+
+  function validatePassword(password: string): string | null {
+    if (!/[A-Z]/.test(password))
+      return "Password must contain at least one uppercase letter.";
+    if (!/[a-z]/.test(password))
+      return "Password must contain at least one lowercase letter.";
+    if (!/[0-9]/.test(password))
+      return "Password must contain at least one number.";
+    if (!/[^A-Za-z0-9]/.test(password))
+      return "Password must contain at least one special character.";
+    return null;
+  }
+
+  // REPLACE the entire handleSave
+  const handleSave = async () => {
+    if (editing && user) {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staff/${user.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(editName && { full_name: editName }),
+          ...(editPhone && { phone_number: editPhone }),
+          ...(editLocation && { office_location: editLocation }),
+          ...(editNumber && { office_number: editNumber }),
+        }),
+      });
+      setUser((u) =>
+        u
+          ? {
+              ...u,
+              full_name: editName,
+              phone_number: editPhone,
+              office_location: editLocation,
+              office_number: editNumber,
+            }
+          : u,
+      );
+    }
+    setEditing((v) => !v);
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError("Please fill in all password fields.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+    const strengthError = validatePassword(newPassword);
+    if (strengthError) {
+      setPasswordError(strengthError);
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/staff/${user?.id}/change-password`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword,
+            confirm_new_password: confirmPassword,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        const message =
+          typeof data.detail === "string"
+            ? data.detail
+            : Array.isArray(data.detail)
+              ? data.detail
+                  .map((d: { msg?: string }) => d.msg)
+                  .join(", ")
+              : "Failed to change password.";
+        throw new Error(message);
+      }
+
+      setPasswordSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e: unknown) {
+      setPasswordError(
+        typeof e === "string"
+          ? e
+          : e instanceof Error
+            ? e.message
+            : "Something went wrong.",
+      );
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
   return (
     <>
       <style>{`
@@ -154,7 +308,6 @@ export default function ProfilePage() {
       `}</style>
 
       <div className="profile-root">
-
         {/* Topbar */}
         <div className="profile-topbar">
           <p className="profile-topbar-title">
@@ -163,17 +316,25 @@ export default function ProfilePage() {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div
               style={{
-                width: 32, height: 32, borderRadius: "50%",
-                background: "#6B2D0F", color: "#fff",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 12, fontWeight: 700,
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: "#6B2D0F",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 12,
+                fontWeight: 700,
               }}
             >
-              AM
+              {initials}
             </div>
             <div>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#1A0F08" }}>Ann Mwangi</p>
-              <p style={{ fontSize: 10, color: "#7A5C44" }}>Revenue Department</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#1A0F08" }}>
+                {fullName}
+              </p>
+              <p style={{ fontSize: 10, color: "#7A5C44" }}>{dept}</p>
             </div>
           </div>
         </div>
@@ -181,66 +342,78 @@ export default function ProfilePage() {
         {/* Page header */}
         <div className="profile-header">
           <h1 className="profile-title">Profile Settings</h1>
-          <p className="profile-sub">Manage your account information and security</p>
+          <p className="profile-sub">
+            Manage your account information and security
+          </p>
         </div>
 
         <div className="profile-content">
-
           {/* ── Left card: Profile Information ── */}
           <div className="profile-card">
             <div className="card-header">
               <p className="card-title">
-                <span className="card-title-icon"><User size={15} /></span>
+                <span className="card-title-icon">
+                  <User size={15} />
+                </span>
                 Profile Information
               </p>
               <button
                 className={`edit-btn${editing ? " active" : ""}`}
-                onClick={() => setEditing((v) => !v)}
+                onClick={handleSave}
               >
                 <Pencil size={14} />
                 {editing ? "Done" : "Edit"}
               </button>
             </div>
-
             {/* Avatar */}
             <div className="avatar-wrap">
               <div className="avatar-circle">
                 <User size={36} />
               </div>
             </div>
-
             {/* Fields — no Specialization for employees */}
+            {/* REPLACE the entire fields-stack in the left card */}
             <div className="fields-stack">
               <ProfileInput
-                label="Username"
-                value="amwangi"
-                placeholder="Enter username"
+                label="Personal Number"
+                value={personalNumber}
+                disabled={!editing}
               />
               <ProfileInput
                 label="Full Name"
-                value="Ann Mwangi"
-                placeholder="Enter full name"
+                value={editName} // ← correct
+                onChange={setEditName}
+                disabled={!editing}
               />
+
               <ProfileInput
                 label="Email Address"
-                value="ann.mwangi@treasury.go.ke"
-                placeholder="Enter email address"
-                type="email"
+                value={email}
+                disabled={!editing}
               />
               <ProfileInput
                 label="Phone Number"
-                value="+254 700 000 000"
-                placeholder="Enter phone number"
+                value={editPhone}
+                onChange={setEditPhone}
+                disabled={!editing}
               />
+
               <ProfileInput
                 label="Department"
-                value="Revenue"
-                placeholder="Enter department"
+                value={dept}
+                disabled={!editing}
               />
               <ProfileInput
-                label="Job Title"
-                value="Revenue Officer"
-                placeholder="Enter job title"
+                label="Office Location"
+                value={editLocation}
+                onChange={setEditLocation}
+                disabled={!editing}
+              />
+              <ProfileInput
+                label="Office Number"
+                value={editNumber}
+                onChange={setEditNumber}
+                disabled={!editing}
               />
             </div>
           </div>
@@ -249,7 +422,9 @@ export default function ProfilePage() {
           <div className="profile-card">
             <div className="card-header">
               <p className="card-title">
-                <span className="card-title-icon"><Shield size={15} /></span>
+                <span className="card-title-icon">
+                  <Shield size={15} />
+                </span>
                 Security
               </p>
             </div>
@@ -257,23 +432,21 @@ export default function ProfilePage() {
             {/* Account info */}
             <div className="fields-stack">
               <ProfileInput
-                label="Username"
-                value="amwangi"
-                placeholder="Username"
+                label="Personal Number"
+                value={personalNumber}
+                disabled
               />
-              <ProfileInput
-                label="Email"
-                value="ann.mwangi@treasury.go.ke"
-                placeholder="Email"
-                type="email"
-              />
+              <ProfileInput label="Email" value={email} disabled />
             </div>
 
             <hr className="divider" />
 
             {/* Change password */}
             <div>
-              <p className="section-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <p
+                className="section-label"
+                style={{ display: "flex", alignItems: "center", gap: 6 }}
+              >
                 <KeyRound size={12} />
                 Change Password
               </p>
@@ -282,25 +455,66 @@ export default function ProfilePage() {
                   label="Current Password"
                   placeholder="Enter current password"
                   type="password"
+                  value={currentPassword}
+                  onChange={setCurrentPassword}
                 />
                 <ProfileInput
                   label="New Password"
                   placeholder="Enter new password"
                   type="password"
+                  value={newPassword}
+                  onChange={setNewPassword}
                 />
+                {newPassword && validatePassword(newPassword) && (
+                  <p style={{ fontSize: 11, color: "#C8962E", marginTop: -8 }}>
+                    ⚠ {validatePassword(newPassword)}
+                  </p>
+                )}
                 <ProfileInput
                   label="Confirm New Password"
                   placeholder="Confirm new password"
                   type="password"
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
                 />
+                {confirmPassword && (
+                  <p
+                    style={{
+                      fontSize: 11,
+                      marginTop: -8,
+                      color:
+                        newPassword === confirmPassword ? "#1E6B33" : "#BB0000",
+                    }}
+                  >
+                    {newPassword === confirmPassword
+                      ? "✓ Passwords match"
+                      : "✗ Passwords do not match"}
+                  </p>
+                )}
               </div>
-              <button className="reset-btn" style={{ marginTop: "1rem" }}>
+
+              {passwordError && (
+                <p style={{ fontSize: 12, color: "#BB0000", marginTop: 8 }}>
+                  {passwordError}
+                </p>
+              )}
+              {passwordSuccess && (
+                <p style={{ fontSize: 12, color: "#1E6B33", marginTop: 8 }}>
+                  Password changed successfully.
+                </p>
+              )}
+
+              <button
+                className="reset-btn"
+                style={{ marginTop: "1rem" }}
+                onClick={handleChangePassword}
+                disabled={passwordLoading}
+              >
                 <KeyRound size={14} />
-                Reset Password
+                {passwordLoading ? "Saving..." : "Change Password"}
               </button>
             </div>
           </div>
-
         </div>
       </div>
     </>
