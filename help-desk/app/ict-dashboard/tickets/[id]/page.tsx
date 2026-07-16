@@ -323,36 +323,20 @@ export default function PendingTicketsPage() {
           />
         </div>
 
-        {/* TABLE */}
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: "12px",
-            border: "1px solid #eee",
-            overflow: "hidden",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-          }}
-        >
-          {filteredTickets.length === 0 ? (
-            <div
-              style={{
-                padding: "48px 24px",
-                textAlign: "center",
-                color: "#666",
-              }}
-            >
-              <div style={{ fontSize: "48px", marginBottom: "16px" }}>📭</div>
-              <h3
-                style={{
-                  margin: "0 0 8px 0",
-                  fontSize: "18px",
-                  fontWeight: 600,
-                }}
-              >
-                No pending tickets
-              </h3>
-              <p style={{ margin: 0, fontSize: "14px" }}>
-                All caught up — nothing waiting in the queue right now
+            {/* FIX: Renamed from "Update Ticket Status" to "Mark Ticket Resolution".
+                ICT personnel can only mark resolved or unresolved — they cannot
+                freely change status between open/in_progress. Each button fires
+                immediately as a direct action with no pending/confirm flow. */}
+              {canMarkResolution &&
+            <div style={{
+              background: "#fff", borderRadius: "12px", border: "1px solid #eee",
+              padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+            }}>
+              <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 8px 0", color: "#1a1a1a" }}>
+                Mark Ticket Resolution
+              </h2>
+              <p style={{ fontSize: "13px", color: "#888", margin: "0 0 16px 0" }}>
+                Mark this ticket as resolved once the issue is fixed, or add a note if it needs admin follow-up.
               </p>
             </div>
           ) : (
@@ -363,119 +347,200 @@ export default function PendingTicketsPage() {
                   borderCollapse: "collapse",
                   minWidth: "700px",
                 }}
-              >
-                <thead>
-                  <tr style={{ background: "#faf6f0" }}>
-                    <th style={th}>Ticket ID</th>
-                    <th style={th}>Title</th>
-                    <th style={th}>Category</th>
-                    <th style={th}>Status</th>
-                    <th style={th}>Created</th>
-                    <th style={th}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTickets.map((t) => (
-                    <tr
-                      key={t.id}
-                      style={{
-                        transition: "background 0.15s ease",
-                        borderBottom: "1px solid #f5f5f5",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "#fffaf3";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "transparent";
-                      }}
-                    >
-                      <td style={td}>
-                        <span
-                          style={{
-                            fontWeight: 600,
-                            color: "#6B2D0F",
-                            fontSize: "13px",
-                          }}
-                        >
-                          #{t.id}
-                        </span>
-                      </td>
-                      <td
-                        style={{
-                          ...td,
-                          maxWidth: "260px",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        <span
-                          title={t.title}
-                          style={{
-                            fontSize: "13px",
-                            color: "#1a1a1a",
-                            fontWeight: 500,
-                          }}
-                        >
-                          {t.title}
-                        </span>
-                      </td>
-                      <td style={td}>
-                        <span
-                          style={{
-                            fontSize: "13px",
-                            color: "#444",
-                            textTransform: "capitalize",
-                          }}
-                        >
-                          {t.category.replace(/_/g, " ")}
-                        </span>
-                      </td>
-                      <td style={td}>
-                        <StatusBadge status={t.status} comment={t.comment} />
-                      </td>
-                      <td style={td}>
-                        <span style={{ fontSize: "12px", color: "#888" }}>
-                          {new Date(t.created_at).toLocaleDateString("en-KE", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </span>
-                      </td>
-                      <td style={td}>
-                        <button
-                          onClick={() => handleView(t.id)}
-                          style={{
-                            background: COLORS.primary,
-                            color: "#fff",
-                            border: "none",
-                            padding: "8px 16px",
-                            borderRadius: "6px",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            fontSize: "13px",
-                            fontWeight: 500,
-                            transition: "background 0.15s ease",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background =
-                              COLORS.primaryDark;
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = COLORS.primary;
-                          }}
-                        >
-                          <Eye size={14} />
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              />
+
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+
+                {/* Resolved button — green accent when already resolved */}
+                <button
+                  onClick={() => handleMarkResolution("resolved")}
+                  disabled={saving || currentStatus === "closed"}
+                  style={{
+                    background: currentStatus === "closed" && !ticket.comment ? "#E8F5E9" : "#fff",
+                    color: currentStatus === "closed" && !ticket.comment ? "#2D6B0F" : "#444",
+                    border: `1px solid ${currentStatus === "closed" && !ticket.comment ? "#2D6B0F" : "#ddd"}`,
+                    padding: "9px 18px", borderRadius: "8px",
+                    cursor: saving || currentStatus === "closed" ? "not-allowed" : "pointer",
+                    fontSize: "13px", fontWeight: 600, transition: "all 0.15s ease",
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  {saving && (
+                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Saving...
+                    </span>
+                  )}
+
+                  {saveError && (
+                    <span style={{ fontSize: "13px", color: "#C62828", fontWeight: 500 }}>
+                      ⚠️ {saveError}
+                    </span>
+                  )}
+                </button>
+
+                {/* Unresolved button — red accent when already unresolved */}
+                <button
+                  onClick={() => handleMarkResolution("unresolved")}
+                  disabled={saving || currentStatus === "closed"}
+                  style={{
+                    background: currentStatus === "closed" && ticket.comment ? "#FCE4EC" : "#fff",
+                    color: currentStatus === "closed" && ticket.comment ? "#C62828" : "#444",
+                    border: `1px solid ${currentStatus === "closed" && ticket.comment ? "#C62828" : "#ddd"}`,
+                    padding: "9px 18px", borderRadius: "8px",
+                    cursor: saving || currentStatus === "closed" ? "not-allowed" : "pointer",
+                    fontSize: "13px", fontWeight: 600, transition: "all 0.15s ease",
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  Mark Unresolved
+                </button>
+
+                {/* Success confirmation */}
+                {saved && (
+                  <span style={{ fontSize: "13px", color: "#2D6B0F", fontWeight: 500, display: "flex", alignItems: "center", gap: "4px" }}>
+                    <Check size={13} /> Ticket updated
+                  </span>
+                )}
+
+                {/* Contextual hints */}
+                <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>
+                    ✓ <strong>Mark Resolved</strong> — staff will be asked to confirm the fix. You are released immediately.
+                  </p>
+                  <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>
+                    ⚠ <strong>Mark Unresolved</strong> — ticket moves to team view for another technician to pick up. You are released immediately.
+                  </p>
+                </div>
+              </div>
+              </div>
+              }
+
+            {/* Status info panel — shown when ticket is not actionable */}
+            {!canMarkResolution && (
+              <div style={{
+                background: "#fff", borderRadius: "12px", border: "1px solid #eee",
+                padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+              }}>
+                <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 8px 0", color: "#1a1a1a" }}>
+                  Ticket Status
+                </h2>
+                <div style={{
+                  padding: "14px", borderRadius: "8px",
+                  background: (STATUS_COLORS[currentStatus] ?? { bg: "#f5f5f5" }).bg,
+                  border: `1px solid ${(STATUS_COLORS[currentStatus] ?? { color: "#ccc" }).color}30`,
+                }}>
+                  <p style={{ margin: 0, fontSize: "14px", color: (STATUS_COLORS[currentStatus] ?? { color: "#333" }).color, fontWeight: 600 }}>
+                    {currentStatus === "pending_confirmation" &&
+                      "Awaiting staff confirmation — the staff member has been notified to confirm the resolution."}
+                    {currentStatus === "unresolved" &&
+                      "This ticket is in the team view — any available technician can pick it up."}
+                    {currentStatus === "closed" &&
+                      "This ticket has been closed and confirmed by the staff member."}
+                    {currentStatus === "reopened" &&
+                      "Staff rejected the resolution — this ticket is back in the triage queue."}
+                    {!["pending_confirmation", "unresolved", "closed", "reopened"].includes(currentStatus) &&
+                      (STATUS_LABEL[currentStatus] ?? currentStatus)}
+                  </p>
+                </div>
+              </div>
+            )}
+
+          </div>
+
+          {/* ── RIGHT ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+
+            {/* Raised By */}
+            <div style={{
+              background: "#fff", borderRadius: "12px", border: "1px solid #eee",
+              padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+            }}>
+              <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 20px 0", color: "#1a1a1a" }}>
+                Raised By
+              </h2>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: "50%",
+                  background: raisedBy ? "#7A3100" : "#f0f0f0",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  {raisedBy ? (
+                    <span style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>
+                      {getInitials(raisedBy.full_name)}
+                    </span>
+                  ) : (
+                    <User size={20} color="#888" />
+                  )}
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: "15px", color: "#1a1a1a" }}>
+                    {raisedBy?.full_name ?? "Unknown Staff"}
+                  </p>
+                  {raisedBy?.email && (
+                    <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#888" }}>
+                      {raisedBy.email}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
+                <div>
+                  <p style={labelStyle}>Phone Number</p>
+                  <p style={valueStyle}>{raisedBy?.phone_number ?? "—"}</p>
+                </div>
+                <div>
+                  <p style={labelStyle}>Office Number</p>
+                  <p style={valueStyle}>{raisedBy?.office_number ?? "—"}</p>
+                </div>
+                <div>
+                  <p style={labelStyle}>Office Location</p>
+                  <p style={valueStyle}>{raisedBy?.office_location ?? "—"}</p>
+                </div>
+              </div>
+
+              <button style={{
+                width: "100%", background: COLORS.primaryDark, color: "#fff",
+                border: "none", padding: "12px", borderRadius: "8px",
+                cursor: "pointer", fontSize: "14px", fontWeight: 600,
+              }}>
+               Employee's Profile
+              </button>
+            </div>
+
+            {/* Assignment Details */}
+            <div style={{
+              background: "#fff", borderRadius: "12px", border: "1px solid #eee",
+              padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+            }}>
+              <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "0 0 20px 0", color: "#1a1a1a" }}>
+                Assignment Details
+              </h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div>
+                  <p style={labelStyle}>Assigned To</p>
+                  <p style={valueStyle}>
+                    {ticket.assigned_to_id
+                      ? `Technician #${ticket.assigned_to_id}`
+                      : "Unassigned (Queued)"}
+                  </p>
+                </div>
+                <div>
+                  <p style={labelStyle}>Opened</p>
+                  <p style={valueStyle}>
+                    {new Date(ticket.created_at).toLocaleString("en-KE", {
+                      day: "numeric", month: "short", year: "numeric",
+                      hour: "2-digit", minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <p style={labelStyle}>Time Elapsed</p>
+                  <p style={valueStyle}>{assignedAgo}</p>
+                </div>
+              </div>
             </div>
           )}
         </div>
